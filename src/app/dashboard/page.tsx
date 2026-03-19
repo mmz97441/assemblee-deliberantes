@@ -9,8 +9,16 @@ import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/lib/supabase/types'
 
 export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch {
+    // Si Supabase est injoignable, rediriger vers login
+    redirect(ROUTES.LOGIN)
+  }
 
   if (!user) {
     redirect(ROUTES.LOGIN)
