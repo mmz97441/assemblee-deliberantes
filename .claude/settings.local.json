@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/niceguillaume/Desktop/**)",
+      "Bash(npx create-next-app@14 assemblee-temp --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm)",
+      "Bash(cp -r /Users/niceguillaume/Desktop/assemblee-temp/. /Users/niceguillaume/Desktop/assemblee-deliberantes/)",
+      "Bash(rm -rf /Users/niceguillaume/Desktop/assemblee-temp)",
+      "Bash(npx shadcn@latest init -d)"
+    ]
+  }
+}
