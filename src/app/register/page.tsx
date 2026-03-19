@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import Link from 'next/link'
-import { loginAction } from '@/lib/auth/actions'
+import { registerAction } from '@/lib/auth/actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,17 +14,17 @@ function SubmitButton() {
   const { pending } = useFormStatus()
   return (
     <Button type="submit" className="w-full bg-[#1565C0] hover:bg-[#0D2B55]" disabled={pending}>
-      {pending ? 'Connexion...' : 'Se connecter'}
+      {pending ? 'Creation en cours...' : 'Creer le compte administrateur'}
     </Button>
   )
 }
 
-export default function LoginPage() {
+export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(formData: FormData) {
     setError(null)
-    const result = await loginAction(formData)
+    const result = await registerAction(formData)
     if (result?.error) {
       setError(result.error)
     }
@@ -35,10 +35,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-[#0D2B55]">
-            Assemblees Deliberantes
+            Configuration initiale
           </CardTitle>
           <CardDescription>
-            Connectez-vous a votre espace
+            Creez le premier compte Super-administrateur.
+            <br />
+            <span className="text-xs text-[#E65100]">
+              Cette page n&apos;est accessible que si aucun compte n&apos;existe.
+            </span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -48,6 +52,17 @@ export default function LoginPage() {
             </Alert>
           )}
           <form action={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Nom complet</Label>
+              <Input
+                id="fullName"
+                name="fullName"
+                type="text"
+                placeholder="Prenom Nom"
+                required
+                autoComplete="name"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Adresse email</Label>
               <Input
@@ -67,17 +82,30 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Minimum 12 caracteres"
                 required
-                autoComplete="current-password"
+                minLength={12}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                placeholder="Retapez le mot de passe"
+                required
+                minLength={12}
+                autoComplete="new-password"
               />
             </div>
             <SubmitButton />
           </form>
           <div className="mt-6 text-center">
             <Link
-              href="/register"
+              href="/login"
               className="text-sm text-[#1565C0] hover:underline"
             >
-              Premiere utilisation ? Creer le compte administrateur
+              Deja un compte ? Se connecter
             </Link>
           </div>
         </CardContent>

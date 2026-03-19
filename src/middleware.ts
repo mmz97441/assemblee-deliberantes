@@ -2,7 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Guard: si les variables Supabase ne sont pas configurees, laisser passer
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -42,28 +41,40 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Routes publiques (pas de redirection)
+    const pathname = request.nextUrl.pathname
+
+    // Routes publiques
     const publicPaths = ['/login', '/register', '/invite']
     const isPublicPath = publicPaths.some((path) =>
-      request.nextUrl.pathname.startsWith(path)
+      pathname.startsWith(path)
     )
 
-    // Si pas connecte et route protegee -> redirection login
+    // Si pas connecte et route protegee -> login
     if (!user && !isPublicPath) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      url.searchParams.set('redirect', request.nextUrl.pathname)
+      url.searchParams.set('redirect', pathname)
       return NextResponse.redirect(url)
     }
 
-    // Si connecte et sur page login -> redirection dashboard
-    if (user && request.nextUrl.pathname === '/login') {
+    // Si connecte et sur login/register -> dashboard
+    if (user && (pathname === '/login' || pathname === '/register')) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)
     }
+
+    // Protection routes admin (configuration)
+    if (pathname.startsWith('/configuration')) {
+      const role = user?.user_metadata?.role
+      if (role !== 'super_admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
+    }
+
   } catch {
-    // Si Supabase est injoignable, laisser passer
     return NextResponse.next()
   }
 

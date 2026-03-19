@@ -30,7 +30,11 @@ export async function createServerSupabaseClient() {
 export async function createServiceRoleClient() {
   const { createClient } = await import('@supabase/supabase-js')
 
-  return createClient<Database>(
+  // Note: on utilise le type Database generique ici.
+  // Les inserts dans les tables metier utilisent .from() sans typage strict
+  // en attendant la generation des types depuis la base reelle.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return createClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
