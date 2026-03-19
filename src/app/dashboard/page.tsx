@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { logoutAction } from '@/lib/auth/actions'
 import { ROLE_LABELS } from '@/lib/auth/helpers'
+import { ROUTES } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,23 +13,23 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect(ROUTES.LOGIN)
   }
 
   const role = (user.user_metadata?.role as UserRole) || 'elu'
   const fullName = user.user_metadata?.full_name || user.email
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-white shadow-sm">
+      <header className="border-b bg-card shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <h1 className="text-lg font-bold text-[#0D2B55]">
+          <h1 className="text-lg font-bold text-institutional-navy">
             Assemblees Deliberantes
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-[#212121]">{fullName}</p>
+              <p className="text-sm font-medium text-foreground">{fullName}</p>
               <Badge variant="secondary" className="text-xs">
                 {ROLE_LABELS[role] || role}
               </Badge>
@@ -45,10 +46,10 @@ export default async function DashboardPage() {
       {/* Contenu */}
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-[#0D2B55]">
+          <h2 className="text-2xl font-bold text-institutional-navy">
             Tableau de bord
           </h2>
-          <p className="mt-1 text-sm text-[#757575]">
+          <p className="mt-1 text-sm text-muted-foreground">
             Bienvenue, {fullName}
           </p>
         </div>
@@ -56,11 +57,11 @@ export default async function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
-              <CardTitle className="text-[#0D2B55]">Seances</CardTitle>
+              <CardTitle className="text-institutional-navy">Seances</CardTitle>
               <CardDescription>Gestion des seances deliberantes</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-[#757575]">
+              <p className="text-sm text-muted-foreground">
                 Etape 6 — En construction
               </p>
             </CardContent>
@@ -68,11 +69,11 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-[#0D2B55]">Membres</CardTitle>
+              <CardTitle className="text-institutional-navy">Membres</CardTitle>
               <CardDescription>Gestion des elus et agents</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-[#757575]">
+              <p className="text-sm text-muted-foreground">
                 Etape 5 — En construction
               </p>
             </CardContent>
@@ -80,11 +81,11 @@ export default async function DashboardPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-[#0D2B55]">Configuration</CardTitle>
+              <CardTitle className="text-institutional-navy">Configuration</CardTitle>
               <CardDescription>Parametrage de l&apos;institution</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-[#757575]">
+              <p className="text-sm text-muted-foreground">
                 Etape 4 — En construction
               </p>
             </CardContent>

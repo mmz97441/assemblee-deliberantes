@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { acceptInvitationAction } from '@/lib/auth/actions'
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +13,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full bg-[#1565C0] hover:bg-[#0D2B55]" disabled={pending}>
+    <Button
+      type="submit"
+      className="w-full bg-institutional-blue hover:bg-institutional-navy"
+      disabled={pending}
+    >
       {pending ? 'Configuration...' : 'Activer mon compte'}
     </Button>
   )
@@ -30,10 +35,10 @@ export default function InviteConfirmPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-[#0D2B55]">
+          <CardTitle className="text-2xl font-bold text-institutional-navy">
             Bienvenue
           </CardTitle>
           <CardDescription>
@@ -53,9 +58,9 @@ export default function InviteConfirmPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Minimum 12 caracteres"
+                placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caracteres`}
                 required
-                minLength={12}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
               />
             </div>
@@ -67,7 +72,7 @@ export default function InviteConfirmPage() {
                 type="password"
                 placeholder="Retapez le mot de passe"
                 required
-                minLength={12}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
               />
             </div>

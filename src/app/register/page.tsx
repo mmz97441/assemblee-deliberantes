@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import Link from 'next/link'
 import { registerAction } from '@/lib/auth/actions'
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +14,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 function SubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" className="w-full bg-[#1565C0] hover:bg-[#0D2B55]" disabled={pending}>
+    <Button
+      type="submit"
+      className="w-full bg-institutional-blue hover:bg-institutional-navy"
+      disabled={pending}
+    >
       {pending ? 'Creation en cours...' : 'Creer le compte administrateur'}
     </Button>
   )
@@ -31,16 +36,16 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F5F5F5] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-[#0D2B55]">
+          <CardTitle className="text-2xl font-bold text-institutional-navy">
             Configuration initiale
           </CardTitle>
           <CardDescription>
             Creez le premier compte Super-administrateur.
             <br />
-            <span className="text-xs text-[#E65100]">
+            <span className="text-xs text-institutional-warning">
               Cette page n&apos;est accessible que si aucun compte n&apos;existe.
             </span>
           </CardDescription>
@@ -80,9 +85,9 @@ export default function RegisterPage() {
                 id="password"
                 name="password"
                 type="password"
-                placeholder="Minimum 12 caracteres"
+                placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caracteres`}
                 required
-                minLength={12}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
               />
             </div>
@@ -94,7 +99,7 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="Retapez le mot de passe"
                 required
-                minLength={12}
+                minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
               />
             </div>
@@ -103,7 +108,7 @@ export default function RegisterPage() {
           <div className="mt-6 text-center">
             <Link
               href="/login"
-              className="text-sm text-[#1565C0] hover:underline"
+              className="text-sm text-institutional-blue hover:underline"
             >
               Deja un compte ? Se connecter
             </Link>

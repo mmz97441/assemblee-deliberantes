@@ -3,18 +3,25 @@
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  ROUTES,
+  parseFullName,
+  validatePassword,
+  validateEmail,
+} from '@/lib/constants'
 import type { UserRole } from '@/lib/supabase/types'
 
 // ============================================
 // LOGIN
 // ============================================
 export async function loginAction(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim()
   const password = formData.get('password') as string
 
-  if (!email || !password) {
-    return { error: 'Email et mot de passe requis' }
-  }
+  const emailError = validateEmail(email)
+  if (emailError) return { error: emailError }
+
+  if (!password) return { error: 'Le mot de passe est requis' }
 
   const supabase = await createServerSupabaseClient()
 
@@ -34,29 +41,25 @@ export async function loginAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect(ROUTES.DASHBOARD)
 }
 
 // ============================================
 // REGISTER (premier super-admin uniquement)
 // ============================================
 export async function registerAction(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim()
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
-  const fullName = formData.get('fullName') as string
+  const fullName = (formData.get('fullName') as string)?.trim()
 
-  if (!email || !password || !fullName) {
-    return { error: 'Tous les champs sont requis' }
-  }
+  if (!fullName) return { error: 'Le nom complet est requis' }
 
-  if (password !== confirmPassword) {
-    return { error: 'Les mots de passe ne correspondent pas' }
-  }
+  const emailError = validateEmail(email)
+  if (emailError) return { error: emailError }
 
-  if (password.length < 12) {
-    return { error: 'Le mot de passe doit contenir au moins 12 caracteres' }
-  }
+  const passwordError = validatePassword(password, confirmPassword)
+  if (passwordError) return { error: passwordError }
 
   // Verifier qu'il n'y a pas encore d'utilisateur (premier setup)
   const serviceClient = await createServiceRoleClient()
@@ -69,6 +72,8 @@ export async function registerAction(formData: FormData) {
   }
 
   // Creer le premier utilisateur (super_admin)
+  const { prenom, nom } = parseFullName(fullName)
+
   const { data, error } = await serviceClient.auth.admin.createUser({
     email,
     password,
@@ -91,8 +96,8 @@ export async function registerAction(formData: FormData) {
     await serviceClient.from('members').insert({
       user_id: data.user.id,
       role: 'super_admin',
-      nom: fullName.split(' ').slice(1).join(' ') || fullName,
-      prenom: fullName.split(' ')[0] || '',
+      nom,
+      prenom,
       email,
       statut: 'ACTIF',
     })
@@ -103,7 +108,7 @@ export async function registerAction(formData: FormData) {
   await supabase.auth.signInWithPassword({ email, password })
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect(ROUTES.DASHBOARD)
 }
 
 // ============================================
@@ -113,28 +118,28 @@ export async function logoutAction() {
   const supabase = await createServerSupabaseClient()
   await supabase.auth.signOut()
   revalidatePath('/', 'layout')
-  redirect('/login')
+  redirect(ROUTES.LOGIN)
 }
 
 // ============================================
 // INVITATION (envoyer une invitation)
 // ============================================
 export async function sendInvitationAction(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim()
   const role = formData.get('role') as UserRole
-  const fullName = formData.get('fullName') as string
+  const fullName = (formData.get('fullName') as string)?.trim()
 
-  if (!email || !role || !fullName) {
-    return { error: 'Tous les champs sont requis' }
-  }
+  if (!fullName) return { error: 'Le nom complet est requis' }
+  if (!role) return { error: 'Le role est requis' }
+
+  const emailError = validateEmail(email)
+  if (emailError) return { error: emailError }
 
   // Verifier les permissions de l'utilisateur courant
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    return { error: 'Non authentifie' }
-  }
+  if (!user) return { error: 'Non authentifie' }
 
   const currentRole = user.user_metadata?.role as UserRole
   if (currentRole !== 'super_admin' && currentRole !== 'gestionnaire') {
@@ -143,6 +148,7 @@ export async function sendInvitationAction(formData: FormData) {
 
   // Creer l'invitation via Supabase Auth
   const serviceClient = await createServiceRoleClient()
+  const { prenom, nom } = parseFullName(fullName)
 
   const { data, error } = await serviceClient.auth.admin.inviteUserByEmail(email, {
     data: {
@@ -150,7 +156,7 @@ export async function sendInvitationAction(formData: FormData) {
       role,
       invited_by: user.id,
     },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/invite/confirm`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.INVITE_CONFIRM}`,
   })
 
   if (error) {
@@ -165,14 +171,14 @@ export async function sendInvitationAction(formData: FormData) {
     await serviceClient.from('members').insert({
       user_id: data.user.id,
       role,
-      nom: fullName.split(' ').slice(1).join(' ') || fullName,
-      prenom: fullName.split(' ')[0] || '',
+      nom,
+      prenom,
       email,
       statut: 'ACTIF',
     })
   }
 
-  revalidatePath('/membres')
+  revalidatePath(ROUTES.MEMBRES)
   return { success: `Invitation envoyee a ${email}` }
 }
 
@@ -183,13 +189,8 @@ export async function acceptInvitationAction(formData: FormData) {
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
 
-  if (!password || password.length < 12) {
-    return { error: 'Le mot de passe doit contenir au moins 12 caracteres' }
-  }
-
-  if (password !== confirmPassword) {
-    return { error: 'Les mots de passe ne correspondent pas' }
-  }
+  const passwordError = validatePassword(password, confirmPassword)
+  if (passwordError) return { error: passwordError }
 
   const supabase = await createServerSupabaseClient()
 
@@ -202,5 +203,5 @@ export async function acceptInvitationAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect(ROUTES.DASHBOARD)
 }
