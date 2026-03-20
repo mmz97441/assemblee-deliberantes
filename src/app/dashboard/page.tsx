@@ -3,12 +3,20 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { logoutAction } from '@/lib/auth/actions'
-import { ROLE_LABELS } from '@/lib/auth/helpers'
 import { ROUTES } from '@/lib/constants'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { ROLE_LABELS } from '@/lib/auth/helpers'
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
+import { PageHeader } from '@/components/layout/page-header'
+import {
+  CalendarDays,
+  Users,
+  FileText,
+  Settings,
+  Clock,
+  ArrowRight,
+  CalendarCheck,
+  UserCheck,
+} from 'lucide-react'
 import type { UserRole } from '@/lib/supabase/types'
 
 export default async function DashboardPage() {
@@ -21,7 +29,7 @@ export default async function DashboardPage() {
       user = data.user
     }
   } catch {
-    // Supabase indisponible ou erreur reseau — on redirige vers login
+    // Supabase indisponible
   }
 
   if (!user) {
@@ -30,74 +38,132 @@ export default async function DashboardPage() {
 
   const role = (user.user_metadata?.role as UserRole) || 'elu'
   const fullName = user.user_metadata?.full_name || user.email
+  const firstName = fullName?.split(' ')[0] || ''
+
+  // Determine greeting based on time
+  const hour = new Date().getHours()
+  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card shadow-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <h1 className="text-lg font-bold text-institutional-navy">
-            Assemblees Deliberantes
-          </h1>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">{fullName}</p>
-              <Badge variant="secondary" className="text-xs">
-                {ROLE_LABELS[role] || role}
-              </Badge>
+    <AuthenticatedLayout>
+      <PageHeader
+        title={`${greeting}, ${firstName}`}
+        description={`${ROLE_LABELS[role]} — Voici un résumé de votre espace`}
+      />
+
+      <main className="px-8 py-8 page-enter">
+        {/* Quick stats */}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 stagger-in mb-10">
+          <div className="stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              <Clock className="h-4 w-4 text-muted-foreground" />
             </div>
-            <form action={logoutAction}>
-              <Button variant="outline" size="sm" type="submit">
-                Deconnexion
-              </Button>
-            </form>
+            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Séances à venir</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <CalendarCheck className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Délibérations ce mois</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                <UserCheck className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-sm text-muted-foreground mt-0.5">Membres actifs</p>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
+                <FileText className="h-5 w-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
           </div>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-institutional-navy">
-            Tableau de bord
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Bienvenue, {fullName}
-          </p>
-        </div>
+        {/* Action cards */}
+        <h2 className="text-lg font-semibold text-foreground mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          Accès rapide
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger-in">
+          {/* Séances */}
+          <div className="group relative rounded-xl border bg-card p-6 opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                <CalendarDays className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Séances</h3>
+                <p className="text-xs text-muted-foreground">Gestion des séances délibérantes</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Créez et gérez vos séances, ordres du jour, convocations et procès-verbaux.
+            </p>
+            <div className="mt-4 flex items-center text-sm text-muted-foreground">
+              <span>Prochainement</span>
+            </div>
+          </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="opacity-60">
-            <CardHeader>
-              <CardTitle className="text-institutional-navy">Seances</CardTitle>
-              <CardDescription>Gestion des seances deliberantes</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Prochainement</p>
-            </CardContent>
-          </Card>
-          <Card className="opacity-60">
-            <CardHeader>
-              <CardTitle className="text-institutional-navy">Membres</CardTitle>
-              <CardDescription>Gestion des elus et agents</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Prochainement</p>
-            </CardContent>
-          </Card>
-          {(role === 'super_admin') && (
-            <Link href={ROUTES.CONFIGURATION} className="block">
-              <Card className="transition-shadow hover:shadow-md cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="text-institutional-navy">Configuration</CardTitle>
-                  <CardDescription>Parametrage de l&apos;institution</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-institutional-blue">Configurer →</p>
-                </CardContent>
-              </Card>
+          {/* Membres */}
+          <div className="group relative rounded-xl border bg-card p-6 opacity-50 cursor-not-allowed">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground">Membres</h3>
+                <p className="text-xs text-muted-foreground">Élus et agents</p>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Gérez les membres de vos instances, leurs rôles et mandats.
+            </p>
+            <div className="mt-4 flex items-center text-sm text-muted-foreground">
+              <span>Prochainement</span>
+            </div>
+          </div>
+
+          {/* Configuration — super_admin only */}
+          {role === 'super_admin' && (
+            <Link href={ROUTES.CONFIGURATION} className="block group">
+              <div className="relative rounded-xl border bg-card p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-institutional-blue/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-institutional-navy">
+                    <Settings className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Configuration</h3>
+                    <p className="text-xs text-muted-foreground">Paramétrage de l&apos;institution</p>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Identité légale, instances délibérantes, numérotation des délibérations.
+                </p>
+                <div className="mt-4 flex items-center text-sm font-medium text-institutional-blue group-hover:gap-2 transition-all">
+                  <span>Configurer</span>
+                  <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
+                </div>
+              </div>
             </Link>
           )}
         </div>
       </main>
-    </div>
+    </AuthenticatedLayout>
   )
 }

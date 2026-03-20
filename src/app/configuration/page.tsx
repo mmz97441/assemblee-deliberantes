@@ -4,13 +4,14 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Separator } from '@/components/ui/separator'
+import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
+import { PageHeader } from '@/components/layout/page-header'
 import { InstitutionForm } from '@/components/configuration/institution-form'
 import { InstancesList } from '@/components/configuration/instances-list'
+import { Building2, Landmark } from 'lucide-react'
 import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/types'
 
 export default async function ConfigurationPage() {
-  // Auth check — en dehors du try/catch car redirect() lance une erreur speciale
   const supabase = await createServerSupabaseClient()
   const { data: userData, error: authError } = await supabase.auth.getUser()
 
@@ -18,7 +19,6 @@ export default async function ConfigurationPage() {
     redirect(ROUTES.LOGIN)
   }
 
-  // Fetch data — ici on peut try/catch car pas de redirect()
   let institutionConfig: InstitutionConfigRow | null = null
   let instanceConfigs: InstanceConfigRow[] = []
 
@@ -42,41 +42,38 @@ export default async function ConfigurationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card shadow-sm">
-        <div className="mx-auto max-w-5xl px-4 py-4">
-          <nav className="text-sm text-muted-foreground">
-            <span>Tableau de bord</span>
-            <span className="mx-2">/</span>
-            <span className="text-foreground font-medium">Configuration</span>
-          </nav>
-          <h1 className="mt-2 text-2xl font-bold text-institutional-navy">
-            Configuration
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Paramètres de l&apos;institution et des instances délibérantes
-          </p>
-        </div>
-      </header>
+    <AuthenticatedLayout>
+      <PageHeader
+        title="Configuration"
+        description="Paramètres de l'institution et des instances délibérantes"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
+          { label: 'Configuration' },
+        ]}
+      />
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className="px-8 py-6 page-enter">
         <Tabs defaultValue="identite" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="identite">Identité légale</TabsTrigger>
-            <TabsTrigger value="instances">Instances</TabsTrigger>
+          <TabsList className="h-11 p-1 bg-muted/60">
+            <TabsTrigger value="identite" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+              <Building2 className="h-4 w-4" />
+              <span>Identité légale</span>
+            </TabsTrigger>
+            <TabsTrigger value="instances" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+              <Landmark className="h-4 w-4" />
+              <span>Instances</span>
+            </TabsTrigger>
           </TabsList>
 
-          <Separator />
-
-          <TabsContent value="identite" className="space-y-6">
+          <TabsContent value="identite" className="space-y-6 mt-6">
             <InstitutionForm data={institutionConfig} />
           </TabsContent>
 
-          <TabsContent value="instances" className="space-y-6">
+          <TabsContent value="instances" className="space-y-6 mt-6">
             <InstancesList data={instanceConfigs} />
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+    </AuthenticatedLayout>
   )
 }

@@ -1,18 +1,19 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { DM_Sans } from "next/font/google"
 import { cn } from "@/lib/utils"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
+  weight: ["400", "500", "600", "700"],
 })
 
 export const metadata: Metadata = {
-  title: "Assemblees Deliberantes",
-  description: "Systeme de gestion des seances deliberantes",
+  title: "Assemblées Délibérantes",
+  description: "Système de gestion des séances délibérantes",
 }
 
 export default function RootLayout({
@@ -21,12 +22,12 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="fr" className={cn("font-sans", inter.variable)}>
+    <html lang="fr" className={cn("font-sans", dmSans.variable)}>
       <body className="antialiased bg-background text-foreground">
         <TooltipProvider>
           {children}
         </TooltipProvider>
-        <Toaster />
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   )

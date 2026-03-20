@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { saveInstanceConfig } from '@/lib/actions/configuration'
+import { Loader2 } from 'lucide-react'
 import type { InstanceConfigRow } from '@/lib/supabase/types'
 
 const QUORUM_TYPE_LABELS: Record<string, string> = {
@@ -41,33 +43,30 @@ interface InstanceFormProps {
   onSuccess: () => void
 }
 
-function ToggleSwitch({
+function SwitchField({
+  id,
   checked,
   onCheckedChange,
   label,
+  description,
 }: {
+  id: string
   checked: boolean
   onCheckedChange: (v: boolean) => void
   label: string
+  description?: string
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm">{label}</span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onCheckedChange(!checked)}
-        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-          checked ? 'bg-primary' : 'bg-input'
-        }`}
-      >
-        <span
-          className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
-            checked ? 'translate-x-5' : 'translate-x-0'
-          }`}
-        />
-      </button>
+    <div className="flex items-center justify-between py-2">
+      <div className="space-y-0.5">
+        <Label htmlFor={id} className="text-sm font-normal cursor-pointer">
+          {label}
+        </Label>
+        {description && (
+          <p className="text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   )
 }
@@ -87,7 +86,6 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
     const form = e.currentTarget
     const formData = new FormData(form)
 
-    // State-managed fields
     formData.set('quorum_type', quorumType)
     formData.set('majorite_defaut', majoriteDefaut)
     formData.set('mode_arrivee_tardive', modeArrivee)
@@ -115,7 +113,9 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Informations générales */}
       <div className="space-y-4">
-        <h4 className="text-sm font-medium text-muted-foreground">Informations générales</h4>
+        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Informations générales
+        </h4>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="instance_nom">
@@ -127,6 +127,7 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
               required
               defaultValue={data?.nom || ''}
               placeholder="Conseil municipal"
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
@@ -139,6 +140,7 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
               required
               defaultValue={data?.type_legal || ''}
               placeholder="Conseil municipal, Bureau, Commission..."
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
@@ -150,6 +152,7 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
               min={1}
               defaultValue={data?.composition_max ?? ''}
               placeholder="33"
+              className="h-10"
             />
           </div>
           <div className="space-y-2">
@@ -160,6 +163,7 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
               type="number"
               min={1}
               defaultValue={data?.delai_convocation_jours ?? 5}
+              className="h-10"
             />
           </div>
         </div>
@@ -169,12 +173,14 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
 
       {/* Quorum */}
       <div className="space-y-4">
-        <h4 className="text-sm font-medium text-muted-foreground">Quorum</h4>
+        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Quorum
+        </h4>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="instance_quorum_type">Type de quorum</Label>
             <Select value={quorumType} onValueChange={setQuorumType}>
-              <SelectTrigger id="instance_quorum_type">
+              <SelectTrigger id="instance_quorum_type" className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -187,28 +193,26 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
             </Select>
           </div>
           {quorumType === 'STATUTS' && (
-            <>
-              <div className="space-y-2">
-                <Label>Fraction du quorum</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    name="quorum_fraction_numerateur"
-                    type="number"
-                    min={1}
-                    defaultValue={data?.quorum_fraction_numerateur ?? 1}
-                    className="w-20"
-                  />
-                  <span className="text-muted-foreground">/</span>
-                  <Input
-                    name="quorum_fraction_denominateur"
-                    type="number"
-                    min={1}
-                    defaultValue={data?.quorum_fraction_denominateur ?? 2}
-                    className="w-20"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label>Fraction du quorum</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  name="quorum_fraction_numerateur"
+                  type="number"
+                  min={1}
+                  defaultValue={data?.quorum_fraction_numerateur ?? 1}
+                  className="w-20 h-10"
+                />
+                <span className="text-muted-foreground font-bold">/</span>
+                <Input
+                  name="quorum_fraction_denominateur"
+                  type="number"
+                  min={1}
+                  defaultValue={data?.quorum_fraction_denominateur ?? 2}
+                  className="w-20 h-10"
+                />
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -217,12 +221,14 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
 
       {/* Votes et règles */}
       <div className="space-y-4">
-        <h4 className="text-sm font-medium text-muted-foreground">Votes et règles</h4>
+        <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          Votes et règles
+        </h4>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="instance_majorite">Majorité par défaut</Label>
             <Select value={majoriteDefaut} onValueChange={setMajoriteDefaut}>
-              <SelectTrigger id="instance_majorite">
+              <SelectTrigger id="instance_majorite" className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -237,7 +243,7 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
           <div className="space-y-2">
             <Label htmlFor="instance_arrivee">Mode d&apos;arrivée tardive</Label>
             <Select value={modeArrivee} onValueChange={setModeArrivee}>
-              <SelectTrigger id="instance_arrivee">
+              <SelectTrigger id="instance_arrivee" className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -251,23 +257,32 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
           </div>
         </div>
 
-        <div className="space-y-3 pt-2">
-          <ToggleSwitch
+        <div className="rounded-lg border bg-muted/30 p-4 space-y-1 mt-4">
+          <SwitchField
+            id="voix_preponderante"
             checked={voixPreponderante}
             onCheckedChange={setVoixPreponderante}
             label="Voix prépondérante du président"
+            description="En cas d'égalité, le président départage"
           />
-          <ToggleSwitch
+          <Separator className="my-1" />
+          <SwitchField
+            id="vote_secret_nominations"
             checked={voteSecretNominations}
             onCheckedChange={setVoteSecretNominations}
-            label="Vote secret obligatoire pour les nominations"
+            label="Vote secret pour les nominations"
+            description="Obligatoire pour les nominations individuelles"
           />
-          <ToggleSwitch
+          <Separator className="my-1" />
+          <SwitchField
+            id="seances_publiques"
             checked={seancesPubliques}
             onCheckedChange={setSeancesPubliques}
             label="Séances publiques par défaut"
           />
-          <ToggleSwitch
+          <Separator className="my-1" />
+          <SwitchField
+            id="votes_qd"
             checked={votesQd}
             onCheckedChange={setVotesQd}
             label="Questions diverses autorisées au vote"
@@ -277,9 +292,16 @@ export function InstanceForm({ data, onSuccess }: InstanceFormProps) {
 
       <Separator />
 
-      <div className="flex justify-end gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Enregistrement...' : data ? 'Mettre à jour' : 'Créer l\'instance'}
+      <div className="flex justify-end gap-3 pb-2">
+        <Button type="submit" disabled={isPending} className="h-10 px-6 gap-2">
+          {isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Enregistrement...
+            </>
+          ) : (
+            data ? 'Mettre à jour' : "Créer l'instance"
+          )}
         </Button>
       </div>
     </form>
