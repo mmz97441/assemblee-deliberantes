@@ -1,49 +1,30 @@
 export const dynamic = 'force-dynamic'
 
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
 import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { logoutAction } from '@/lib/auth/actions'
 import { ROLE_LABELS } from '@/lib/auth/helpers'
+import { ROUTES } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/lib/supabase/types'
 
-async function getUser() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+export default async function DashboardPage() {
+  let user = null
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { data, error } = await supabase.auth.getUser()
+    if (!error && data?.user) {
+      user = data.user
+    }
+  } catch {
+    // Supabase indisponible ou erreur reseau — on redirige vers login
   }
 
-  const cookieStore = await cookies()
-
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll() {
-          // Read-only in Server Components
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-export default async function DashboardPage() {
-  const user = await getUser()
-
   if (!user) {
-    redirect('/login')
+    redirect(ROUTES.LOGIN)
   }
 
   const role = (user.user_metadata?.role as UserRole) || 'elu'

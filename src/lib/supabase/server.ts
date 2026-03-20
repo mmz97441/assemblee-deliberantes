@@ -2,12 +2,32 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
 
+/**
+ * Resout les variables d'environnement Supabase.
+ * L'integration Supabase-Vercel peut utiliser des noms differents
+ * (SUPABASE_URL vs NEXT_PUBLIC_SUPABASE_URL, etc.).
+ */
+function getSupabaseEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+
+  if (!url || !anonKey) {
+    throw new Error(
+      'Supabase URL ou Anon Key manquante. ' +
+      'Verifiez NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+    )
+  }
+
+  return { url, anonKey }
+}
+
 export async function createServerSupabaseClient() {
+  const { url, anonKey } = getSupabaseEnv()
   const cookieStore = await cookies()
 
   return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
@@ -41,10 +61,13 @@ export async function createServiceRoleClient() {
     process.env.SUPABASE_URL
 
   if (!serviceRoleKey || !supabaseUrl) {
-    throw new Error('Supabase service role key or URL not configured')
+    throw new Error(
+      'Supabase service role key ou URL non configuree. ' +
+      'Verifiez SUPABASE_SERVICE_ROLE_KEY et NEXT_PUBLIC_SUPABASE_URL.'
+    )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Types generes pas encore complets pour service role
   return createClient<any>(
     supabaseUrl,
     serviceRoleKey,
