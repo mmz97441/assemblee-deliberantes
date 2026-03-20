@@ -8,7 +8,7 @@ import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
 import { InstitutionWizard } from '@/components/configuration/institution-wizard'
 import { InstancesList } from '@/components/configuration/instances-list'
-import { Building2, Landmark } from 'lucide-react'
+import { Wand2, Settings2 } from 'lucide-react'
 import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/types'
 
 export default async function ConfigurationPage() {
@@ -41,11 +41,18 @@ export default async function ConfigurationPage() {
     console.error('Erreur chargement configuration:', err)
   }
 
+  // If no institution config yet, show wizard full screen (first setup)
+  const isFirstSetup = !institutionConfig?.type_institution
+
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title="Configuration"
-        description="Paramètres de l'institution et des instances délibérantes"
+        title={isFirstSetup ? 'Configuration initiale' : 'Configuration'}
+        description={
+          isFirstSetup
+            ? 'Configurez votre institution en quelques étapes simples'
+            : 'Paramètres de l\'institution et des instances délibérantes'
+        }
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
           { label: 'Configuration' },
@@ -53,26 +60,32 @@ export default async function ConfigurationPage() {
       />
 
       <main className="px-8 py-6 page-enter">
-        <Tabs defaultValue="identite" className="space-y-6">
-          <TabsList className="h-11 p-1 bg-muted/60">
-            <TabsTrigger value="identite" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
-              <Building2 className="h-4 w-4" />
-              <span>Identité légale</span>
-            </TabsTrigger>
-            <TabsTrigger value="instances" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
-              <Landmark className="h-4 w-4" />
-              <span>Instances</span>
-            </TabsTrigger>
-          </TabsList>
+        {isFirstSetup ? (
+          // First setup: wizard only, no tabs
+          <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+        ) : (
+          // Already configured: tabs for wizard (edit) + instances management
+          <Tabs defaultValue="assistant" className="space-y-6">
+            <TabsList className="h-11 p-1 bg-muted/60">
+              <TabsTrigger value="assistant" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+                <Wand2 className="h-4 w-4" />
+                <span>Assistant de configuration</span>
+              </TabsTrigger>
+              <TabsTrigger value="instances" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
+                <Settings2 className="h-4 w-4" />
+                <span>Gérer les instances</span>
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="identite" className="space-y-6 mt-6">
-            <InstitutionWizard data={institutionConfig} />
-          </TabsContent>
+            <TabsContent value="assistant" className="space-y-6 mt-6">
+              <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+            </TabsContent>
 
-          <TabsContent value="instances" className="space-y-6 mt-6">
-            <InstancesList data={instanceConfigs} />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="instances" className="space-y-6 mt-6">
+              <InstancesList data={instanceConfigs} />
+            </TabsContent>
+          </Tabs>
+        )}
       </main>
     </AuthenticatedLayout>
   )
