@@ -42,9 +42,9 @@ export default function ErrorPage({
             </Button>
             <Button
               variant="outline"
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={() => window.location.href = '/login'}
             >
-              Retour au tableau de bord
+              Retour a la connexion
             </Button>
           </div>
         </CardContent>

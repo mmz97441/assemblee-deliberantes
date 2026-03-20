@@ -40,13 +40,30 @@ export function parseFullName(fullName: string): { prenom: string; nom: string }
   const parts = trimmed.split(/\s+/)
 
   if (parts.length <= 1) {
-    return { prenom: trimmed, nom: '' }
+    // Si un seul mot, on le met en nom (champ NOT NULL en BDD)
+    // et on laisse prenom vide — plus logique pour "Dupont" seul
+    return { prenom: '', nom: trimmed }
   }
 
   return {
     prenom: parts[0],
     nom: parts.slice(1).join(' '),
   }
+}
+
+/**
+ * Valide qu'un nom complet contient au moins prenom ET nom
+ * Retourne une erreur ou null
+ */
+export function validateFullName(fullName: string): string | null {
+  if (!fullName?.trim()) {
+    return 'Le nom complet est requis'
+  }
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length < 2) {
+    return 'Veuillez saisir le prenom ET le nom (ex: Jean Dupont)'
+  }
+  return null
 }
 
 /**

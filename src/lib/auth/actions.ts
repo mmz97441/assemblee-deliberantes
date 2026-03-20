@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import {
   ROUTES,
   parseFullName,
+  validateFullName,
   validatePassword,
   validateEmail,
 } from '@/lib/constants'
@@ -53,7 +54,8 @@ export async function registerAction(formData: FormData) {
   const confirmPassword = formData.get('confirmPassword') as string
   const fullName = (formData.get('fullName') as string)?.trim()
 
-  if (!fullName) return { error: 'Le nom complet est requis' }
+  const nameError = validateFullName(fullName)
+  if (nameError) return { error: nameError }
 
   const emailError = validateEmail(email)
   if (emailError) return { error: emailError }
@@ -140,7 +142,8 @@ export async function sendInvitationAction(formData: FormData) {
   const role = formData.get('role') as UserRole
   const fullName = (formData.get('fullName') as string)?.trim()
 
-  if (!fullName) return { error: 'Le nom complet est requis' }
+  const nameError = validateFullName(fullName)
+  if (nameError) return { error: nameError }
   if (!role) return { error: 'Le role est requis' }
 
   const emailError = validateEmail(email)
