@@ -41,7 +41,7 @@ export async function loginAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect(ROUTES.DASHBOARD)
+  return { success: true }
 }
 
 // ============================================
@@ -62,8 +62,18 @@ export async function registerAction(formData: FormData) {
   if (passwordError) return { error: passwordError }
 
   // Verifier qu'il n'y a pas encore d'utilisateur (premier setup)
-  const serviceClient = await createServiceRoleClient()
-  const { data: existingUsers } = await serviceClient.auth.admin.listUsers()
+  let serviceClient
+  try {
+    serviceClient = await createServiceRoleClient()
+  } catch {
+    return { error: 'Erreur de connexion au serveur. Verifiez la configuration Supabase.' }
+  }
+
+  const { data: existingUsers, error: listError } = await serviceClient.auth.admin.listUsers()
+
+  if (listError) {
+    return { error: `Erreur serveur: ${listError.message}` }
+  }
 
   const isFirstUser = !existingUsers?.users || existingUsers.users.length === 0
 
@@ -74,7 +84,7 @@ export async function registerAction(formData: FormData) {
   // Creer le premier utilisateur (super_admin)
   const { prenom, nom } = parseFullName(fullName)
 
-  const { data, error } = await serviceClient.auth.admin.createUser({
+  const { data, error: createError } = await serviceClient.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -84,16 +94,16 @@ export async function registerAction(formData: FormData) {
     },
   })
 
-  if (error) {
-    if (error.message.includes('already been registered')) {
+  if (createError) {
+    if (createError.message.includes('already been registered')) {
       return { error: 'Cet email est deja utilise' }
     }
-    return { error: 'Erreur lors de la creation du compte' }
+    return { error: `Erreur creation compte: ${createError.message}` }
   }
 
   // Creer l'entree dans la table members
   if (data.user) {
-    await serviceClient.from('members').insert({
+    const { error: insertError } = await serviceClient.from('members').insert({
       user_id: data.user.id,
       role: 'super_admin',
       nom,
@@ -101,14 +111,22 @@ export async function registerAction(formData: FormData) {
       email,
       statut: 'ACTIF',
     })
+
+    if (insertError) {
+      return { error: `Erreur creation membre: ${insertError.message}` }
+    }
   }
 
   // Connecter directement
   const supabase = await createServerSupabaseClient()
-  await supabase.auth.signInWithPassword({ email, password })
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+
+  if (signInError) {
+    return { error: `Compte cree mais connexion echouee: ${signInError.message}. Allez sur /login.` }
+  }
 
   revalidatePath('/', 'layout')
-  redirect(ROUTES.DASHBOARD)
+  return { success: true }
 }
 
 // ============================================
@@ -135,7 +153,6 @@ export async function sendInvitationAction(formData: FormData) {
   const emailError = validateEmail(email)
   if (emailError) return { error: emailError }
 
-  // Verifier les permissions de l'utilisateur courant
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -146,7 +163,6 @@ export async function sendInvitationAction(formData: FormData) {
     return { error: 'Permission refusee' }
   }
 
-  // Creer l'invitation via Supabase Auth
   const serviceClient = await createServiceRoleClient()
   const { prenom, nom } = parseFullName(fullName)
 
@@ -166,7 +182,6 @@ export async function sendInvitationAction(formData: FormData) {
     return { error: `Erreur d'envoi: ${error.message}` }
   }
 
-  // Pre-creer l'entree member
   if (data.user) {
     await serviceClient.from('members').insert({
       user_id: data.user.id,
@@ -203,5 +218,5 @@ export async function acceptInvitationAction(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect(ROUTES.DASHBOARD)
+  return { success: true }
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { acceptInvitationAction } from '@/lib/auth/actions'
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
@@ -25,12 +26,15 @@ function SubmitButton() {
 
 export default function InviteConfirmPage() {
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   async function handleSubmit(formData: FormData) {
     setError(null)
     const result = await acceptInvitationAction(formData)
     if (result?.error) {
       setError(result.error)
+    } else if (result?.success) {
+      router.push('/dashboard')
     }
   }
 

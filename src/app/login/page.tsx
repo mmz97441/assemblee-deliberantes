@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { loginAction } from '@/lib/auth/actions'
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
@@ -26,12 +27,15 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   async function handleSubmit(formData: FormData) {
     setError(null)
     const result = await loginAction(formData)
     if (result?.error) {
       setError(result.error)
+    } else if (result?.success) {
+      router.push('/dashboard')
     }
   }
 
