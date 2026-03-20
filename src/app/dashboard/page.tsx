@@ -1,27 +1,49 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+export const dynamic = 'force-dynamic'
+
+import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 import { redirect } from 'next/navigation'
 import { logoutAction } from '@/lib/auth/actions'
 import { ROLE_LABELS } from '@/lib/auth/helpers'
-import { ROUTES } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { UserRole } from '@/lib/supabase/types'
 
-export default async function DashboardPage() {
-  let user = null
+async function getUser() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 
-  try {
-    const supabase = await createServerSupabaseClient()
-    const { data } = await supabase.auth.getUser()
-    user = data.user
-  } catch {
-    // Si Supabase est injoignable, rediriger vers login
-    redirect(ROUTES.LOGIN)
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null
   }
 
+  const cookieStore = await cookies()
+
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll() {
+          // Read-only in Server Components
+        },
+      },
+    }
+  )
+
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+export default async function DashboardPage() {
+  const user = await getUser()
+
   if (!user) {
-    redirect(ROUTES.LOGIN)
+    redirect('/login')
   }
 
   const role = (user.user_metadata?.role as UserRole) || 'elu'
@@ -29,7 +51,6 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b bg-card shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
           <h1 className="text-lg font-bold text-institutional-navy">
@@ -51,7 +72,6 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      {/* Contenu */}
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-institutional-navy">
@@ -69,33 +89,25 @@ export default async function DashboardPage() {
               <CardDescription>Gestion des seances deliberantes</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Etape 6 — En construction
-              </p>
+              <p className="text-sm text-muted-foreground">Etape 6 — En construction</p>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-institutional-navy">Membres</CardTitle>
               <CardDescription>Gestion des elus et agents</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Etape 5 — En construction
-              </p>
+              <p className="text-sm text-muted-foreground">Etape 5 — En construction</p>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-institutional-navy">Configuration</CardTitle>
               <CardDescription>Parametrage de l&apos;institution</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Etape 4 — En construction
-              </p>
+              <p className="text-sm text-muted-foreground">Etape 4 — En construction</p>
             </CardContent>
           </Card>
         </div>
