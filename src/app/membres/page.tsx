@@ -21,7 +21,7 @@ export default async function MembresPage() {
   let instances: InstanceConfigRow[] = []
 
   try {
-    const { data: membersData } = await supabase
+    const { data: membersData, error: membersError } = await supabase
       .from('members')
       .select(`
         *,
@@ -39,15 +39,23 @@ export default async function MembresPage() {
       .order('nom', { ascending: true })
       .order('prenom', { ascending: true })
 
-    members = (membersData as MemberWithInstances[]) || []
+    if (membersError) {
+      console.error('Erreur chargement membres:', membersError)
+    } else {
+      members = (membersData as MemberWithInstances[]) || []
+    }
 
-    const { data: instancesData } = await supabase
+    const { data: instancesData, error: instancesError } = await supabase
       .from('instance_config')
       .select('*')
       .eq('actif', true)
       .order('nom', { ascending: true })
 
-    instances = instancesData || []
+    if (instancesError) {
+      console.error('Erreur chargement instances:', instancesError)
+    } else {
+      instances = instancesData || []
+    }
   } catch (err) {
     console.error('Erreur chargement membres:', err)
   }

@@ -86,14 +86,11 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
     })
   })
 
-  // Reset form when member changes
-  // We handle this by using key prop on Dialog or re-initializing
-  // Since Dialog re-renders, state is managed via useState defaults above
-  // We need to sync when `open` changes with a new member
-  // Using a simple approach: reset state when dialog opens
-  const [lastMemberId, setLastMemberId] = useState<string | null>(member?.id || null)
-  if ((member?.id || null) !== lastMemberId) {
-    setLastMemberId(member?.id || null)
+  // Reset form when member changes OR when dialog re-opens
+  const resetKey = `${member?.id || 'new'}-${open}`
+  const [lastResetKey, setLastResetKey] = useState(resetKey)
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey)
     setPrenom(member?.prenom || '')
     setNom(member?.nom || '')
     setEmail(member?.email || '')
@@ -165,6 +162,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
       }
 
       // For editing, also update instance assignments separately
+      let instanceError = false
       if (isEditing && member?.id) {
         const assignments = selectedInstances.map(a => ({
           instanceId: a.instanceId,
@@ -172,12 +170,14 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
         }))
         const assignResult = await assignMemberToInstances(member.id, assignments)
         if ('error' in assignResult) {
-          toast.error(assignResult.error)
-          // Member was saved but instances failed - still close
+          toast.error(`Membre sauvé, mais erreur instances : ${assignResult.error}`)
+          instanceError = true
         }
       }
 
-      toast.success(isEditing ? 'Membre mis a jour' : 'Membre cree avec succes')
+      if (!instanceError) {
+        toast.success(isEditing ? 'Membre mis à jour' : 'Membre créé avec succès')
+      }
       router.refresh()
       onClose()
     })

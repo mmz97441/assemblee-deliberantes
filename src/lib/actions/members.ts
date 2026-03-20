@@ -75,9 +75,10 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     const nom = (formData.get('nom') as string)?.trim()
     const email = (formData.get('email') as string)?.trim()
 
-    if (!prenom) return { error: 'Le prenom est requis' }
+    if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
-    if (!email) return { error: 'L\'email est requis' }
+    if (!email) return { error: "L'email est requis" }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
 
     const payload = {
       prenom,
@@ -144,9 +145,10 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
     const nom = (formData.get('nom') as string)?.trim()
     const email = (formData.get('email') as string)?.trim()
 
-    if (!prenom) return { error: 'Le prenom est requis' }
+    if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
-    if (!email) return { error: 'L\'email est requis' }
+    if (!email) return { error: "L'email est requis" }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
 
     const payload = {
       prenom,
@@ -158,7 +160,6 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
       groupe_politique: (formData.get('groupe_politique') as string)?.trim() || null,
       mandat_debut: (formData.get('mandat_debut') as string) || null,
       mandat_fin: (formData.get('mandat_fin') as string) || null,
-      updated_at: new Date().toISOString(),
     }
 
     const { error } = await supabase
@@ -189,7 +190,7 @@ export async function toggleMemberStatus(
 
     const { error } = await supabase
       .from('members')
-      .update({ statut, updated_at: new Date().toISOString() })
+      .update({ statut })
       .eq('id', id)
 
     if (error) return { error: `Erreur : ${error.message}` }
@@ -286,7 +287,7 @@ export async function sendMemberInvitation(memberId: string): Promise<ActionResu
         email: member.email,
         role: member.role,
         member_id: memberId,
-        invited_by: user!.id,
+        invited_by: user?.id ?? null,
         token,
         expires_at: expiresAt.toISOString(),
       })
@@ -299,5 +300,128 @@ export async function sendMemberInvitation(memberId: string): Promise<ActionResu
   } catch (err) {
     console.error('sendMemberInvitation error:', err)
     return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Bulk Import ─────────────────────────────────────────────────────────────
+
+export interface ImportRow {
+  prenom: string
+  nom: string
+  email: string
+  telephone?: string
+  qualite_officielle?: string
+  groupe_politique?: string
+  role?: string
+  mandat_debut?: string
+  mandat_fin?: string
+}
+
+export interface ImportResult {
+  total: number
+  created: number
+  skipped: number
+  errors: { row: number; message: string }[]
+}
+
+const VALID_ROLES = ['super_admin', 'president', 'gestionnaire', 'secretaire_seance', 'elu', 'preparateur']
+
+export async function importMembers(rows: ImportRow[]): Promise<ImportResult | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    if (!rows || rows.length === 0) return { error: 'Aucune donnée à importer' }
+    if (rows.length > 500) return { error: 'Maximum 500 lignes par import' }
+
+    // Fetch existing emails to skip duplicates
+    const { data: existingMembers } = await supabase
+      .from('members')
+      .select('email')
+    const existingEmails = new Set((existingMembers || []).map(m => m.email.toLowerCase()))
+
+    const result: ImportResult = { total: rows.length, created: 0, skipped: 0, errors: [] }
+    const toInsert: Array<{
+      prenom: string
+      nom: string
+      email: string
+      telephone: string | null
+      qualite_officielle: string | null
+      groupe_politique: string | null
+      role: UserRole
+      mandat_debut: string | null
+      mandat_fin: string | null
+      statut: 'ACTIF'
+    }> = []
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      const rowNum = i + 2 // +2 for header + 0-index
+
+      // Validate required fields
+      const prenom = row.prenom?.trim()
+      const nom = row.nom?.trim()
+      const email = row.email?.trim()?.toLowerCase()
+
+      if (!prenom || !nom) {
+        result.errors.push({ row: rowNum, message: 'Prénom et nom requis' })
+        continue
+      }
+      if (!email) {
+        result.errors.push({ row: rowNum, message: 'Email requis' })
+        continue
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        result.errors.push({ row: rowNum, message: `Email invalide: ${email}` })
+        continue
+      }
+
+      // Skip duplicates
+      if (existingEmails.has(email)) {
+        result.skipped++
+        continue
+      }
+
+      // Validate role if provided
+      const role = row.role?.trim().toLowerCase() || 'elu'
+      if (!VALID_ROLES.includes(role)) {
+        result.errors.push({ row: rowNum, message: `Rôle inconnu: ${row.role}` })
+        continue
+      }
+
+      existingEmails.add(email) // Prevent duplicate within same import
+
+      toInsert.push({
+        prenom,
+        nom,
+        email,
+        telephone: row.telephone?.trim() || null,
+        qualite_officielle: row.qualite_officielle?.trim() || null,
+        groupe_politique: row.groupe_politique?.trim() || null,
+        role: role as UserRole,
+        mandat_debut: row.mandat_debut?.trim() || null,
+        mandat_fin: row.mandat_fin?.trim() || null,
+        statut: 'ACTIF',
+      })
+    }
+
+    // Batch insert (Supabase handles up to 1000 rows)
+    if (toInsert.length > 0) {
+      const { error: insertError } = await supabase
+        .from('members')
+        .insert(toInsert)
+
+      if (insertError) {
+        return { error: `Erreur d'insertion : ${insertError.message}` }
+      }
+      result.created = toInsert.length
+    }
+
+    revalidatePath(ROUTES.MEMBRES)
+    return result
+  } catch (err) {
+    console.error('importMembers error:', err)
+    return { error: 'Erreur inattendue lors de l\'import' }
   }
 }

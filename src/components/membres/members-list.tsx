@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { MemberFormDialog } from './member-form'
+import { MemberImportDialog } from './member-import'
 import { toggleMemberStatus, sendMemberInvitation } from '@/lib/actions/members'
 import type { MemberWithInstances } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole, MemberStatut } from '@/lib/supabase/types'
@@ -41,6 +42,7 @@ import {
   UserX,
   UserCheck,
   Users,
+  FileSpreadsheet,
 } from 'lucide-react'
 
 // --- Labels & colors ---
@@ -95,6 +97,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statutFilter, setStatutFilter] = useState<string>('all')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<MemberWithInstances | null>(null)
 
   const filteredMembers = useMemo(() => {
@@ -196,10 +199,16 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
         </Select>
 
         {canManage && (
-          <Button onClick={handleCreate} className="ml-auto gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter un membre
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Importer CSV
+            </Button>
+            <Button onClick={handleCreate} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un membre
+            </Button>
+          </div>
         )}
       </div>
 
@@ -344,6 +353,14 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
         member={editingMember}
         instances={instances}
       />
+
+      {/* Import dialog */}
+      {canManage && (
+        <MemberImportDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
     </div>
   )
 }

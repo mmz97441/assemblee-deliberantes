@@ -150,7 +150,7 @@ export async function toggleInstanceActive(id: string, actif: boolean): Promise<
 
     const { error } = await supabase
       .from('instance_config')
-      .update({ actif, updated_at: new Date().toISOString() })
+      .update({ actif })
       .eq('id', id)
 
     if (error) return { error: `Erreur : ${error.message}` }
