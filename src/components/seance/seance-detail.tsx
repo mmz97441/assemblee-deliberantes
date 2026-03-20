@@ -63,6 +63,8 @@ import {
   Loader2,
   Info,
   Shield,
+  Send,
+  RefreshCw,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -73,6 +75,7 @@ import {
   addConvocataire,
   removeConvocataire,
 } from '@/lib/actions/seances'
+import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -202,6 +205,35 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   if (!seance.secretaire_seance) warnings.push('Aucun secretaire de seance designe')
   if (seance.odj_points.length === 0) warnings.push("Aucun point a l'ordre du jour")
   if (seance.convocataires.length === 0) warnings.push('Aucun convocataire')
+
+  function handleSendConvocations() {
+    startTransition(async () => {
+      const result = await sendConvocations(seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        if (result.sent > 0) {
+          toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyee${result.sent > 1 ? 's' : ''}`)
+        }
+        if (result.errors.length > 0) {
+          toast.error(`${result.errors.length} erreur${result.errors.length > 1 ? 's' : ''} d'envoi`)
+        }
+        router.refresh()
+      }
+    })
+  }
+
+  function handleResendConvocation(memberId: string) {
+    startTransition(async () => {
+      const result = await resendConvocation(seance.id, memberId)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Convocation renvoyee')
+        router.refresh()
+      }
+    })
+  }
 
   function handleStatusChange(newStatut: string) {
     startTransition(async () => {
@@ -386,6 +418,22 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Convoquer
+                </Button>
+              )}
+
+              {(isBrouillon || seance.statut === 'CONVOQUEE') && (
+                <Button
+                  className="w-full"
+                  variant={isBrouillon ? 'outline' : 'default'}
+                  onClick={handleSendConvocations}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  Envoyer les convocations
                 </Button>
               )}
 
@@ -619,6 +667,18 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       <Badge className={`${convConfig.color} border-0 text-[11px]`}>
                         {convConfig.label}
                       </Badge>
+                      {canManage && (conv.statut_convocation === 'ENVOYE' || conv.statut_convocation === 'ERREUR_EMAIL') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+                          onClick={() => handleResendConvocation(conv.member_id)}
+                          disabled={isPending}
+                          title="Renvoyer la convocation"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {canManage && isBrouillon && (
                         <Button
                           variant="ghost"
