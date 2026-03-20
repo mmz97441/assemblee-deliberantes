@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic'
 
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
@@ -41,7 +42,6 @@ export default async function ConfigurationPage() {
     console.error('Erreur chargement configuration:', err)
   }
 
-  // If no institution config yet, show wizard full screen (first setup)
   const isFirstSetup = !institutionConfig?.type_institution
 
   return (
@@ -51,7 +51,7 @@ export default async function ConfigurationPage() {
         description={
           isFirstSetup
             ? 'Configurez votre institution en quelques étapes simples'
-            : 'Paramètres de l\'institution et des instances délibérantes'
+            : "Paramètres de l'institution et des instances délibérantes"
         }
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
@@ -61,10 +61,10 @@ export default async function ConfigurationPage() {
 
       <main className="px-8 py-6 page-enter">
         {isFirstSetup ? (
-          // First setup: wizard only, no tabs
-          <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+          <Suspense fallback={<WizardSkeleton />}>
+            <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+          </Suspense>
         ) : (
-          // Already configured: tabs for wizard (edit) + instances management
           <Tabs defaultValue="assistant" className="space-y-6">
             <TabsList className="h-11 p-1 bg-muted/60">
               <TabsTrigger value="assistant" className="gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm px-4">
@@ -78,7 +78,9 @@ export default async function ConfigurationPage() {
             </TabsList>
 
             <TabsContent value="assistant" className="space-y-6 mt-6">
-              <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+              <Suspense fallback={<WizardSkeleton />}>
+                <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+              </Suspense>
             </TabsContent>
 
             <TabsContent value="instances" className="space-y-6 mt-6">
@@ -88,5 +90,25 @@ export default async function ConfigurationPage() {
         )}
       </main>
     </AuthenticatedLayout>
+  )
+}
+
+function WizardSkeleton() {
+  return (
+    <div className="max-w-3xl space-y-6 animate-pulse">
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <div className="h-4 w-48 bg-muted rounded" />
+          <div className="h-8 w-12 bg-muted rounded" />
+        </div>
+        <div className="h-2 bg-muted rounded-full" />
+      </div>
+      <div className="flex gap-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex-1 h-16 bg-muted rounded-xl" />
+        ))}
+      </div>
+      <div className="h-64 bg-muted rounded-xl" />
+    </div>
   )
 }
