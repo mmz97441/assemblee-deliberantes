@@ -1,57 +1,35 @@
-// Types générés depuis Supabase — sera écrasé par `supabase gen types typescript`
-// Placeholder en attendant les migrations
+// Re-export depuis les types generes par Supabase
+// Tous les imports existants (import { UserRole } from '@/lib/supabase/types')
+// continuent de fonctionner sans modification.
+//
+// Pour regenerer: npx supabase gen types typescript --project-id rvcyxgtqxqzmqecerjvy
 
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
-
-export type InstitutionType = 'commune' | 'syndicat' | 'cc' | 'departement' | 'asso'
-
-export type UserRole = 'super_admin' | 'president' | 'gestionnaire' | 'secretaire_seance' | 'elu' | 'preparateur'
-
-export type SeanceStatut = 'BROUILLON' | 'CONVOQUEE' | 'EN_COURS' | 'SUSPENDUE' | 'CLOTUREE' | 'ARCHIVEE'
-
-export type SeanceMode = 'PRESENTIEL' | 'HYBRIDE' | 'VISIO'
-
-export type PresenceStatut = 'PRESENT' | 'ABSENT' | 'EXCUSE' | 'PROCURATION'
-
-export type ConvocationStatut =
-  | 'NON_ENVOYE'
-  | 'ENVOYE'
-  | 'LU'
-  | 'CONFIRME_PRESENT'
-  | 'ABSENT_PROCURATION'
-  | 'ERREUR_EMAIL'
-  | 'ENVOYE_COURRIER'
-
-export type VoteType = 'MAIN_LEVEE' | 'SECRET' | 'NOMINAL' | 'TELEVOTE'
-
-export type VoteStatut = 'OUVERT' | 'CLOS' | 'ANNULE' | 'CONTESTE'
-
-export type VoteResultat = 'ADOPTE' | 'REJETE' | 'NUL' | 'ADOPTE_UNANIMITE' | 'ADOPTE_VOIX_PREPONDERANTE'
-
-export type PVStatut = 'BROUILLON' | 'EN_RELECTURE' | 'APPROUVE_EN_SEANCE' | 'SIGNE' | 'PUBLIE'
-
-export type MemberStatut = 'ACTIF' | 'SUSPENDU' | 'FIN_DE_MANDAT' | 'DECEDE'
-
-export type ODJPointType = 'DELIBERATION' | 'INFORMATION' | 'QUESTION_DIVERSE' | 'ELECTION' | 'APPROBATION_PV'
-
-export type MajoriteRequise = 'SIMPLE' | 'ABSOLUE' | 'QUALIFIEE' | 'UNANIMITE'
-
-export type LateArrivalMode = 'STRICT' | 'SOUPLE' | 'SUSPENDU'
-
-export type QuorumType = 'MAJORITE_MEMBRES' | 'TIERS_MEMBRES' | 'DEUX_TIERS' | 'STATUTS'
-
-// Placeholder Database type — sera remplacé par les types générés
-export interface Database {
-  public: {
-    Tables: Record<string, never>
-    Views: Record<string, never>
-    Functions: Record<string, never>
-    Enums: Record<string, never>
-  }
-}
+export {
+  type Database,
+  type Json,
+  type UserRole,
+  type InstitutionType,
+  type SeanceStatut,
+  type SeanceMode,
+  type PresenceStatut,
+  type ConvocationStatut,
+  type VoteType,
+  type VoteStatut,
+  type VoteResultat,
+  type PVStatut,
+  type MemberStatut,
+  type ODJPointType,
+  type MajoriteRequise,
+  type LateArrivalMode,
+  type QuorumType,
+  type MemberRow,
+  type SeanceRow,
+  type VoteRow,
+  type ODJPointRow,
+  type PresenceRow,
+  type ConvocataireRow,
+  type PVRow,
+  type DeliberationRow,
+  type InstitutionConfigRow,
+  type InstanceConfigRow,
+} from './types.generated'
