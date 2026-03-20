@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   CalendarDays,
   MapPin,
@@ -71,6 +74,12 @@ import {
   Vote,
   MessageSquare,
   Eye,
+  Mail,
+  MailCheck,
+  MailX,
+  MailWarning,
+  ListPlus,
+  AlertOctagon,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -80,6 +89,7 @@ import {
   updateSeanceStatut,
   addConvocataire,
   removeConvocataire,
+  addStandardODJPoints,
 } from '@/lib/actions/seances'
 import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
@@ -213,6 +223,67 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   if (seance.odj_points.length === 0) warnings.push("Aucun point a l'ordre du jour")
   if (seance.convocataires.length === 0) warnings.push('Aucun convocataire')
 
+  // ─── Convocation stats ───────────────────────────────────────────────────
+  const convocationStats = useMemo(() => {
+    const total = seance.convocataires.length
+    let envoyes = 0
+    let confirmes = 0
+    let erreurs = 0
+    let nonEnvoyes = 0
+
+    for (const conv of seance.convocataires) {
+      const statut = conv.statut_convocation || 'NON_ENVOYE'
+      if (statut === 'NON_ENVOYE') nonEnvoyes++
+      else if (statut === 'ERREUR_EMAIL') erreurs++
+      else if (statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION') confirmes++
+      else envoyes++ // ENVOYE, LU, ENVOYE_COURRIER
+    }
+
+    return { total, envoyes, confirmes, erreurs, nonEnvoyes }
+  }, [seance.convocataires])
+
+  // ─── Legal delay warning ─────────────────────────────────────────────────
+  const legalDelayWarning = useMemo(() => {
+    const delai = seance.instance_config?.delai_convocation_jours
+    if (!delai || delai <= 0) return null
+
+    const now = new Date()
+    const dateSeance = new Date(seance.date_seance)
+    const daysUntil = Math.ceil((dateSeance.getTime() - now.getTime()) / 86400000)
+
+    // Check if convocations have been sent
+    const allNonEnvoye = seance.convocataires.every(
+      c => (c.statut_convocation || 'NON_ENVOYE') === 'NON_ENVOYE'
+    )
+    const hasConvocataires = seance.convocataires.length > 0
+
+    if (daysUntil < delai && allNonEnvoye && hasConvocataires) {
+      return {
+        daysUntil,
+        delai,
+        critical: daysUntil <= 0,
+      }
+    }
+    return null
+  }, [seance.date_seance, seance.instance_config?.delai_convocation_jours, seance.convocataires])
+
+  // ─── ODJ quick stats ─────────────────────────────────────────────────────
+  const odjStats = useMemo(() => {
+    const total = seance.odj_points.length
+    const votables = seance.odj_points.filter(
+      p => !p.votes_interdits && (p.type_traitement === 'DELIBERATION' || p.type_traitement === 'ELECTION' || p.type_traitement === 'APPROBATION_PV')
+    ).length
+    const documentsCount = seance.odj_points.reduce((acc, p) => {
+      const docs: DocumentInfo[] = Array.isArray(p.documents)
+        ? (p.documents as unknown as DocumentInfo[])
+        : []
+      return acc + docs.length
+    }, 0)
+    return { total, votables, documentsCount }
+  }, [seance.odj_points])
+
+  // ─── Handlers ────────────────────────────────────────────────────────────
+
   function handleSendConvocations() {
     startTransition(async () => {
       const result = await sendConvocations(seance.id)
@@ -299,122 +370,439 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     })
   }
 
+  function handleAddStandardPoints() {
+    startTransition(async () => {
+      const result = await addStandardODJPoints(seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Points standards ajoutes')
+        router.refresh()
+      }
+    })
+  }
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
-      {/* Header info + actions */}
+      {/* Header: Tabs + Actions panel side by side */}
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left: Info cards */}
-        <div className="flex-1 space-y-4">
-          {/* Status + key info */}
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center gap-3 mb-4">
-              <Badge className={`${statutConfig.color} border-0 text-sm px-3 py-1`}>
-                {statutConfig.label}
-              </Badge>
-              <Badge variant="outline">{seance.instance_config?.nom}</Badge>
-              {seance.reconvocation && (
-                <Badge variant="outline" className="border-amber-300 text-amber-700">Reconvocation</Badge>
-              )}
-            </div>
+        {/* Left: Tabs content area */}
+        <div className="flex-1 min-w-0">
+          <Tabs defaultValue="resume" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="resume">Resume</TabsTrigger>
+              <TabsTrigger value="odj">
+                Ordre du jour
+                {seance.odj_points.length > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                    {seance.odj_points.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="convocations">
+                Convocations
+                {seance.convocataires.length > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                    {seance.convocataires.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Date</p>
-                <p className="font-medium flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                  {formatDate(seance.date_seance)}
-                </p>
-              </div>
-              {seance.date_seance.includes('T') && (
-                <div>
-                  <p className="text-muted-foreground text-xs mb-0.5">Heure</p>
-                  <p className="font-medium flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    {formatTime(seance.date_seance)}
-                  </p>
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* TAB: Resume                                                    */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            <TabsContent value="resume" className="space-y-4 mt-0">
+              {/* Session info card */}
+              <div className="rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <Badge className={`${statutConfig.color} border-0 text-sm px-3 py-1`}>
+                    {statutConfig.label}
+                  </Badge>
+                  <Badge variant="outline">{seance.instance_config?.nom}</Badge>
+                  {seance.reconvocation && (
+                    <Badge variant="outline" className="border-amber-300 text-amber-700">Reconvocation</Badge>
+                  )}
                 </div>
-              )}
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Mode</p>
-                <p className="font-medium flex items-center gap-1.5">
-                  <ModeIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  {seance.mode === 'PRESENTIEL' ? 'Presentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
-                </p>
-              </div>
-              {seance.lieu && (
-                <div>
-                  <p className="text-muted-foreground text-xs mb-0.5">Lieu</p>
-                  <p className="font-medium flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                    {seance.lieu}
-                  </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Date</p>
+                    <p className="font-medium flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                      {formatDate(seance.date_seance)}
+                    </p>
+                  </div>
+                  {seance.date_seance.includes('T') && (
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-0.5">Heure</p>
+                      <p className="font-medium flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                        {formatTime(seance.date_seance)}
+                      </p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Mode</p>
+                    <p className="font-medium flex items-center gap-1.5">
+                      <ModeIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      {seance.mode === 'PRESENTIEL' ? 'Presentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
+                    </p>
+                  </div>
+                  {seance.lieu && (
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-0.5">Lieu</p>
+                      <p className="font-medium flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                        {seance.lieu}
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <Separator className="my-4" />
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">President(e)</p>
-                <p className="font-medium">
-                  {seance.president_effectif
-                    ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
-                    : 'Non designe'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Secretaire</p>
-                <p className="font-medium">
-                  {seance.secretaire_seance
-                    ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
-                    : 'Non designe'}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Publique</p>
-                <p className="font-medium">{seance.publique ? 'Oui' : 'Non (huis clos)'}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs mb-0.5">Instance</p>
-                <p className="font-medium">{seance.instance_config?.type_legal || '-'}</p>
-              </div>
-            </div>
-
-            {seance.notes && (
-              <>
                 <Separator className="my-4" />
-                <div>
-                  <p className="text-muted-foreground text-xs mb-1">Notes</p>
-                  <p className="text-sm">{seance.notes}</p>
-                </div>
-              </>
-            )}
-          </div>
 
-          {/* Warnings */}
-          {warnings.length > 0 && isBrouillon && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <p className="text-sm font-medium text-amber-800">Points d&apos;attention</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">President(e)</p>
+                    <p className="font-medium">
+                      {seance.president_effectif
+                        ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
+                        : 'Non designe'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Secretaire</p>
+                    <p className="font-medium">
+                      {seance.secretaire_seance
+                        ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
+                        : 'Non designe'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Publique</p>
+                    <p className="font-medium">{seance.publique ? 'Oui' : 'Non (huis clos)'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground text-xs mb-0.5">Instance</p>
+                    <p className="font-medium">{seance.instance_config?.type_legal || '-'}</p>
+                  </div>
+                </div>
+
+                {seance.notes && (
+                  <>
+                    <Separator className="my-4" />
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Notes</p>
+                      <p className="text-sm">{seance.notes}</p>
+                    </div>
+                  </>
+                )}
               </div>
-              <ul className="space-y-1">
-                {warnings.map((w, i) => (
-                  <li key={i} className="text-sm text-amber-700 flex items-center gap-2">
-                    <span className="h-1 w-1 rounded-full bg-amber-500 shrink-0" />
-                    {w}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+
+              {/* Warnings */}
+              {warnings.length > 0 && isBrouillon && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm font-medium text-amber-800">Points d&apos;attention</p>
+                  </div>
+                  <ul className="space-y-1">
+                    {warnings.map((w, i) => (
+                      <li key={i} className="text-sm text-amber-700 flex items-center gap-2">
+                        <span className="h-1 w-1 rounded-full bg-amber-500 shrink-0" />
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Legal delay warning */}
+              {legalDelayWarning && (
+                <Alert variant="destructive">
+                  <AlertOctagon className="h-4 w-4" />
+                  <AlertTitle>Delai legal de convocation non respecte</AlertTitle>
+                  <AlertDescription>
+                    {legalDelayWarning.critical ? (
+                      <>
+                        La seance est prevue aujourd&apos;hui ou est deja passee et les convocations
+                        n&apos;ont pas ete envoyees. Le delai legal est de{' '}
+                        <strong>{legalDelayWarning.delai} jours</strong>.
+                      </>
+                    ) : (
+                      <>
+                        Il reste <strong>{legalDelayWarning.daysUntil} jour{legalDelayWarning.daysUntil > 1 ? 's' : ''}</strong>{' '}
+                        avant la seance mais les convocations n&apos;ont pas ete envoyees.
+                        Le delai legal de convocation est de{' '}
+                        <strong>{legalDelayWarning.delai} jours</strong>.
+                        Envoyez les convocations immediatement ou reportez la seance.
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Convocation summary dashboard */}
+              {seance.convocataires.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    Convocations
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                          <Send className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{convocationStats.envoyes}</p>
+                          <p className="text-xs text-muted-foreground">Envoyes</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                          <MailCheck className="h-5 w-5 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{convocationStats.confirmes}</p>
+                          <p className="text-xs text-muted-foreground">Confirmes</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                          <MailX className="h-5 w-5 text-red-600" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{convocationStats.erreurs}</p>
+                          <p className="text-xs text-muted-foreground">Erreurs</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="p-4 flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+                          <MailWarning className="h-5 w-5 text-slate-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{convocationStats.nonEnvoyes}</p>
+                          <p className="text-xs text-muted-foreground">Non envoyes</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick stats: ODJ */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Ordre du jour
+                </h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold">{odjStats.total}</p>
+                      <p className="text-xs text-muted-foreground">Point{odjStats.total !== 1 ? 's' : ''} ODJ</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-blue-600">{odjStats.votables}</p>
+                      <p className="text-xs text-muted-foreground">Soumis au vote</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-4 text-center">
+                      <p className="text-2xl font-bold text-amber-600">{odjStats.documentsCount}</p>
+                      <p className="text-xs text-muted-foreground">Document{odjStats.documentsCount !== 1 ? 's' : ''} joint{odjStats.documentsCount !== 1 ? 's' : ''}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* TAB: Ordre du jour                                             */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            <TabsContent value="odj" className="mt-0">
+              <div className="rounded-xl border bg-card">
+                <div className="flex items-center justify-between p-5 pb-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    Ordre du jour
+                  </h2>
+                  {canManage && isBrouillon && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleAddStandardPoints}
+                        disabled={isPending}
+                      >
+                        {isPending ? (
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : (
+                          <ListPlus className="h-4 w-4 mr-1" />
+                        )}
+                        Points standards
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => { setEditingPoint(null); setOdjFormOpen(true) }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Ajouter un point
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {seance.odj_points.length === 0 ? (
+                  <div className="px-5 pb-5">
+                    <div className="text-center py-8 rounded-lg border border-dashed">
+                      <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">Aucun point a l&apos;ordre du jour</p>
+                      {canManage && isBrouillon && (
+                        <div className="flex items-center justify-center gap-2 mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleAddStandardPoints}
+                            disabled={isPending}
+                          >
+                            <ListPlus className="h-4 w-4 mr-1" />
+                            Ajouter les points standards
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setEditingPoint(null); setOdjFormOpen(true) }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Ajouter un point
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-5 pb-5 space-y-2">
+                    {seance.odj_points.map((point, idx) => (
+                      <ODJPointCard
+                        key={point.id}
+                        point={point}
+                        idx={idx}
+                        totalPoints={seance.odj_points.length}
+                        allMembers={allMembers}
+                        seanceId={seance.id}
+                        canManage={canManage}
+                        isBrouillon={isBrouillon}
+                        isPending={isPending}
+                        onMovePoint={handleMovePoint}
+                        onEdit={(p) => { setEditingPoint(p); setOdjFormOpen(true) }}
+                        onDelete={(p) => setDeletePointDialog(p)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* TAB: Convocations                                              */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            <TabsContent value="convocations" className="mt-0">
+              <div className="rounded-xl border bg-card">
+                <div className="flex items-center justify-between p-5 pb-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                    Convocataires ({seance.convocataires.length})
+                  </h2>
+                  {canManage && isBrouillon && (
+                    <Button size="sm" variant="outline" onClick={() => setAddConvocataireOpen(true)}>
+                      <UserPlus className="h-4 w-4 mr-1" />
+                      Ajouter
+                    </Button>
+                  )}
+                </div>
+
+                {seance.convocataires.length === 0 ? (
+                  <div className="px-5 pb-5">
+                    <div className="text-center py-8 rounded-lg border border-dashed">
+                      <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">Aucun convocataire</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-5 pb-5">
+                    <div className="divide-y rounded-lg border">
+                      {seance.convocataires.map(conv => {
+                        const convConfig = CONVOCATION_LABELS[conv.statut_convocation || 'NON_ENVOYE']
+                        return (
+                          <div key={conv.id} className="flex items-center justify-between px-3 py-2.5">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                                {conv.member?.prenom?.[0]}{conv.member?.nom?.[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {conv.member?.prenom} {conv.member?.nom}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{conv.member?.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge className={`${convConfig.color} border-0 text-[11px]`}>
+                                {convConfig.label}
+                              </Badge>
+                              {canManage && (conv.statut_convocation === 'ENVOYE' || conv.statut_convocation === 'ERREUR_EMAIL') && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+                                  onClick={() => handleResendConvocation(conv.member_id)}
+                                  disabled={isPending}
+                                  title="Renvoyer la convocation"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                              {canManage && isBrouillon && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleRemoveConvocataire(conv.member_id)}
+                                  disabled={isPending}
+                                >
+                                  <UserMinus className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* Right: Actions panel */}
+        {/* Right: Actions panel (always visible, outside tabs) */}
         {canManage && (
-          <div className="w-full lg:w-64 space-y-3">
-            <div className="rounded-xl border bg-card p-4 space-y-3">
+          <div className="w-full lg:w-64 space-y-3 lg:shrink-0">
+            <div className="rounded-xl border bg-card p-4 space-y-3 lg:sticky lg:top-6">
               <h3 className="font-semibold text-sm">Actions</h3>
 
               {isBrouillon && (
@@ -506,295 +894,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         )}
       </div>
 
-      {/* ODJ Section */}
-      <div className="rounded-xl border bg-card">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <FileText className="h-5 w-5 text-muted-foreground" />
-            Ordre du jour
-          </h2>
-          {canManage && isBrouillon && (
-            <Button
-              size="sm"
-              onClick={() => { setEditingPoint(null); setOdjFormOpen(true) }}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Ajouter un point
-            </Button>
-          )}
-        </div>
-
-        {seance.odj_points.length === 0 ? (
-          <div className="px-5 pb-5">
-            <div className="text-center py-8 rounded-lg border border-dashed">
-              <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">Aucun point a l&apos;ordre du jour</p>
-              {canManage && isBrouillon && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => { setEditingPoint(null); setOdjFormOpen(true) }}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Ajouter le premier point
-                </Button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="px-5 pb-5 space-y-2">
-            {seance.odj_points.map((point, idx) => {
-              const typeConfig = TYPE_LABELS[point.type_traitement || 'DELIBERATION']
-              const isVotable = !point.votes_interdits && (point.type_traitement === 'DELIBERATION' || point.type_traitement === 'ELECTION' || point.type_traitement === 'APPROBATION_PV')
-              const rapporteur = point.rapporteur_id
-                ? allMembers.find(m => m.id === point.rapporteur_id)
-                : null
-              const documents: DocumentInfo[] = Array.isArray(point.documents)
-                ? (point.documents as unknown as DocumentInfo[])
-                : []
-
-              return (
-                <div
-                  key={point.id}
-                  className={`rounded-lg border p-3 hover:bg-muted/30 transition-colors ${
-                    isVotable ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-slate-200'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Position & reorder */}
-                    <div className="flex flex-col items-center gap-1 pt-0.5">
-                      {canManage && isBrouillon && (
-                        <button
-                          onClick={() => handleMovePoint(point.id, 'up')}
-                          disabled={idx === 0 || isPending}
-                          className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                        >
-                          <ChevronUp className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                        isVotable ? 'bg-blue-100 text-blue-700' : 'bg-muted'
-                      }`}>
-                        {point.position}
-                      </span>
-                      {canManage && isBrouillon && (
-                        <button
-                          onClick={() => handleMovePoint(point.id, 'down')}
-                          disabled={idx === seance.odj_points.length - 1 || isPending}
-                          className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                        >
-                          <ChevronDown className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      {/* Badges row */}
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                        <Badge className={`${typeConfig.color} border-0 text-[11px] px-2 py-0`}>
-                          {typeConfig.label}
-                        </Badge>
-                        {isVotable ? (
-                          <Badge className="bg-blue-50 text-blue-700 border-0 text-[11px] px-2 py-0">
-                            <Vote className="h-3 w-3 mr-0.5" />
-                            Soumis au vote
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-slate-50 text-slate-500 border-0 text-[11px] px-2 py-0">
-                            <Eye className="h-3 w-3 mr-0.5" />
-                            Information
-                          </Badge>
-                        )}
-                        {point.huis_clos && (
-                          <Badge variant="outline" className="text-[11px] px-2 py-0 border-red-200 text-red-600">
-                            <Shield className="h-3 w-3 mr-0.5" />
-                            Huis clos
-                          </Badge>
-                        )}
-                        {point.majorite_requise && point.majorite_requise !== 'SIMPLE' && isVotable && (
-                          <Badge variant="outline" className="text-[11px] px-2 py-0">
-                            Maj. {point.majorite_requise.toLowerCase()}
-                          </Badge>
-                        )}
-                        {point.statut && point.statut !== 'A_TRAITER' && (
-                          <Badge className={`border-0 text-[11px] px-2 py-0 ${
-                            point.statut === 'ADOPTE' ? 'bg-emerald-100 text-emerald-700' :
-                            point.statut === 'REJETE' ? 'bg-red-100 text-red-700' :
-                            point.statut === 'EN_DISCUSSION' ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {point.statut === 'ADOPTE' ? 'Adopte' :
-                             point.statut === 'REJETE' ? 'Rejete' :
-                             point.statut === 'EN_DISCUSSION' ? 'En discussion' :
-                             point.statut}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Title */}
-                      <h4 className="text-sm font-medium text-foreground">{point.titre}</h4>
-
-                      {/* Description */}
-                      {point.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{point.description}</p>
-                      )}
-
-                      {/* Projet de deliberation */}
-                      {point.projet_deliberation && (
-                        <div className="mt-1.5 rounded bg-blue-50 border border-blue-100 px-2.5 py-1.5">
-                          <p className="text-xs text-blue-700 font-medium mb-0.5">Resolution proposee :</p>
-                          <p className="text-xs text-blue-800 line-clamp-3 whitespace-pre-line">{point.projet_deliberation}</p>
-                        </div>
-                      )}
-
-                      {/* Rapporteur */}
-                      {rapporteur && (
-                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          Rapporteur : <span className="font-medium text-foreground">{rapporteur.prenom} {rapporteur.nom}</span>
-                        </p>
-                      )}
-
-                      {/* Documents */}
-                      {documents.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {documents.map((doc, i) => (
-                            <DocumentBadge
-                              key={i}
-                              doc={doc}
-                              pointId={point.id}
-                              seanceId={seance.id}
-                              canRemove={canManage && isBrouillon}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Upload button for brouillon */}
-                      {canManage && isBrouillon && (
-                        <div className="mt-2">
-                          <DocumentUploadButton pointId={point.id} seanceId={seance.id} />
-                        </div>
-                      )}
-
-                      {/* Notes de seance */}
-                      {point.notes_seance && (
-                        <div className="mt-2 rounded bg-amber-50 border border-amber-100 px-2.5 py-1.5">
-                          <p className="text-xs text-amber-800">
-                            <strong>Note :</strong> {point.notes_seance}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    {canManage && isBrouillon && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => { setEditingPoint(point); setOdjFormOpen(true) }}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Modifier
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeletePointDialog(point)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Supprimer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Convocataires Section */}
-      <div className="rounded-xl border bg-card">
-        <div className="flex items-center justify-between p-5 pb-3">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Users className="h-5 w-5 text-muted-foreground" />
-            Convocataires ({seance.convocataires.length})
-          </h2>
-          {canManage && isBrouillon && (
-            <Button size="sm" variant="outline" onClick={() => setAddConvocataireOpen(true)}>
-              <UserPlus className="h-4 w-4 mr-1" />
-              Ajouter
-            </Button>
-          )}
-        </div>
-
-        {seance.convocataires.length === 0 ? (
-          <div className="px-5 pb-5">
-            <div className="text-center py-8 rounded-lg border border-dashed">
-              <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">Aucun convocataire</p>
-            </div>
-          </div>
-        ) : (
-          <div className="px-5 pb-5">
-            <div className="divide-y rounded-lg border">
-              {seance.convocataires.map(conv => {
-                const convConfig = CONVOCATION_LABELS[conv.statut_convocation || 'NON_ENVOYE']
-                return (
-                  <div key={conv.id} className="flex items-center justify-between px-3 py-2.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
-                        {conv.member?.prenom?.[0]}{conv.member?.nom?.[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {conv.member?.prenom} {conv.member?.nom}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{conv.member?.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`${convConfig.color} border-0 text-[11px]`}>
-                        {convConfig.label}
-                      </Badge>
-                      {canManage && (conv.statut_convocation === 'ENVOYE' || conv.statut_convocation === 'ERREUR_EMAIL') && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-                          onClick={() => handleResendConvocation(conv.member_id)}
-                          disabled={isPending}
-                          title="Renvoyer la convocation"
-                        >
-                          <RefreshCw className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      {canManage && isBrouillon && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleRemoveConvocataire(conv.member_id)}
-                          disabled={isPending}
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* Dialogs                                                            */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
 
       {/* ODJ Form Dialog */}
       <ODJPointFormDialog
@@ -868,6 +970,204 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         allMembers={allMembers}
         instanceMemberIds={instanceMemberIds}
       />
+    </div>
+  )
+}
+
+// ─── ODJ Point Card (extracted for clarity) ─────────────────────────────────
+
+function ODJPointCard({
+  point,
+  idx,
+  totalPoints,
+  allMembers,
+  seanceId,
+  canManage,
+  isBrouillon,
+  isPending,
+  onMovePoint,
+  onEdit,
+  onDelete,
+}: {
+  point: ODJPointRow
+  idx: number
+  totalPoints: number
+  allMembers: MemberOption[]
+  seanceId: string
+  canManage: boolean
+  isBrouillon: boolean
+  isPending: boolean
+  onMovePoint: (pointId: string, direction: 'up' | 'down') => void
+  onEdit: (point: ODJPointRow) => void
+  onDelete: (point: ODJPointRow) => void
+}) {
+  const typeConfig = TYPE_LABELS[point.type_traitement || 'DELIBERATION']
+  const isVotable = !point.votes_interdits && (point.type_traitement === 'DELIBERATION' || point.type_traitement === 'ELECTION' || point.type_traitement === 'APPROBATION_PV')
+  const rapporteur = point.rapporteur_id
+    ? allMembers.find(m => m.id === point.rapporteur_id)
+    : null
+  const documents: DocumentInfo[] = Array.isArray(point.documents)
+    ? (point.documents as unknown as DocumentInfo[])
+    : []
+
+  return (
+    <div
+      className={`rounded-lg border p-3 hover:bg-muted/30 transition-colors ${
+        isVotable ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-slate-200'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        {/* Position & reorder */}
+        <div className="flex flex-col items-center gap-1 pt-0.5">
+          {canManage && isBrouillon && (
+            <button
+              onClick={() => onMovePoint(point.id, 'up')}
+              disabled={idx === 0 || isPending}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+            isVotable ? 'bg-blue-100 text-blue-700' : 'bg-muted'
+          }`}>
+            {point.position}
+          </span>
+          {canManage && isBrouillon && (
+            <button
+              onClick={() => onMovePoint(point.id, 'down')}
+              disabled={idx === totalPoints - 1 || isPending}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Badges row */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+            <Badge className={`${typeConfig.color} border-0 text-[11px] px-2 py-0`}>
+              {typeConfig.label}
+            </Badge>
+            {isVotable ? (
+              <Badge className="bg-blue-50 text-blue-700 border-0 text-[11px] px-2 py-0">
+                <Vote className="h-3 w-3 mr-0.5" />
+                Soumis au vote
+              </Badge>
+            ) : (
+              <Badge className="bg-slate-50 text-slate-500 border-0 text-[11px] px-2 py-0">
+                <Eye className="h-3 w-3 mr-0.5" />
+                Information
+              </Badge>
+            )}
+            {point.huis_clos && (
+              <Badge variant="outline" className="text-[11px] px-2 py-0 border-red-200 text-red-600">
+                <Shield className="h-3 w-3 mr-0.5" />
+                Huis clos
+              </Badge>
+            )}
+            {point.majorite_requise && point.majorite_requise !== 'SIMPLE' && isVotable && (
+              <Badge variant="outline" className="text-[11px] px-2 py-0">
+                Maj. {point.majorite_requise.toLowerCase()}
+              </Badge>
+            )}
+            {point.statut && point.statut !== 'A_TRAITER' && (
+              <Badge className={`border-0 text-[11px] px-2 py-0 ${
+                point.statut === 'ADOPTE' ? 'bg-emerald-100 text-emerald-700' :
+                point.statut === 'REJETE' ? 'bg-red-100 text-red-700' :
+                point.statut === 'EN_DISCUSSION' ? 'bg-amber-100 text-amber-700' :
+                'bg-slate-100 text-slate-600'
+              }`}>
+                {point.statut === 'ADOPTE' ? 'Adopte' :
+                 point.statut === 'REJETE' ? 'Rejete' :
+                 point.statut === 'EN_DISCUSSION' ? 'En discussion' :
+                 point.statut}
+              </Badge>
+            )}
+          </div>
+
+          {/* Title */}
+          <h4 className="text-sm font-medium text-foreground">{point.titre}</h4>
+
+          {/* Description */}
+          {point.description && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{point.description}</p>
+          )}
+
+          {/* Projet de deliberation */}
+          {point.projet_deliberation && (
+            <div className="mt-1.5 rounded bg-blue-50 border border-blue-100 px-2.5 py-1.5">
+              <p className="text-xs text-blue-700 font-medium mb-0.5">Resolution proposee :</p>
+              <p className="text-xs text-blue-800 line-clamp-3 whitespace-pre-line">{point.projet_deliberation}</p>
+            </div>
+          )}
+
+          {/* Rapporteur */}
+          {rapporteur && (
+            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+              <MessageSquare className="h-3 w-3" />
+              Rapporteur : <span className="font-medium text-foreground">{rapporteur.prenom} {rapporteur.nom}</span>
+            </p>
+          )}
+
+          {/* Documents */}
+          {documents.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {documents.map((doc, i) => (
+                <DocumentBadge
+                  key={i}
+                  doc={doc}
+                  pointId={point.id}
+                  seanceId={seanceId}
+                  canRemove={canManage && isBrouillon}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Upload button for brouillon */}
+          {canManage && isBrouillon && (
+            <div className="mt-2">
+              <DocumentUploadButton pointId={point.id} seanceId={seanceId} />
+            </div>
+          )}
+
+          {/* Notes de seance */}
+          {point.notes_seance && (
+            <div className="mt-2 rounded bg-amber-50 border border-amber-100 px-2.5 py-1.5">
+              <p className="text-xs text-amber-800">
+                <strong>Note :</strong> {point.notes_seance}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        {canManage && isBrouillon && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onEdit(point)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Modifier
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onDelete(point)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Supprimer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   )
 }

@@ -498,6 +498,104 @@ export async function reorderODJPoints(
   }
 }
 
+// ─── Points ODJ standards ─────────────────────────────────────────────────────
+
+export async function addStandardODJPoints(seanceId: string): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    if (!seanceId) return { error: 'ID de seance manquant' }
+
+    // Fetch existing points to check for duplicates and determine positions
+    const { data: existingPoints, error: fetchError } = await supabase
+      .from('odj_points')
+      .select('id, position, type_traitement')
+      .eq('seance_id', seanceId)
+      .order('position', { ascending: true })
+
+    if (fetchError) return { error: `Erreur de chargement : ${fetchError.message}` }
+
+    const points = existingPoints || []
+    const hasApprobationPV = points.some(p => p.type_traitement === 'APPROBATION_PV')
+    const hasQuestionDiverse = points.some(p => p.type_traitement === 'QUESTION_DIVERSE')
+
+    if (hasApprobationPV && hasQuestionDiverse) {
+      return { error: 'Les points standards (Approbation PV et Questions diverses) existent deja' }
+    }
+
+    // If adding APPROBATION_PV at position 1, shift all existing points down
+    if (!hasApprobationPV) {
+      // Shift all existing points by +1
+      for (const p of points) {
+        const { error: shiftError } = await supabase
+          .from('odj_points')
+          .update({ position: p.position + 1 })
+          .eq('id', p.id)
+
+        if (shiftError) return { error: `Erreur de reordonnancement : ${shiftError.message}` }
+      }
+
+      // Insert Approbation PV at position 1
+      const { error: insertPVError } = await supabase
+        .from('odj_points')
+        .insert({
+          seance_id: seanceId,
+          titre: 'Approbation du proces-verbal de la seance precedente',
+          description: null,
+          type_traitement: 'APPROBATION_PV' as const,
+          majorite_requise: 'SIMPLE' as const,
+          rapporteur_id: null,
+          huis_clos: false,
+          votes_interdits: false,
+          position: 1,
+          statut: 'A_TRAITER',
+        })
+
+      if (insertPVError) return { error: `Erreur de creation : ${insertPVError.message}` }
+    }
+
+    // Determine position for Questions diverses (last)
+    if (!hasQuestionDiverse) {
+      // Re-fetch to get updated positions
+      const { data: updatedPoints } = await supabase
+        .from('odj_points')
+        .select('position')
+        .eq('seance_id', seanceId)
+        .order('position', { ascending: false })
+        .limit(1)
+
+      const lastPosition = updatedPoints && updatedPoints.length > 0
+        ? updatedPoints[0].position + 1
+        : 1
+
+      const { error: insertQDError } = await supabase
+        .from('odj_points')
+        .insert({
+          seance_id: seanceId,
+          titre: 'Questions diverses',
+          description: null,
+          type_traitement: 'QUESTION_DIVERSE' as const,
+          majorite_requise: 'SIMPLE' as const,
+          rapporteur_id: null,
+          huis_clos: false,
+          votes_interdits: true,
+          position: lastPosition,
+          statut: 'A_TRAITER',
+        })
+
+      if (insertQDError) return { error: `Erreur de creation : ${insertQDError.message}` }
+    }
+
+    revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
+    return { success: true }
+  } catch (err) {
+    console.error('addStandardODJPoints error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
 // ─── Convocataires ───────────────────────────────────────────────────────────
 
 export async function addConvocataire(seanceId: string, memberId: string): Promise<ActionResult> {
