@@ -102,42 +102,48 @@ export default async function DashboardPage() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger-in">
           {/* Séances */}
-          <div className="group relative rounded-xl border bg-card p-6 opacity-50 cursor-not-allowed">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
-                <CalendarDays className="h-5 w-5" />
+          <Link href={ROUTES.SEANCES} className="block group">
+            <div className="relative rounded-xl border bg-card p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-institutional-blue/30">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                  <CalendarDays className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Séances</h3>
+                  <p className="text-xs text-muted-foreground">Gestion des séances délibérantes</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Séances</h3>
-                <p className="text-xs text-muted-foreground">Gestion des séances délibérantes</p>
+              <p className="text-sm text-muted-foreground">
+                Créez et gérez vos séances, ordres du jour, convocations et procès-verbaux.
+              </p>
+              <div className="mt-4 flex items-center text-sm font-medium text-institutional-blue group-hover:gap-2 transition-all">
+                <span>Accéder</span>
+                <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Créez et gérez vos séances, ordres du jour, convocations et procès-verbaux.
-            </p>
-            <div className="mt-4 flex items-center text-sm text-muted-foreground">
-              <span>Prochainement</span>
-            </div>
-          </div>
+          </Link>
 
           {/* Membres */}
-          <div className="group relative rounded-xl border bg-card p-6 opacity-50 cursor-not-allowed">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <Users className="h-5 w-5" />
+          <Link href={ROUTES.MEMBRES} className="block group">
+            <div className="relative rounded-xl border bg-card p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:border-emerald-500/30">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Membres</h3>
+                  <p className="text-xs text-muted-foreground">Élus et agents</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Membres</h3>
-                <p className="text-xs text-muted-foreground">Élus et agents</p>
+              <p className="text-sm text-muted-foreground">
+                Gérez les membres de vos instances, leurs rôles et mandats.
+              </p>
+              <div className="mt-4 flex items-center text-sm font-medium text-emerald-700 group-hover:gap-2 transition-all">
+                <span>Accéder</span>
+                <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Gérez les membres de vos instances, leurs rôles et mandats.
-            </p>
-            <div className="mt-4 flex items-center text-sm text-muted-foreground">
-              <span>Prochainement</span>
-            </div>
-          </div>
+          </Link>
 
           {/* Configuration — super_admin only */}
           {role === 'super_admin' && (

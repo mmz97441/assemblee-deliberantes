@@ -1,0 +1,400 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
+import { createSeance, updateSeance } from '@/lib/actions/seances'
+import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
+import { CalendarDays, MapPin, Settings2, Loader2 } from 'lucide-react'
+
+interface SeanceListItem extends SeanceRow {
+  instance_config: Pick<InstanceConfigRow, 'id' | 'nom'> | null
+  _count_odj: number
+  _count_convocataires: number
+}
+
+interface MemberOption {
+  id: string
+  prenom: string
+  nom: string
+  role: string
+  qualite_officielle: string | null
+}
+
+interface SeanceFormDialogProps {
+  open: boolean
+  onClose: () => void
+  seance: SeanceListItem | null
+  instances: InstanceConfigRow[]
+  members: MemberOption[]
+}
+
+export function SeanceFormDialog({ open, onClose, seance, instances, members }: SeanceFormDialogProps) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const isEditing = !!seance
+
+  // Form state
+  const [titre, setTitre] = useState(seance?.titre || '')
+  const [instanceId, setInstanceId] = useState(seance?.instance_id || '')
+  const [dateSeance, setDateSeance] = useState(seance?.date_seance?.split('T')[0] || '')
+  const [heureSeance, setHeureSeance] = useState(
+    seance?.date_seance?.includes('T')
+      ? seance.date_seance.split('T')[1]?.substring(0, 5) || ''
+      : ''
+  )
+  const [mode, setMode] = useState<string>(seance?.mode || 'PRESENTIEL')
+  const [lieu, setLieu] = useState(seance?.lieu || '')
+  const [publique, setPublique] = useState(seance?.publique !== false)
+  const [notes, setNotes] = useState(seance?.notes || '')
+  const [presidentId, setPresidentId] = useState(seance?.president_effectif_seance_id || '')
+  const [secretaireId, setSecretaireId] = useState(seance?.secretaire_seance_id || '')
+  const [autoConvoque, setAutoConvoque] = useState(true)
+
+  // Reset form when seance changes or dialog re-opens
+  const resetKey = `${seance?.id || 'new'}-${open}`
+  const [lastResetKey, setLastResetKey] = useState(resetKey)
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey)
+    setTitre(seance?.titre || '')
+    setInstanceId(seance?.instance_id || '')
+    setDateSeance(seance?.date_seance?.split('T')[0] || '')
+    setHeureSeance(
+      seance?.date_seance?.includes('T')
+        ? seance.date_seance.split('T')[1]?.substring(0, 5) || ''
+        : ''
+    )
+    setMode(seance?.mode || 'PRESENTIEL')
+    setLieu(seance?.lieu || '')
+    setPublique(seance?.publique !== false)
+    setNotes(seance?.notes || '')
+    setPresidentId(seance?.president_effectif_seance_id || '')
+    setSecretaireId(seance?.secretaire_seance_id || '')
+    setAutoConvoque(true)
+  }
+
+  // Auto-generate title from instance
+  function handleInstanceChange(value: string) {
+    setInstanceId(value)
+    if (!titre || titre === generateTitle(instanceId)) {
+      setTitre(generateTitle(value))
+    }
+  }
+
+  function generateTitle(instId: string): string {
+    const inst = instances.find(i => i.id === instId)
+    if (!inst) return ''
+    const date = dateSeance
+      ? new Date(dateSeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+      : ''
+    return `${inst.nom}${date ? ` du ${date}` : ''}`
+  }
+
+  function handleDateChange(value: string) {
+    setDateSeance(value)
+    // Update title if it was auto-generated
+    if (instanceId && (!titre || titre === generateTitle(instanceId))) {
+      const inst = instances.find(i => i.id === instanceId)
+      if (inst && value) {
+        const date = new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        setTitre(`${inst.nom} du ${date}`)
+      }
+    }
+  }
+
+  function handleSubmit() {
+    if (!titre.trim()) { toast.error('Le titre est requis'); return }
+    if (!instanceId) { toast.error("L'instance est requise"); return }
+    if (!dateSeance) { toast.error('La date est requise'); return }
+
+    startTransition(async () => {
+      const formData = new FormData()
+      if (seance?.id) formData.set('id', seance.id)
+      formData.set('titre', titre.trim())
+      formData.set('instance_id', instanceId)
+
+      // Combine date + time
+      const fullDate = heureSeance
+        ? `${dateSeance}T${heureSeance}:00`
+        : `${dateSeance}T00:00:00`
+      formData.set('date_seance', fullDate)
+
+      formData.set('mode', mode)
+      formData.set('lieu', lieu.trim())
+      formData.set('publique', publique ? 'true' : 'false')
+      formData.set('notes', notes.trim())
+      if (presidentId) formData.set('president_effectif_seance_id', presidentId)
+      if (secretaireId) formData.set('secretaire_seance_id', secretaireId)
+      formData.set('auto_convoque', autoConvoque ? 'true' : 'false')
+
+      const result = isEditing
+        ? await updateSeance(formData)
+        : await createSeance(formData)
+
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success(isEditing ? 'Seance mise a jour' : 'Seance creee avec succes')
+
+      // If created, redirect to detail
+      if (!isEditing && 'id' in result) {
+        router.push(`/seances/${result.id}`)
+      } else {
+        router.refresh()
+      }
+      onClose()
+    })
+  }
+
+  // Filter members for president/secretaire
+  const presidentOptions = members.filter(m =>
+    ['president', 'super_admin'].includes(m.role)
+  )
+  const secretaireOptions = members.filter(m =>
+    ['secretaire_seance', 'gestionnaire', 'super_admin'].includes(m.role)
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Modifier la seance' : 'Nouvelle seance'}</DialogTitle>
+          <DialogDescription>
+            {isEditing
+              ? 'Modifiez les informations de la seance.'
+              : 'Planifiez une nouvelle seance deliberante.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs defaultValue="general" className="mt-2">
+          <TabsList className="grid w-full grid-cols-3 h-10">
+            <TabsTrigger value="general" className="gap-1.5 text-xs">
+              <CalendarDays className="h-3.5 w-3.5" />
+              General
+            </TabsTrigger>
+            <TabsTrigger value="lieu" className="gap-1.5 text-xs">
+              <MapPin className="h-3.5 w-3.5" />
+              Lieu & Mode
+            </TabsTrigger>
+            <TabsTrigger value="options" className="gap-1.5 text-xs">
+              <Settings2 className="h-3.5 w-3.5" />
+              Options
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab: General */}
+          <TabsContent value="general" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="instance_id">Instance deliberante *</Label>
+              <Select value={instanceId} onValueChange={handleInstanceChange}>
+                <SelectTrigger id="instance_id">
+                  <SelectValue placeholder="Choisir une instance..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {instances.map(inst => (
+                    <SelectItem key={inst.id} value={inst.id}>
+                      {inst.nom} ({inst.type_legal})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {instances.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  Aucune instance configuree. Allez dans Configuration pour en creer.
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="date_seance">Date *</Label>
+                <Input
+                  id="date_seance"
+                  type="date"
+                  value={dateSeance}
+                  onChange={e => handleDateChange(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="heure_seance">Heure</Label>
+                <Input
+                  id="heure_seance"
+                  type="time"
+                  value={heureSeance}
+                  onChange={e => setHeureSeance(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="titre">Titre de la seance *</Label>
+              <Input
+                id="titre"
+                value={titre}
+                onChange={e => setTitre(e.target.value)}
+                placeholder="Conseil municipal du 15 avril 2026"
+              />
+              <p className="text-xs text-muted-foreground">
+                Le titre est genere automatiquement a partir de l&apos;instance et de la date.
+              </p>
+            </div>
+          </TabsContent>
+
+          {/* Tab: Lieu & Mode */}
+          <TabsContent value="lieu" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="mode">Mode de la seance</Label>
+              <Select value={mode} onValueChange={setMode}>
+                <SelectTrigger id="mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PRESENTIEL">Presentiel</SelectItem>
+                  <SelectItem value="HYBRIDE">Hybride (presentiel + visio)</SelectItem>
+                  <SelectItem value="VISIO">Visioconference</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lieu">Lieu</Label>
+              <Input
+                id="lieu"
+                value={lieu}
+                onChange={e => setLieu(e.target.value)}
+                placeholder="Salle du conseil, Hotel de ville"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes / Observations</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Informations complementaires..."
+                rows={3}
+              />
+            </div>
+          </TabsContent>
+
+          {/* Tab: Options */}
+          <TabsContent value="options" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="president_id">President(e) de seance</Label>
+              <Select value={presidentId} onValueChange={setPresidentId}>
+                <SelectTrigger id="president_id">
+                  <SelectValue placeholder="Choisir..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Non designe</SelectItem>
+                  {presidentOptions.length > 0 ? (
+                    presidentOptions.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.prenom} {m.nom} {m.qualite_officielle ? `(${m.qualite_officielle})` : ''}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    members.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.prenom} {m.nom}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="secretaire_id">Secretaire de seance</Label>
+              <Select value={secretaireId} onValueChange={setSecretaireId}>
+                <SelectTrigger id="secretaire_id">
+                  <SelectValue placeholder="Choisir..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Non designe</SelectItem>
+                  {secretaireOptions.length > 0 ? (
+                    secretaireOptions.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.prenom} {m.nom}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    members.map(m => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.prenom} {m.nom}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Non bloquant — un avertissement s&apos;affichera si non designe a l&apos;ouverture.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="font-medium">Seance publique</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Le public peut assister a la seance
+                </p>
+              </div>
+              <Switch checked={publique} onCheckedChange={setPublique} />
+            </div>
+
+            {!isEditing && (
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <Label className="font-medium">Convoquer automatiquement</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ajouter tous les membres de l&apos;instance comme convocataires
+                  </p>
+                </div>
+                <Switch checked={autoConvoque} onCheckedChange={setAutoConvoque} />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Annuler
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditing ? 'Enregistrer' : 'Creer la seance'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
