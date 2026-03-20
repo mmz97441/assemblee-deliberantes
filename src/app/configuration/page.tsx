@@ -6,7 +6,7 @@ import { ROUTES } from '@/lib/constants'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
-import { InstitutionForm } from '@/components/configuration/institution-form'
+import { InstitutionWizard } from '@/components/configuration/institution-wizard'
 import { InstancesList } from '@/components/configuration/instances-list'
 import { Building2, Landmark } from 'lucide-react'
 import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/types'
@@ -66,7 +66,7 @@ export default async function ConfigurationPage() {
           </TabsList>
 
           <TabsContent value="identite" className="space-y-6 mt-6">
-            <InstitutionForm data={institutionConfig} />
+            <InstitutionWizard data={institutionConfig} />
           </TabsContent>
 
           <TabsContent value="instances" className="space-y-6 mt-6">
