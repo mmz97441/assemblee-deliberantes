@@ -36,7 +36,6 @@ import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/typ
 import {
   INSTITUTION_TYPES,
   type InstitutionType,
-  type InstanceTemplate,
 } from '@/lib/constants/institution-templates'
 
 // ─── Steps ───────────────────────────────────────────────────────────────────
