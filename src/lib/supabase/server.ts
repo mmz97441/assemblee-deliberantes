@@ -30,13 +30,24 @@ export async function createServerSupabaseClient() {
 export async function createServiceRoleClient() {
   const { createClient } = await import('@supabase/supabase-js')
 
-  // Note: on utilise le type Database generique ici.
-  // Les inserts dans les tables metier utilisent .from() sans typage strict
-  // en attendant la generation des types depuis la base reelle.
+  // L'integration Supabase-Vercel stocke la cle dans SUPABASE_SECRET_KEY,
+  // notre .env.local utilise SUPABASE_SERVICE_ROLE_KEY. On accepte les deux.
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    throw new Error('Supabase service role key or URL not configured')
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createClient<any>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    supabaseUrl,
+    serviceRoleKey,
     {
       auth: {
         autoRefreshToken: false,
