@@ -117,16 +117,9 @@ export async function registerAction(formData: FormData) {
     }
   }
 
-  // Connecter directement
-  const supabase = await createServerSupabaseClient()
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-
-  if (signInError) {
-    return { error: `Compte cree mais connexion echouee: ${signInError.message}. Allez sur /login.` }
-  }
-
-  revalidatePath('/', 'layout')
-  return { success: true }
+  // Ne pas auto-connecter ici — les cookies serveur ne se propagent pas
+  // correctement vers le client via router.push. Rediriger vers login.
+  return { success: true, message: 'Compte cree avec succes. Connectez-vous.' }
 }
 
 // ============================================
