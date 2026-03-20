@@ -18,7 +18,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet'
 import { toggleInstanceActive } from '@/lib/actions/configuration'
 import { InstanceForm } from './instance-form'
@@ -74,10 +73,8 @@ export function InstancesList({ data }: InstancesListProps) {
             ? 'Aucune instance configurée. Créez votre première instance délibérante.'
             : `${data.length} instance${data.length > 1 ? 's' : ''} configurée${data.length > 1 ? 's' : ''}`}
         </p>
+        <Button onClick={handleCreate}>Ajouter une instance</Button>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetTrigger asChild>
-            <Button onClick={handleCreate}>Ajouter une instance</Button>
-          </SheetTrigger>
           <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
             <SheetHeader>
               <SheetTitle>

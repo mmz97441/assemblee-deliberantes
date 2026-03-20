@@ -54,7 +54,7 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
       prefixe_numero_deliberation: (formData.get('prefixe_numero_deliberation') as string)?.trim() || null,
       remise_zero_annuelle: formData.get('remise_zero_annuelle') === 'true',
       numero_depart: parseInt(formData.get('numero_depart') as string) || 1,
-      updated_at: new Date().toISOString(),
+
     }
 
     const existingId = formData.get('id') as string
@@ -114,7 +114,7 @@ export async function saveInstanceConfig(formData: FormData): Promise<ActionResu
       seances_publiques_defaut: formData.get('seances_publiques_defaut') !== 'false',
       votes_qd_autorises: formData.get('votes_qd_autorises') === 'true',
       majorite_defaut: ((formData.get('majorite_defaut') as string) || 'SIMPLE') as MR,
-      updated_at: new Date().toISOString(),
+
     }
 
     const id = formData.get('id') as string

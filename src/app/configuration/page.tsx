@@ -10,18 +10,19 @@ import { InstancesList } from '@/components/configuration/instances-list'
 import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/types'
 
 export default async function ConfigurationPage() {
+  // Auth check — en dehors du try/catch car redirect() lance une erreur speciale
+  const supabase = await createServerSupabaseClient()
+  const { data: userData, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !userData?.user) {
+    redirect(ROUTES.LOGIN)
+  }
+
+  // Fetch data — ici on peut try/catch car pas de redirect()
   let institutionConfig: InstitutionConfigRow | null = null
   let instanceConfigs: InstanceConfigRow[] = []
 
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: userData, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !userData?.user) {
-      redirect(ROUTES.LOGIN)
-    }
-
-    // Fetch institution config (0 or 1 row)
     const { data: instData } = await supabase
       .from('institution_config')
       .select('*')
@@ -30,15 +31,14 @@ export default async function ConfigurationPage() {
 
     institutionConfig = instData
 
-    // Fetch all instance configs
     const { data: instancesData } = await supabase
       .from('instance_config')
       .select('*')
       .order('nom', { ascending: true })
 
     instanceConfigs = instancesData || []
-  } catch {
-    redirect(ROUTES.LOGIN)
+  } catch (err) {
+    console.error('Erreur chargement configuration:', err)
   }
 
   return (

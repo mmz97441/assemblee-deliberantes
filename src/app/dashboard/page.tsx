@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { logoutAction } from '@/lib/auth/actions'
 import { ROLE_LABELS } from '@/lib/auth/helpers'
@@ -64,33 +65,37 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
+          <Card className="opacity-60">
             <CardHeader>
               <CardTitle className="text-institutional-navy">Seances</CardTitle>
               <CardDescription>Gestion des seances deliberantes</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Etape 6 — En construction</p>
+              <p className="text-sm text-muted-foreground">Prochainement</p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="opacity-60">
             <CardHeader>
               <CardTitle className="text-institutional-navy">Membres</CardTitle>
               <CardDescription>Gestion des elus et agents</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Etape 5 — En construction</p>
+              <p className="text-sm text-muted-foreground">Prochainement</p>
             </CardContent>
           </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-institutional-navy">Configuration</CardTitle>
-              <CardDescription>Parametrage de l&apos;institution</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">Etape 4 — En construction</p>
-            </CardContent>
-          </Card>
+          {(role === 'super_admin') && (
+            <Link href={ROUTES.CONFIGURATION} className="block">
+              <Card className="transition-shadow hover:shadow-md cursor-pointer">
+                <CardHeader>
+                  <CardTitle className="text-institutional-navy">Configuration</CardTitle>
+                  <CardDescription>Parametrage de l&apos;institution</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-institutional-blue">Configurer →</p>
+                </CardContent>
+              </Card>
+            </Link>
+          )}
         </div>
       </main>
     </div>
