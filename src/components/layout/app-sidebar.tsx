@@ -36,7 +36,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Tableau de bord', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
   { label: 'Séances', href: ROUTES.SEANCES, icon: CalendarDays, disabled: true },
-  { label: 'Membres', href: ROUTES.MEMBRES, icon: Users, disabled: true },
+  { label: 'Membres', href: ROUTES.MEMBRES, icon: Users },
   { label: 'Délibérations', href: '/deliberations', icon: FileText, disabled: true },
   { label: 'Configuration', href: ROUTES.CONFIGURATION, icon: Settings, roles: ['super_admin'] },
 ]
