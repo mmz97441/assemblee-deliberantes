@@ -653,6 +653,7 @@ export type Database = {
             | null
           notes_seance: string | null
           position: number
+          projet_deliberation: string | null
           rapporteur_id: string | null
           seance_id: string
           source_bureau_deliberation_id: string | null
@@ -673,6 +674,7 @@ export type Database = {
             | null
           notes_seance?: string | null
           position: number
+          projet_deliberation?: string | null
           rapporteur_id?: string | null
           seance_id: string
           source_bureau_deliberation_id?: string | null
@@ -692,6 +694,7 @@ export type Database = {
             | Database["public"]["Enums"]["majorite_requise"]
             | null
           notes_seance?: string | null
+          projet_deliberation?: string | null
           position?: number
           rapporteur_id?: string | null
           seance_id?: string

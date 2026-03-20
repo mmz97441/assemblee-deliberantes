@@ -65,6 +65,12 @@ import {
   Shield,
   Send,
   RefreshCw,
+  Upload,
+  Paperclip,
+  X,
+  Vote,
+  MessageSquare,
+  Eye,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -76,6 +82,7 @@ import {
   removeConvocataire,
 } from '@/lib/actions/seances'
 import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
+import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -539,83 +546,173 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
           <div className="px-5 pb-5 space-y-2">
             {seance.odj_points.map((point, idx) => {
               const typeConfig = TYPE_LABELS[point.type_traitement || 'DELIBERATION']
+              const isVotable = !point.votes_interdits && (point.type_traitement === 'DELIBERATION' || point.type_traitement === 'ELECTION' || point.type_traitement === 'APPROBATION_PV')
+              const rapporteur = point.rapporteur_id
+                ? allMembers.find(m => m.id === point.rapporteur_id)
+                : null
+              const documents: DocumentInfo[] = Array.isArray(point.documents)
+                ? (point.documents as unknown as DocumentInfo[])
+                : []
+
               return (
                 <div
                   key={point.id}
-                  className="flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/30 transition-colors"
+                  className={`rounded-lg border p-3 hover:bg-muted/30 transition-colors ${
+                    isVotable ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-slate-200'
+                  }`}
                 >
-                  {/* Position & drag */}
-                  <div className="flex flex-col items-center gap-1 pt-0.5">
-                    {canManage && isBrouillon && (
-                      <button
-                        onClick={() => handleMovePoint(point.id, 'up')}
-                        disabled={idx === 0 || isPending}
-                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                      >
-                        <ChevronUp className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold">
-                      {point.position}
-                    </span>
-                    {canManage && isBrouillon && (
-                      <button
-                        onClick={() => handleMovePoint(point.id, 'down')}
-                        disabled={idx === seance.odj_points.length - 1 || isPending}
-                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-                      >
-                        <ChevronDown className="h-3.5 w-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge className={`${typeConfig.color} border-0 text-[11px] px-2 py-0`}>
-                        {typeConfig.label}
-                      </Badge>
-                      {point.huis_clos && (
-                        <Badge variant="outline" className="text-[11px] px-2 py-0 border-red-200 text-red-600">
-                          <Shield className="h-3 w-3 mr-0.5" />
-                          Huis clos
-                        </Badge>
+                  <div className="flex items-start gap-3">
+                    {/* Position & reorder */}
+                    <div className="flex flex-col items-center gap-1 pt-0.5">
+                      {canManage && isBrouillon && (
+                        <button
+                          onClick={() => handleMovePoint(point.id, 'up')}
+                          disabled={idx === 0 || isPending}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                      {point.majorite_requise && point.majorite_requise !== 'SIMPLE' && (
-                        <Badge variant="outline" className="text-[11px] px-2 py-0">
-                          Majorite {point.majorite_requise.toLowerCase()}
-                        </Badge>
+                      <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                        isVotable ? 'bg-blue-100 text-blue-700' : 'bg-muted'
+                      }`}>
+                        {point.position}
+                      </span>
+                      {canManage && isBrouillon && (
+                        <button
+                          onClick={() => handleMovePoint(point.id, 'down')}
+                          disabled={idx === seance.odj_points.length - 1 || isPending}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
                       )}
                     </div>
-                    <h4 className="text-sm font-medium text-foreground">{point.titre}</h4>
-                    {point.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{point.description}</p>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      {/* Badges row */}
+                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <Badge className={`${typeConfig.color} border-0 text-[11px] px-2 py-0`}>
+                          {typeConfig.label}
+                        </Badge>
+                        {isVotable ? (
+                          <Badge className="bg-blue-50 text-blue-700 border-0 text-[11px] px-2 py-0">
+                            <Vote className="h-3 w-3 mr-0.5" />
+                            Soumis au vote
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-50 text-slate-500 border-0 text-[11px] px-2 py-0">
+                            <Eye className="h-3 w-3 mr-0.5" />
+                            Information
+                          </Badge>
+                        )}
+                        {point.huis_clos && (
+                          <Badge variant="outline" className="text-[11px] px-2 py-0 border-red-200 text-red-600">
+                            <Shield className="h-3 w-3 mr-0.5" />
+                            Huis clos
+                          </Badge>
+                        )}
+                        {point.majorite_requise && point.majorite_requise !== 'SIMPLE' && isVotable && (
+                          <Badge variant="outline" className="text-[11px] px-2 py-0">
+                            Maj. {point.majorite_requise.toLowerCase()}
+                          </Badge>
+                        )}
+                        {point.statut && point.statut !== 'A_TRAITER' && (
+                          <Badge className={`border-0 text-[11px] px-2 py-0 ${
+                            point.statut === 'ADOPTE' ? 'bg-emerald-100 text-emerald-700' :
+                            point.statut === 'REJETE' ? 'bg-red-100 text-red-700' :
+                            point.statut === 'EN_DISCUSSION' ? 'bg-amber-100 text-amber-700' :
+                            'bg-slate-100 text-slate-600'
+                          }`}>
+                            {point.statut === 'ADOPTE' ? 'Adopte' :
+                             point.statut === 'REJETE' ? 'Rejete' :
+                             point.statut === 'EN_DISCUSSION' ? 'En discussion' :
+                             point.statut}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h4 className="text-sm font-medium text-foreground">{point.titre}</h4>
+
+                      {/* Description */}
+                      {point.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{point.description}</p>
+                      )}
+
+                      {/* Projet de deliberation */}
+                      {point.projet_deliberation && (
+                        <div className="mt-1.5 rounded bg-blue-50 border border-blue-100 px-2.5 py-1.5">
+                          <p className="text-xs text-blue-700 font-medium mb-0.5">Resolution proposee :</p>
+                          <p className="text-xs text-blue-800 line-clamp-3 whitespace-pre-line">{point.projet_deliberation}</p>
+                        </div>
+                      )}
+
+                      {/* Rapporteur */}
+                      {rapporteur && (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <MessageSquare className="h-3 w-3" />
+                          Rapporteur : <span className="font-medium text-foreground">{rapporteur.prenom} {rapporteur.nom}</span>
+                        </p>
+                      )}
+
+                      {/* Documents */}
+                      {documents.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {documents.map((doc, i) => (
+                            <DocumentBadge
+                              key={i}
+                              doc={doc}
+                              pointId={point.id}
+                              seanceId={seance.id}
+                              canRemove={canManage && isBrouillon}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Upload button for brouillon */}
+                      {canManage && isBrouillon && (
+                        <div className="mt-2">
+                          <DocumentUploadButton pointId={point.id} seanceId={seance.id} />
+                        </div>
+                      )}
+
+                      {/* Notes de seance */}
+                      {point.notes_seance && (
+                        <div className="mt-2 rounded bg-amber-50 border border-amber-100 px-2.5 py-1.5">
+                          <p className="text-xs text-amber-800">
+                            <strong>Note :</strong> {point.notes_seance}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {canManage && isBrouillon && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => { setEditingPoint(point); setOdjFormOpen(true) }}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Modifier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setDeletePointDialog(point)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
-
-                  {/* Actions */}
-                  {canManage && isBrouillon && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditingPoint(point); setOdjFormOpen(true) }}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setDeletePointDialog(point)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
                 </div>
               )
             })}
@@ -803,6 +900,7 @@ function ODJPointFormDialog({
   const [rapporteurId, setRapporteurId] = useState(point?.rapporteur_id || '')
   const [huisClos, setHuisClos] = useState(point?.huis_clos || false)
   const [votesInterdits, setVotesInterdits] = useState(point?.votes_interdits || false)
+  const [projetDeliberation, setProjetDeliberation] = useState(point?.projet_deliberation || '')
 
   // Reset
   const resetKey = `${point?.id || 'new'}-${open}`
@@ -816,6 +914,7 @@ function ODJPointFormDialog({
     setRapporteurId(point?.rapporteur_id || '')
     setHuisClos(point?.huis_clos || false)
     setVotesInterdits(point?.votes_interdits || false)
+    setProjetDeliberation(point?.projet_deliberation || '')
   }
 
   function handleSubmit() {
@@ -832,6 +931,7 @@ function ODJPointFormDialog({
       if (rapporteurId) formData.set('rapporteur_id', rapporteurId)
       formData.set('huis_clos', huisClos ? 'true' : 'false')
       formData.set('votes_interdits', votesInterdits ? 'true' : 'false')
+      if (projetDeliberation.trim()) formData.set('projet_deliberation', projetDeliberation.trim())
 
       const result = isEditing
         ? await updateODJPoint(formData)
@@ -879,6 +979,26 @@ function ODJPointFormDialog({
               rows={3}
             />
           </div>
+
+          {/* Projet de deliberation — visible pour les types soumis au vote */}
+          {!votesInterdits && (typeTraitement === 'DELIBERATION' || typeTraitement === 'ELECTION' || typeTraitement === 'APPROBATION_PV') && (
+            <div className="space-y-2">
+              <Label htmlFor="odj_projet">
+                Projet de deliberation / Resolution
+              </Label>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Texte de la resolution qui sera soumise au vote des elus
+              </p>
+              <Textarea
+                id="odj_projet"
+                value={projetDeliberation}
+                onChange={e => setProjetDeliberation(e.target.value)}
+                placeholder="Le conseil / l'assemblee decide de... Apres en avoir delibere, il est propose de..."
+                rows={5}
+                className="font-mono text-sm"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -1073,5 +1193,130 @@ function AddConvocataireDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Document Badge ──────────────────────────────────────────────────────────
+
+function DocumentBadge({
+  doc,
+  pointId,
+  seanceId,
+  canRemove,
+}: {
+  doc: DocumentInfo
+  pointId: string
+  seanceId: string
+  canRemove: boolean
+}) {
+  const [isPending, startTransition] = useTransition()
+
+  function handleDownload() {
+    startTransition(async () => {
+      const result = await getDocumentUrl(doc.path)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        window.open(result.url, '_blank')
+      }
+    })
+  }
+
+  function handleRemove() {
+    startTransition(async () => {
+      const result = await removeODJDocument(pointId, seanceId, doc.path)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Document supprime')
+      }
+    })
+  }
+
+  const sizeStr = doc.size < 1024
+    ? `${doc.size} o`
+    : doc.size < 1024 * 1024
+      ? `${Math.round(doc.size / 1024)} Ko`
+      : `${(doc.size / (1024 * 1024)).toFixed(1)} Mo`
+
+  const iconColor = doc.type === 'pdf' ? 'text-red-500' : 'text-blue-500'
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border bg-muted/50 px-2 py-1 text-xs group">
+      <Paperclip className={`h-3 w-3 ${iconColor}`} />
+      <button
+        onClick={handleDownload}
+        disabled={isPending}
+        className="hover:underline font-medium max-w-[150px] truncate"
+        title={doc.name}
+      >
+        {doc.name}
+      </button>
+      <span className="text-muted-foreground">({sizeStr})</span>
+      {isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+      {canRemove && !isPending && (
+        <button
+          onClick={handleRemove}
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity ml-0.5"
+          title="Supprimer"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </span>
+  )
+}
+
+// ─── Document Upload Button ──────────────────────────────────────────────────
+
+function DocumentUploadButton({
+  pointId,
+  seanceId,
+}: {
+  pointId: string
+  seanceId: string
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    startTransition(async () => {
+      const formData = new FormData()
+      formData.set('file', file)
+      formData.set('point_id', pointId)
+      formData.set('seance_id', seanceId)
+
+      const result = await uploadODJDocument(formData)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success(`"${result.document.name}" ajoute`)
+        router.refresh()
+      }
+    })
+
+    // Reset input
+    e.target.value = ''
+  }
+
+  return (
+    <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+      {isPending ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Upload className="h-3.5 w-3.5" />
+      )}
+      {isPending ? 'Upload en cours...' : 'Joindre un document'}
+      <input
+        type="file"
+        className="hidden"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt"
+        onChange={handleFileChange}
+        disabled={isPending}
+      />
+    </label>
   )
 }

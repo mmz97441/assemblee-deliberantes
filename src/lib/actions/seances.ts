@@ -372,6 +372,7 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
       rapporteur_id: (formData.get('rapporteur_id') as string) || null,
       huis_clos: formData.get('huis_clos') === 'true',
       votes_interdits: formData.get('votes_interdits') === 'true',
+      projet_deliberation: (formData.get('projet_deliberation') as string)?.trim() || null,
       position: nextPosition,
       statut: 'A_TRAITER',
     }
@@ -413,6 +414,7 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
       rapporteur_id: (formData.get('rapporteur_id') as string) || null,
       huis_clos: formData.get('huis_clos') === 'true',
       votes_interdits: formData.get('votes_interdits') === 'true',
+      projet_deliberation: (formData.get('projet_deliberation') as string)?.trim() || null,
     }
 
     const { error } = await supabase
