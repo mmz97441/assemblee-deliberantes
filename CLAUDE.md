@@ -195,6 +195,52 @@ Une séance complète de bout en bout : convocation envoyée → présences enre
 
 ---
 
+## RÈGLES UX OBLIGATOIRES — APPLIQUER SYSTÉMATIQUEMENT
+
+Ces règles doivent être appliquées à CHAQUE composant, CHAQUE formulaire, CHAQUE liste.
+Ne pas attendre que l'utilisateur le demande. C'est le STANDARD MINIMUM.
+
+### Listes et sélections
+- **Multi-sélection** : toute liste où l'utilisateur ajoute des éléments doit permettre la sélection multiple (cases à cocher + "Tout sélectionner" + bouton "Ajouter N éléments")
+- **Recherche** : tout Select/Combobox avec plus de 5 options doit avoir une barre de recherche (utiliser le composant `Command` de shadcn, pas un Select basique)
+- **Drag & drop** : toute liste ordonnée doit être réordonnable par glisser-déposer (utiliser `@dnd-kit`)
+- **Tri et filtres** : toute liste de plus de 10 éléments doit proposer un tri et/ou un filtre
+
+### Formulaires et wizards
+- **Sauvegarde automatique** : un wizard multi-étapes doit sauvegarder à chaque "Suivant", pas avec un bouton "Enregistrer" séparé
+- **Reprise** : un wizard doit reprendre là où l'utilisateur s'est arrêté (persister l'étape courante)
+- **Validation inline** : montrer les erreurs sous chaque champ, pas dans un toast générique
+- **Pas de double action** : un seul bouton principal par étape — pas "Suivant" ET "Enregistrer"
+
+### Confirmations et actions
+- **Confirmation enrichie** : toute action destructive ou irréversible doit avoir un dialog de confirmation avec le contexte (nom de l'élément, conséquences, nombre d'éléments affectés)
+- **Pas d'action silencieuse** : après une action, toujours un feedback (toast success, badge mis à jour, compteur incrémenté)
+- **Boutons désactivés avec explication** : si un bouton est disabled, l'utilisateur doit comprendre pourquoi (title/tooltip)
+- **Guidage proactif** : quand une page est vide ou qu'il manque une étape, afficher un message contextuel qui guide l'utilisateur
+
+### Penser aux 3 profils utilisateurs
+À chaque composant, se demander :
+1. **Gestionnaire** (crée, configure, prépare) → a-t-il accès à tout ce dont il a besoin ? Le flux est-il logique ?
+2. **Élu** (consulte, vote, signe) → l'interface est-elle lisible sans formation ? Les actions sont-elles évidentes ?
+3. **Président** (dirige, valide) → peut-il voir l'état global rapidement ? Les actions prioritaires sont-elles mises en avant ?
+
+### Responsive et accessibilité
+- **Mobile-first** : tous les layouts doivent fonctionner sur tablette (usage principal en séance)
+- **Touch-friendly** : boutons minimum 44px, espacement suffisant entre les éléments cliquables
+- **Accents français** : utiliser les accents dans l'interface (é, è, ê, ç, à, ù...) — c'est une application française
+
+### Anti-patterns à éviter
+- ❌ Select basique pour une liste de personnes → ✅ Combobox avec recherche
+- ❌ Ajout un par un dans une liste → ✅ Multi-sélection + "Tout ajouter"
+- ❌ Bouton "Enregistrer" séparé dans un wizard → ✅ Sauvegarde sur "Suivant"
+- ❌ `value=""` dans un SelectItem Radix → ✅ `value="_none"` ou `value="placeholder"`
+- ❌ Message d'erreur générique "Erreur inattendue" → ✅ Message précis avec action suggérée
+- ❌ Page vide sans explication → ✅ Empty state avec icône + texte + bouton d'action
+- ❌ Action destructive sans confirmation → ✅ AlertDialog avec contexte
+- ❌ Flèches haut/bas pour réordonner → ✅ Drag & drop (avec flèches en fallback mobile)
+
+---
+
 ## POINTS D'ATTENTION CRITIQUES
 
 Ces points ont été identifiés comme risques en production (voir section 21 du CDC) :
