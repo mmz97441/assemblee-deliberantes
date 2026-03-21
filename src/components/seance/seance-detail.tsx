@@ -1,8 +1,24 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -44,6 +60,8 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import {
   CalendarDays,
   MapPin,
@@ -87,6 +105,8 @@ import {
   ArrowRight,
   CircleCheck,
   CircleDot,
+  GripVertical,
+  ChevronsUpDown,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -416,6 +436,32 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       setStatusChangeDialog(null)
     })
   }
+
+  // ─── Drag & Drop ────────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const points = [...seance.odj_points]
+    const oldIdx = points.findIndex(p => p.id === active.id)
+    const newIdx = points.findIndex(p => p.id === over.id)
+    if (oldIdx < 0 || newIdx < 0) return
+
+    // Swap
+    const [moved] = points.splice(oldIdx, 1)
+    points.splice(newIdx, 0, moved)
+
+    startTransition(async () => {
+      const result = await reorderODJPoints(seance.id, points.map(p => p.id))
+      if ('error' in result) toast.error(result.error)
+      else router.refresh()
+    })
+  }, [seance.odj_points, seance.id, startTransition, router])
 
   function handleMovePoint(pointId: string, direction: 'up' | 'down') {
     const points = [...seance.odj_points]
@@ -923,22 +969,45 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   </div>
                 ) : (
                   <div className="px-5 pb-5 space-y-2">
-                    {seance.odj_points.map((point, idx) => (
-                      <ODJPointCard
-                        key={point.id}
-                        point={point}
-                        idx={idx}
-                        totalPoints={seance.odj_points.length}
-                        allMembers={allMembers}
-                        seanceId={seance.id}
-                        canManage={canManage}
-                        isBrouillon={isBrouillon}
-                        isPending={isPending}
-                        onMovePoint={handleMovePoint}
-                        onEdit={(p) => { setEditingPoint(p); setOdjFormOpen(true) }}
-                        onDelete={(p) => setDeletePointDialog(p)}
-                      />
-                    ))}
+                    {canManage && isBrouillon ? (
+                      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={seance.odj_points.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                          {seance.odj_points.map((point, idx) => (
+                            <SortableODJPointCard
+                              key={point.id}
+                              point={point}
+                              idx={idx}
+                              totalPoints={seance.odj_points.length}
+                              allMembers={allMembers}
+                              seanceId={seance.id}
+                              canManage={canManage}
+                              isBrouillon={isBrouillon}
+                              isPending={isPending}
+                              onMovePoint={handleMovePoint}
+                              onEdit={(p) => { setEditingPoint(p); setOdjFormOpen(true) }}
+                              onDelete={(p) => setDeletePointDialog(p)}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                    ) : (
+                      seance.odj_points.map((point, idx) => (
+                        <ODJPointCard
+                          key={point.id}
+                          point={point}
+                          idx={idx}
+                          totalPoints={seance.odj_points.length}
+                          allMembers={allMembers}
+                          seanceId={seance.id}
+                          canManage={canManage}
+                          isBrouillon={isBrouillon}
+                          isPending={isPending}
+                          onMovePoint={handleMovePoint}
+                          onEdit={(p) => { setEditingPoint(p); setOdjFormOpen(true) }}
+                          onDelete={(p) => setDeletePointDialog(p)}
+                        />
+                      ))
+                    )}
                   </div>
                 )}
               </div>
@@ -1472,6 +1541,46 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   )
 }
 
+// ─── Sortable ODJ Point Card (drag & drop wrapper) ──────────────────────────
+
+type ODJPointCardProps = {
+  point: ODJPointRow
+  idx: number
+  totalPoints: number
+  allMembers: MemberOption[]
+  seanceId: string
+  canManage: boolean
+  isBrouillon: boolean
+  isPending: boolean
+  onMovePoint: (pointId: string, direction: 'up' | 'down') => void
+  onEdit: (point: ODJPointRow) => void
+  onDelete: (point: ODJPointRow) => void
+}
+
+function SortableODJPointCard(props: ODJPointCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.point.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <ODJPointCard {...props} dragListeners={listeners} isDragging={isDragging} />
+    </div>
+  )
+}
+
 // ─── ODJ Point Card (extracted for clarity) ─────────────────────────────────
 
 function ODJPointCard({
@@ -1486,18 +1595,10 @@ function ODJPointCard({
   onMovePoint,
   onEdit,
   onDelete,
-}: {
-  point: ODJPointRow
-  idx: number
-  totalPoints: number
-  allMembers: MemberOption[]
-  seanceId: string
-  canManage: boolean
-  isBrouillon: boolean
-  isPending: boolean
-  onMovePoint: (pointId: string, direction: 'up' | 'down') => void
-  onEdit: (point: ODJPointRow) => void
-  onDelete: (point: ODJPointRow) => void
+  dragListeners,
+}: ODJPointCardProps & {
+  dragListeners?: Record<string, unknown>
+  isDragging?: boolean
 }) {
   const typeConfig = TYPE_LABELS[point.type_traitement || 'DELIBERATION']
   const isVotable = !point.votes_interdits && (point.type_traitement === 'DELIBERATION' || point.type_traitement === 'ELECTION' || point.type_traitement === 'APPROBATION_PV')
@@ -1515,15 +1616,15 @@ function ODJPointCard({
       }`}
     >
       <div className="flex items-start gap-3">
-        {/* Position & reorder */}
+        {/* Drag handle + position */}
         <div className="flex flex-col items-center gap-1 pt-0.5">
-          {canManage && isBrouillon && (
+          {canManage && isBrouillon && dragListeners && (
             <button
-              onClick={() => onMovePoint(point.id, 'up')}
-              disabled={idx === 0 || isPending}
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+              {...dragListeners}
+              className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-0.5 -mb-1"
+              title="Glisser pour reordonner"
             >
-              <ChevronUp className="h-3.5 w-3.5" />
+              <GripVertical className="h-4 w-4" />
             </button>
           )}
           <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
@@ -1531,14 +1632,23 @@ function ODJPointCard({
           }`}>
             {point.position}
           </span>
-          {canManage && isBrouillon && (
-            <button
-              onClick={() => onMovePoint(point.id, 'down')}
-              disabled={idx === totalPoints - 1 || isPending}
-              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
+          {canManage && isBrouillon && !dragListeners && (
+            <div className="flex flex-col gap-0.5">
+              <button
+                onClick={() => onMovePoint(point.id, 'up')}
+                disabled={idx === 0 || isPending}
+                className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => onMovePoint(point.id, 'down')}
+                disabled={idx === totalPoints - 1 || isPending}
+                className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -1833,19 +1943,11 @@ function ODJPointFormDialog({
 
           <div className="space-y-2">
             <Label>Rapporteur</Label>
-            <Select value={rapporteurId} onValueChange={setRapporteurId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Aucun rapporteur" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">Aucun</SelectItem>
-                {members.map(m => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.prenom} {m.nom}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <RapporteurCombobox
+              members={members}
+              value={rapporteurId}
+              onChange={setRapporteurId}
+            />
           </div>
 
           <div className="space-y-3">
@@ -2079,6 +2181,71 @@ function AddConvocataireDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Rapporteur Combobox (searchable) ────────────────────────────────────────
+
+function RapporteurCombobox({
+  members,
+  value,
+  onChange,
+}: {
+  members: MemberOption[]
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = value && value !== '_none' ? members.find(m => m.id === value) : null
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          {selected ? (
+            <span>{selected.prenom} {selected.nom}</span>
+          ) : (
+            <span className="text-muted-foreground">Aucun rapporteur</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Rechercher un membre..." />
+          <CommandList>
+            <CommandEmpty>Aucun membre trouve.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="_none"
+                onSelect={() => { onChange('_none'); setOpen(false) }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === '_none' ? 'opacity-100' : 'opacity-0'}`} />
+                Aucun rapporteur
+              </CommandItem>
+              {members.map(m => (
+                <CommandItem
+                  key={m.id}
+                  value={`${m.prenom} ${m.nom} ${m.email}`}
+                  onSelect={() => { onChange(m.id); setOpen(false) }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === m.id ? 'opacity-100' : 'opacity-0'}`} />
+                  <div>
+                    <span className="font-medium">{m.prenom} {m.nom}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{m.email}</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
