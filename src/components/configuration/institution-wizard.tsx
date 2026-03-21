@@ -79,12 +79,12 @@ const LATE_ARRIVAL_LABELS: Record<string, string> = {
 // ─── Steps ───────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { id: 'type', title: 'Type', description: 'Quel type de structure ?', icon: Sparkles, requiredFields: ['type_institution'] },
-  { id: 'identite', title: 'Identité', description: 'Nom et identifiants', icon: Building2, requiredFields: ['nom_officiel'] },
-  { id: 'coordonnees', title: 'Contact', description: 'Adresse et contact', icon: MapPin, requiredFields: [] as string[] },
-  { id: 'legal', title: 'Légal', description: 'DPO et préfecture', icon: Scale, requiredFields: [] as string[] },
-  { id: 'numerotation', title: 'Numéros', description: 'Format délibérations', icon: Hash, requiredFields: [] as string[] },
-  { id: 'instances', title: 'Instances', description: 'Vos assemblées', icon: Landmark, requiredFields: [] as string[] },
+  { id: 'type', title: 'Type', description: 'Quel type de structure ?', icon: Sparkles, requiredFields: ['type_institution'], savesInstitution: false },
+  { id: 'identite', title: 'Identité', description: 'Nom et identifiants', icon: Building2, requiredFields: ['nom_officiel'], savesInstitution: true },
+  { id: 'coordonnees', title: 'Contact', description: 'Adresse et contact', icon: MapPin, requiredFields: ['adresse_siege', 'email_secretariat'], savesInstitution: true },
+  { id: 'legal', title: 'Légal', description: 'DPO et préfecture', icon: Scale, requiredFields: ['dpo_nom', 'dpo_email'], savesInstitution: true },
+  { id: 'numerotation', title: 'Numéros', description: 'Format délibérations', icon: Hash, requiredFields: ['format_numero_deliberation'], savesInstitution: true },
+  { id: 'instances', title: 'Instances', description: 'Vos assemblées', icon: Landmark, requiredFields: [] as string[], savesInstitution: false },
 ] as const
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -237,6 +237,16 @@ function computeStepCompletion(values: FormValues, stepId: string, instances: Ed
     default:
       return 0
   }
+}
+
+// Check if a step has all its required fields filled
+function isStepComplete(values: FormValues, stepIndex: number, instances: EditableInstance[]): boolean {
+  const step = STEPS[stepIndex]
+  if (step.id === 'instances') return instances.filter((i) => i.isSaved).length > 0
+  return step.requiredFields.every((field) => {
+    const val = values[field as keyof FormValues]
+    return typeof val === 'string' ? val.trim().length > 0 : val != null
+  })
 }
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -460,17 +470,30 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Restore step from URL
+  // Restore step: URL param > auto-detect from saved data > step 0
   const initialStep = useMemo(() => {
+    // URL param takes priority (user navigated directly)
     const s = parseInt(searchParams.get('step') || '')
     if (!isNaN(s) && s >= 0 && s < STEPS.length) return s
-    return data?.type_institution ? 1 : 0
+
+    // Auto-detect: find the first incomplete step based on saved data
+    if (!data?.type_institution) return 0
+    const vals = getInitialValues(data)
+    for (let i = 0; i < STEPS.length; i++) {
+      const step = STEPS[i]
+      const incomplete = step.requiredFields.some((field) => {
+        const val = vals[field as keyof FormValues]
+        return typeof val === 'string' ? !val.trim() : val == null
+      })
+      if (incomplete) return i
+    }
+    // All steps complete — go to instances (last step)
+    return STEPS.length - 1
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(initialStep)
   const [values, setValues] = useState<FormValues>(() => getInitialValues(data))
-  const [savedOnce, setSavedOnce] = useState(!!data?.id)
   const [editingInstance, setEditingInstance] = useState<EditableInstance | null>(null)
   const [isSavingInstance, setIsSavingInstance] = useState(false)
 
@@ -530,24 +553,6 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
   }, [typeConfig, instances])
 
   // ─── Actions ───────────────────────────────────────────────────────────────
-
-  function handleSaveInstitution() {
-    const formData = new FormData()
-    Object.entries(values).forEach(([key, value]) => {
-      formData.set(key, String(value))
-    })
-    if (data?.id) formData.set('id', data.id)
-
-    startTransition(async () => {
-      const result = await saveInstitutionConfig(formData)
-      if ('error' in result) {
-        toast.error(result.error)
-        return
-      }
-      setSavedOnce(true)
-      toast.success('Configuration enregistrée !')
-    })
-  }
 
   async function handleSaveInstance(inst: EditableInstance) {
     setIsSavingInstance(true)
@@ -610,16 +615,52 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
     setEditingInstance(inst)
   }
 
+  // Save institution and advance to next step
   function goNext() {
-    if (currentStep < STEPS.length - 1) setCurrentStep((s) => s + 1)
+    if (currentStep >= STEPS.length - 1) return
+
+    const step = STEPS[currentStep]
+
+    // Steps 1-4 save institution data automatically
+    if (step.savesInstitution) {
+      const formData = new FormData()
+      Object.entries(values).forEach(([key, value]) => {
+        formData.set(key, String(value))
+      })
+      if (data?.id) formData.set('id', data.id)
+
+      startTransition(async () => {
+        const result = await saveInstitutionConfig(formData)
+        if ('error' in result) {
+          toast.error(result.error)
+          return
+        }
+        toast.success('Enregistré ✓', { duration: 1500 })
+        setCurrentStep((s) => s + 1)
+        router.refresh()
+      })
+    } else {
+      // Step 0 (type) — no save needed, just advance
+      setCurrentStep((s) => s + 1)
+    }
   }
 
   function goPrev() {
     if (currentStep > 0) setCurrentStep((s) => s - 1)
   }
 
+  // Compute the highest step we can reach (all previous steps must be complete)
+  const maxReachableStep = useMemo(() => {
+    for (let i = 0; i < STEPS.length; i++) {
+      if (!isStepComplete(values, i, instances)) return i
+    }
+    return STEPS.length - 1
+  }, [values, instances])
+
   function goToStep(index: number) {
     if (index > 0 && !values.type_institution) return
+    // Can go back to any step, or forward only up to maxReachableStep
+    if (index > maxReachableStep) return
     setCurrentStep(index)
   }
 
@@ -629,6 +670,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
     if (config && !values.prefixe_numero_deliberation) {
       updateField('prefixe_numero_deliberation', config.placeholders.prefixe_delib)
     }
+    // Auto-advance after selection (step 0 doesn't need save)
     setTimeout(() => setCurrentStep(1), 300)
   }
 
@@ -664,7 +706,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
           const isActive = index === currentStep
           const completion = stepCompletions[index]
           const isComplete = completion === 100
-          const isLocked = index > 0 && !values.type_institution
+          const isLocked = index > maxReachableStep || (index > 0 && !values.type_institution)
           const Icon = step.icon
 
           return (
@@ -801,12 +843,12 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
           {currentStep === 2 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <Label htmlFor="adresse_siege">Adresse du siège</Label>
+                <Label htmlFor="adresse_siege">Adresse du siège <span className="text-destructive">*</span></Label>
                 <Textarea id="adresse_siege" value={values.adresse_siege} onChange={(e) => updateField('adresse_siege', e.target.value)} placeholder={ph?.adresse || '1 place de la Mairie\n12345 Ville'} rows={3} className="resize-none" />
               </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="email_secretariat">Email du secrétariat</Label>
+                  <Label htmlFor="email_secretariat">Email du secrétariat <span className="text-destructive">*</span></Label>
                   <Input id="email_secretariat" type="email" value={values.email_secretariat} onChange={(e) => updateField('email_secretariat', e.target.value)} placeholder={ph?.email || 'secretariat@institution.fr'} className="h-11" />
                   <p className="text-xs text-muted-foreground">Expéditeur pour les convocations</p>
                 </div>
@@ -823,12 +865,12 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="dpo_nom">Nom du DPO</Label>
+                  <Label htmlFor="dpo_nom">Nom du DPO <span className="text-destructive">*</span></Label>
                   <Input id="dpo_nom" value={values.dpo_nom} onChange={(e) => updateField('dpo_nom', e.target.value)} placeholder="Jean Dupont" className="h-11" />
                   <p className="text-xs text-muted-foreground">Délégué à la Protection des Données</p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="dpo_email">Email du DPO</Label>
+                  <Label htmlFor="dpo_email">Email du DPO <span className="text-destructive">*</span></Label>
                   <Input id="dpo_email" type="email" value={values.dpo_email} onChange={(e) => updateField('dpo_email', e.target.value)} placeholder="dpo@institution.fr" className="h-11" />
                 </div>
                 <div className="space-y-2">
@@ -848,7 +890,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="grid gap-5 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="format_numero">Format</Label>
+                  <Label htmlFor="format_numero">Format <span className="text-destructive">*</span></Label>
                   <Input id="format_numero" value={values.format_numero_deliberation} onChange={(e) => updateField('format_numero_deliberation', e.target.value)} placeholder="AAAA-NNN" className="h-11 font-mono" />
                   <p className="text-xs text-muted-foreground">AAAA = année, NNN = numéro</p>
                 </div>
@@ -1031,7 +1073,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
 
       {/* ── Navigation ── */}
       <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" onClick={goPrev} disabled={currentStep === 0} className="gap-2 h-11">
+        <Button type="button" variant="outline" onClick={goPrev} disabled={currentStep === 0 || isPending} className="gap-2 h-11">
           <ChevronLeft className="h-4 w-4" /> Précédent
         </Button>
 
@@ -1039,40 +1081,29 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
           Étape {currentStep + 1} / {STEPS.length}
         </span>
 
-        <div className="flex items-center gap-2">
-          {/* Save institution button (steps 1-4) */}
-          {currentStep >= 1 && currentStep <= 4 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSaveInstitution}
-              disabled={isPending || !values.nom_officiel.trim()}
-              className="gap-2 h-11 text-xs"
-            >
-              {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              Sauvegarder
-            </Button>
-          )}
-
-          {!isLastStep ? (
-            <Button type="button" onClick={goNext} disabled={!canProceed} className="gap-2 h-11">
-              Suivant <ChevronRight className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={handleSaveInstitution}
-              disabled={isPending}
-              className="gap-2 h-11 px-6"
-            >
-              {isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Enregistrement...</>
-              ) : (
-                <><Save className="h-4 w-4" /> {savedOnce ? 'Mettre à jour' : 'Enregistrer'}</>
-              )}
-            </Button>
-          )}
-        </div>
+        {!isLastStep ? (
+          <Button type="button" onClick={goNext} disabled={!canProceed || isPending} className="gap-2 h-11 px-6">
+            {isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Enregistrement...</>
+            ) : (
+              <>Suivant <ChevronRight className="h-4 w-4" /></>
+            )}
+          </Button>
+        ) : (
+          /* Last step (instances) — just shows completion */
+          <div className="flex items-center gap-2">
+            {instances.filter(i => i.isSaved).length > 0 ? (
+              <div className="flex items-center gap-2 text-emerald-600">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="text-sm font-medium">Configuration terminée</span>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Ajoutez au moins une instance pour terminer
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Instance Edit Dialog ── */}
