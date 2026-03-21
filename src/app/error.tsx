@@ -13,7 +13,7 @@ export default function ErrorPage({
 }) {
   useEffect(() => {
     // TODO Phase 1 Etape 12 : envoyer a Sentry
-    console.error('Erreur application:', error)
+    console.error('Erreur application:', error.message, error.digest, error.stack)
   }, [error])
 
   return (
@@ -28,11 +28,18 @@ export default function ErrorPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error.digest && (
-            <p className="text-center text-xs text-muted-foreground">
-              Code erreur : {error.digest}
-            </p>
-          )}
+          <div className="text-center space-y-1">
+            {error.digest && (
+              <p className="text-xs text-muted-foreground">
+                Code : {error.digest}
+              </p>
+            )}
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-destructive font-mono break-all">
+                {error.message}
+              </p>
+            )}
+          </div>
           <div className="flex justify-center gap-4">
             <Button
               onClick={reset}

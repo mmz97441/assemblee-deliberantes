@@ -591,8 +591,8 @@ export async function addStandardODJPoints(seanceId: string): Promise<ActionResu
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
     return { success: true }
   } catch (err) {
-    console.error('addStandardODJPoints error:', err)
-    return { error: 'Erreur inattendue' }
+    console.error('addStandardODJPoints error:', err instanceof Error ? err.message : err, err)
+    return { error: `Erreur inattendue : ${err instanceof Error ? err.message : String(err)}` }
   }
 }
 
