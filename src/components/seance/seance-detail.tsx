@@ -50,6 +50,7 @@ import {
   Users,
   FileText,
   Plus,
+  Check,
   Pencil,
   Trash2,
   ChevronUp,
@@ -1880,7 +1881,7 @@ function ODJPointFormDialog({
   )
 }
 
-// ─── Add Convocataire Dialog ─────────────────────────────────────────────────
+// ─── Add Convocataire Dialog (multi-select) ─────────────────────────────────
 
 function AddConvocataireDialog({
   open,
@@ -1900,6 +1901,7 @@ function AddConvocataireDialog({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const availableMembers = allMembers.filter(m => !existingMemberIds.includes(m.id))
   const filtered = availableMembers.filter(m => {
@@ -1916,25 +1918,61 @@ function AddConvocataireDialog({
     return a.nom.localeCompare(b.nom)
   })
 
-  function handleAdd(memberId: string) {
+  // Instance members only (for quick-select)
+  const instanceOnly = sorted.filter(m => instanceMemberIds.includes(m.id))
+
+  function toggleMember(memberId: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(memberId)) next.delete(memberId)
+      else next.add(memberId)
+      return next
+    })
+  }
+
+  function selectAll() {
+    setSelectedIds(new Set(sorted.map(m => m.id)))
+  }
+
+  function selectNone() {
+    setSelectedIds(new Set())
+  }
+
+  function selectInstanceMembers() {
+    setSelectedIds(new Set(instanceOnly.map(m => m.id)))
+  }
+
+  const allSelected = sorted.length > 0 && sorted.every(m => selectedIds.has(m.id))
+
+  function handleAddSelected() {
+    if (selectedIds.size === 0) return
     startTransition(async () => {
-      const result = await addConvocataire(seanceId, memberId)
-      if ('error' in result) {
-        toast.error(result.error)
-      } else {
-        toast.success('Convocataire ajoute')
-        router.refresh()
+      let addedCount = 0
+      let errorCount = 0
+      for (const memberId of Array.from(selectedIds)) {
+        const result = await addConvocataire(seanceId, memberId)
+        if ('error' in result) errorCount++
+        else addedCount++
       }
+      if (addedCount > 0) {
+        toast.success(`${addedCount} convocataire${addedCount > 1 ? 's' : ''} ajoute${addedCount > 1 ? 's' : ''}`)
+      }
+      if (errorCount > 0) {
+        toast.error(`${errorCount} erreur${errorCount > 1 ? 's' : ''}`)
+      }
+      setSelectedIds(new Set())
+      router.refresh()
+      if (errorCount === 0) onClose()
     })
   }
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
-      <DialogContent className="sm:max-w-[450px]">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { setSelectedIds(new Set()); setSearch(''); onClose() } }}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Ajouter un convocataire</DialogTitle>
+          <DialogTitle>Ajouter des convocataires</DialogTitle>
           <DialogDescription>
-            Selectionnez un membre a convoquer pour cette seance.
+            Selectionnez les membres a convoquer pour cette seance.
           </DialogDescription>
         </DialogHeader>
 
@@ -1945,7 +1983,38 @@ function AddConvocataireDialog({
           className="mt-2"
         />
 
-        <div className="max-h-[300px] overflow-y-auto space-y-1 mt-2">
+        {/* Quick actions */}
+        {sorted.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={allSelected ? selectNone : selectAll}
+              className="text-xs h-7"
+            >
+              {allSelected ? 'Tout deselectionner' : `Tout selectionner (${sorted.length})`}
+            </Button>
+            {instanceOnly.length > 0 && instanceOnly.length < sorted.length && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={selectInstanceMembers}
+                className="text-xs h-7"
+              >
+                Membres de l&apos;instance ({instanceOnly.length})
+              </Button>
+            )}
+            {selectedIds.size > 0 && (
+              <span className="text-xs text-institutional-blue font-medium ml-auto">
+                {selectedIds.size} selectionne{selectedIds.size > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="max-h-[300px] overflow-y-auto space-y-1">
           {sorted.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               {availableMembers.length === 0
@@ -1953,40 +2022,60 @@ function AddConvocataireDialog({
                 : 'Aucun resultat'}
             </p>
           ) : (
-            sorted.map(m => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between rounded-lg border p-2.5 hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
+            sorted.map(m => {
+              const isSelected = selectedIds.has(m.id)
+              const isInstance = instanceMemberIds.includes(m.id)
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleMember(m.id)}
+                  disabled={isPending}
+                  className={`w-full flex items-center gap-3 rounded-lg border p-2.5 transition-colors text-left ${
+                    isSelected
+                      ? 'border-institutional-blue bg-institutional-blue/5'
+                      : 'hover:bg-muted/50'
+                  }`}
+                >
+                  <div className={`flex h-5 w-5 items-center justify-center rounded border-2 shrink-0 transition-colors ${
+                    isSelected
+                      ? 'bg-institutional-blue border-institutional-blue text-white'
+                      : 'border-muted-foreground/30'
+                  }`}>
+                    {isSelected && <Check className="h-3 w-3" />}
+                  </div>
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold shrink-0">
                     {m.prenom[0]}{m.nom[0]}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
                       {m.prenom} {m.nom}
-                      {instanceMemberIds.includes(m.id) && (
-                        <span className="text-xs text-muted-foreground ml-1">(membre instance)</span>
+                      {isInstance && (
+                        <span className="text-xs text-muted-foreground ml-1">(instance)</span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">{m.email}</p>
+                    <p className="text-xs text-muted-foreground truncate">{m.email}</p>
                   </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAdd(m.id)}
-                  disabled={isPending}
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))
+                </button>
+              )
+            })
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Fermer</Button>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => { setSelectedIds(new Set()); setSearch(''); onClose() }}>
+            Fermer
+          </Button>
+          <Button
+            onClick={handleAddSelected}
+            disabled={isPending || selectedIds.size === 0}
+          >
+            {isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Ajout en cours...</>
+            ) : (
+              <><UserPlus className="h-4 w-4 mr-2" /> Ajouter {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
