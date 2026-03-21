@@ -74,7 +74,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       .from('institution_config')
       .select('nom_officiel')
       .limit(1)
-      .single()
+      .maybeSingle()
 
     const institutionNom = institution?.nom_officiel
       || process.env.NEXT_PUBLIC_INSTITUTION_NAME

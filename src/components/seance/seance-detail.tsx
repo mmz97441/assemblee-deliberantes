@@ -54,6 +54,7 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   MoreHorizontal,
   AlertTriangle,
   CheckCircle2,
@@ -80,6 +81,11 @@ import {
   MailWarning,
   ListPlus,
   AlertOctagon,
+  Circle,
+  Sparkles,
+  ArrowRight,
+  CircleCheck,
+  CircleDot,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -211,9 +217,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
   // Convocataire state
   const [addConvocataireOpen, setAddConvocataireOpen] = useState(false)
+  // Standard points confirmation
+  const [standardPointsDialog, setStandardPointsDialog] = useState(false)
 
   // Status change
   const [statusChangeDialog, setStatusChangeDialog] = useState<string | null>(null)
+  // Confirmation dialogs
+  const [sendConvocationsDialog, setSendConvocationsDialog] = useState(false)
+  const [removeConvocataireDialog, setRemoveConvocataireDialog] = useState<string | null>(null)
 
   const ModeIcon = seance.mode === 'VISIO' ? Video : seance.mode === 'HYBRIDE' ? Monitor : Building2
 
@@ -282,16 +293,92 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     return { total, votables, documentsCount }
   }, [seance.odj_points])
 
+  // ─── Preparation steps (stepper) ──────────────────────────────────────────
+  const preparationSteps = useMemo(() => {
+    const hasODJ = seance.odj_points.length > 0
+    const hasConvocataires = seance.convocataires.length > 0
+    const hasVotablePoints = seance.odj_points.some(
+      p => !p.votes_interdits && (p.type_traitement === 'DELIBERATION' || p.type_traitement === 'ELECTION' || p.type_traitement === 'APPROBATION_PV')
+    )
+    const convocationsSent = seance.convocataires.some(
+      c => c.statut_convocation && c.statut_convocation !== 'NON_ENVOYE'
+    )
+    const hasSecretaire = !!seance.secretaire_seance
+    const isEnCours = seance.statut === 'EN_COURS'
+    const isCloturee = seance.statut === 'CLOTUREE'
+
+    const steps = [
+      {
+        id: 'odj',
+        label: 'Ordre du jour',
+        description: hasODJ
+          ? `${seance.odj_points.length} point${seance.odj_points.length > 1 ? 's' : ''} dont ${odjStats.votables} soumis au vote`
+          : 'Ajoutez au moins un point',
+        done: hasODJ,
+        warning: hasODJ && !hasVotablePoints ? 'Aucun point soumis au vote' : null,
+        tab: 'odj',
+      },
+      {
+        id: 'convocataires',
+        label: 'Convocataires',
+        description: hasConvocataires
+          ? `${seance.convocataires.length} membre${seance.convocataires.length > 1 ? 's' : ''} convoque${seance.convocataires.length > 1 ? 's' : ''}`
+          : 'Ajoutez les membres a convoquer',
+        done: hasConvocataires,
+        warning: null,
+        tab: 'convocations',
+      },
+      {
+        id: 'secretaire',
+        label: 'Secretaire de seance',
+        description: hasSecretaire
+          ? `${seance.secretaire_seance!.prenom} ${seance.secretaire_seance!.nom}`
+          : 'Recommande (non bloquant)',
+        done: hasSecretaire,
+        warning: !hasSecretaire ? 'Non designe — un avertissement sera affiche' : null,
+        tab: null,
+      },
+      {
+        id: 'convocations',
+        label: 'Envoi des convocations',
+        description: convocationsSent
+          ? `${convocationStats.envoyes + convocationStats.confirmes} envoyee${(convocationStats.envoyes + convocationStats.confirmes) > 1 ? 's' : ''}`
+          : 'Envoyez les convocations par email',
+        done: convocationsSent,
+        warning: null,
+        tab: 'convocations',
+      },
+      {
+        id: 'ouverture',
+        label: 'Ouverture de la seance',
+        description: isEnCours ? 'Seance en cours' : isCloturee ? 'Seance cloturee' : 'Ouvrez la seance le jour J',
+        done: isEnCours || isCloturee || seance.statut === 'ARCHIVEE',
+        warning: null,
+        tab: null,
+      },
+    ]
+
+    return steps
+  }, [seance, odjStats, convocationStats])
+
+  const completedSteps = preparationSteps.filter(s => s.done).length
+  const totalSteps = preparationSteps.length
+  const nextIncompleteStep = preparationSteps.find(s => !s.done)
+
+  // Active tab state for navigation from stepper
+  const [activeTab, setActiveTab] = useState('resume')
+
   // ─── Handlers ────────────────────────────────────────────────────────────
 
-  function handleSendConvocations() {
+  function handleSendConvocationsConfirmed() {
+    setSendConvocationsDialog(false)
     startTransition(async () => {
       const result = await sendConvocations(seance.id)
       if ('error' in result) {
         toast.error(result.error)
       } else {
         if (result.sent > 0) {
-          toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyee${result.sent > 1 ? 's' : ''}`)
+          toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyee${result.sent > 1 ? 's' : ''} avec succes !`)
         }
         if (result.errors.length > 0) {
           toast.error(`${result.errors.length} erreur${result.errors.length > 1 ? 's' : ''} d'envoi`)
@@ -359,24 +446,28 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     })
   }
 
-  function handleRemoveConvocataire(memberId: string) {
+  function handleRemoveConvocataireConfirmed() {
+    if (!removeConvocataireDialog) return
+    const memberId = removeConvocataireDialog
+    setRemoveConvocataireDialog(null)
     startTransition(async () => {
       const result = await removeConvocataire(seance.id, memberId)
       if ('error' in result) toast.error(result.error)
       else {
-        toast.success('Convocataire retire')
+        toast.success('Convocataire retire avec succes')
         router.refresh()
       }
     })
   }
 
-  function handleAddStandardPoints() {
+  function handleAddStandardPointsConfirmed() {
+    setStandardPointsDialog(false)
     startTransition(async () => {
       const result = await addStandardODJPoints(seance.id)
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Points standards ajoutes')
+        toast.success('Points standards ajoutes (Approbation PV + Questions diverses)')
         router.refresh()
       }
     })
@@ -390,7 +481,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Left: Tabs content area */}
         <div className="flex-1 min-w-0">
-          <Tabs defaultValue="resume" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="resume">Resume</TabsTrigger>
               <TabsTrigger value="odj">
@@ -501,6 +592,141 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   </>
                 )}
               </div>
+
+              {/* ─── Preparation Stepper ─── */}
+              {(isBrouillon || seance.statut === 'CONVOQUEE') && canManage && (
+                <div className="rounded-xl border bg-card p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-institutional-blue" />
+                      Preparation de la seance
+                    </h3>
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {completedSteps}/{totalSteps} etapes
+                    </span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-2 mb-4">
+                    <div
+                      className="bg-institutional-blue h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
+                    />
+                  </div>
+
+                  {/* Steps */}
+                  <div className="space-y-2">
+                    {preparationSteps.map((step) => (
+                      <button
+                        key={step.id}
+                        onClick={() => {
+                          if (step.tab) setActiveTab(step.tab)
+                        }}
+                        className={`w-full text-left flex items-start gap-3 rounded-lg p-2.5 transition-colors ${
+                          step.tab ? 'hover:bg-muted/50 cursor-pointer' : 'cursor-default'
+                        } ${!step.done && step === nextIncompleteStep ? 'bg-blue-50 border border-blue-200' : ''}`}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          {step.done ? (
+                            <CircleCheck className="h-5 w-5 text-emerald-500" />
+                          ) : step === nextIncompleteStep ? (
+                            <CircleDot className="h-5 w-5 text-blue-500 animate-pulse" />
+                          ) : (
+                            <Circle className="h-5 w-5 text-muted-foreground/40" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium ${step.done ? 'text-muted-foreground line-through' : ''}`}>
+                            {step.label}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
+                          {step.warning && !step.done && (
+                            <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {step.warning}
+                            </p>
+                          )}
+                        </div>
+                        {step.tab && !step.done && (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground mt-1 shrink-0" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Next action suggestion */}
+                  {nextIncompleteStep && (
+                    <div className="mt-4 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">Prochaine etape recommandee :</p>
+                      {nextIncompleteStep.id === 'odj' && (
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setActiveTab('odj')}
+                        >
+                          <ListPlus className="h-4 w-4 mr-2" />
+                          Completer l&apos;ordre du jour
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      )}
+                      {nextIncompleteStep.id === 'convocataires' && (
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setActiveTab('convocations')}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Ajouter des convocataires
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      )}
+                      {nextIncompleteStep.id === 'secretaire' && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1.5 bg-amber-50 rounded-lg p-2.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          Modifiez la seance pour designer un secretaire (non bloquant)
+                        </p>
+                      )}
+                      {nextIncompleteStep.id === 'convocations' && (
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setSendConvocationsDialog(true)}
+                          disabled={isPending || seance.convocataires.length === 0}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Envoyer les convocations
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      )}
+                      {nextIncompleteStep.id === 'ouverture' && (
+                        <Button
+                          size="sm"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => setStatusChangeDialog('EN_COURS')}
+                          disabled={isPending}
+                        >
+                          <Clock className="h-4 w-4 mr-2" />
+                          Ouvrir la seance
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* All done! */}
+                  {completedSteps === totalSteps && (
+                    <div className="mt-4 pt-3 border-t">
+                      <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-lg p-3">
+                        <CheckCircle2 className="h-5 w-5 shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium">Preparation terminee !</p>
+                          <p className="text-xs text-emerald-600/80">La seance est prete. Bonne deliberation !</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Warnings */}
               {warnings.length > 0 && isBrouillon && (
@@ -645,7 +871,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={handleAddStandardPoints}
+                        onClick={() => setStandardPointsDialog(true)}
                         disabled={isPending}
                       >
                         {isPending ? (
@@ -676,7 +902,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={handleAddStandardPoints}
+                            onClick={() => setStandardPointsDialog(true)}
                             disabled={isPending}
                           >
                             <ListPlus className="h-4 w-4 mr-1" />
@@ -781,8 +1007,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                                   variant="ghost"
                                   size="icon"
                                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleRemoveConvocataire(conv.member_id)}
+                                  onClick={() => setRemoveConvocataireDialog(conv.member_id)}
                                   disabled={isPending}
+                                  title="Retirer ce convocataire"
                                 >
                                   <UserMinus className="h-3.5 w-3.5" />
                                 </Button>
@@ -803,13 +1030,25 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         {canManage && (
           <div className="w-full lg:w-64 space-y-3 lg:shrink-0">
             <div className="rounded-xl border bg-card p-4 space-y-3 lg:sticky lg:top-6">
-              <h3 className="font-semibold text-sm">Actions</h3>
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                Actions
+                <Badge className={`${statutConfig.color} border-0 text-[10px] px-2 py-0`}>
+                  {statutConfig.label}
+                </Badge>
+              </h3>
 
               {isBrouillon && (
                 <Button
                   className="w-full"
                   onClick={() => setStatusChangeDialog('CONVOQUEE')}
-                  disabled={isPending}
+                  disabled={isPending || seance.odj_points.length === 0 || seance.convocataires.length === 0}
+                  title={
+                    seance.odj_points.length === 0
+                      ? 'Ajoutez d\'abord des points a l\'ordre du jour'
+                      : seance.convocataires.length === 0
+                        ? 'Ajoutez d\'abord des convocataires'
+                        : undefined
+                  }
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Convoquer
@@ -820,8 +1059,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <Button
                   className="w-full"
                   variant={isBrouillon ? 'outline' : 'default'}
-                  onClick={handleSendConvocations}
-                  disabled={isPending}
+                  onClick={() => setSendConvocationsDialog(true)}
+                  disabled={isPending || seance.convocataires.length === 0}
+                  title={seance.convocataires.length === 0 ? 'Ajoutez d\'abord des convocataires' : undefined}
                 >
                   {isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -873,10 +1113,15 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Button>
               )}
 
-              <div className="pt-2 space-y-1.5 text-xs text-muted-foreground">
+              <Separator />
+
+              <div className="space-y-1.5 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1.5">
                   <FileText className="h-3 w-3" />
                   {seance.odj_points.length} point{seance.odj_points.length !== 1 ? 's' : ''} ODJ
+                  {odjStats.votables > 0 && (
+                    <span className="text-blue-600">({odjStats.votables} vote{odjStats.votables > 1 ? 's' : ''})</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Users className="h-3 w-3" />
@@ -884,11 +1129,29 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </div>
                 {seance.instance_config?.composition_max && (
                   <div className="flex items-center gap-1.5">
-                    <Info className="h-3 w-3" />
+                    <Shield className="h-3 w-3" />
                     Quorum: {Math.ceil((seance.instance_config.composition_max * (seance.instance_config.quorum_fraction_numerateur || 1)) / (seance.instance_config.quorum_fraction_denominateur || 2))} membres
                   </div>
                 )}
               </div>
+
+              {/* Contextual tips */}
+              {isBrouillon && seance.odj_points.length === 0 && seance.convocataires.length === 0 && (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                  <p className="text-xs text-blue-700 flex items-start gap-1.5">
+                    <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    Commencez par ajouter l&apos;ordre du jour et les convocataires dans les onglets ci-dessous.
+                  </p>
+                </div>
+              )}
+              {isBrouillon && seance.odj_points.length > 0 && seance.convocataires.length > 0 && !seance.secretaire_seance && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs text-amber-700 flex items-start gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    Pensez a designer un secretaire de seance avant l&apos;ouverture.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -930,32 +1193,266 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Status change confirmation */}
+      {/* ─── Status change confirmation (enriched) ─── */}
       <AlertDialog open={!!statusChangeDialog} onOpenChange={() => setStatusChangeDialog(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {statusChangeDialog === 'CONVOQUEE' && 'Convoquer la seance ?'}
-              {statusChangeDialog === 'EN_COURS' && 'Ouvrir la seance ?'}
-              {statusChangeDialog === 'SUSPENDUE' && 'Suspendre la seance ?'}
-              {statusChangeDialog === 'CLOTUREE' && 'Cloturer la seance ?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2">
               {statusChangeDialog === 'CONVOQUEE' && (
-                <>Les convocations pourront etre envoyees aux membres. {warnings.length > 0 && `Attention: ${warnings.join(', ')}`}</>
+                <><CheckCircle2 className="h-5 w-5 text-blue-500" /> Passer la seance en &quot;Convoquee&quot; ?</>
               )}
-              {statusChangeDialog === 'EN_COURS' && 'La seance sera ouverte et les votes pourront commencer.'}
-              {statusChangeDialog === 'SUSPENDUE' && 'La seance sera suspendue temporairement.'}
-              {statusChangeDialog === 'CLOTUREE' && 'La seance sera cloturee. Le PV pourra etre redige.'}
-            </AlertDialogDescription>
+              {statusChangeDialog === 'EN_COURS' && (
+                <><Clock className="h-5 w-5 text-emerald-500" /> Ouvrir la seance ?</>
+              )}
+              {statusChangeDialog === 'SUSPENDUE' && (
+                <><AlertTriangle className="h-5 w-5 text-amber-500" /> Suspendre la seance ?</>
+              )}
+              {statusChangeDialog === 'CLOTUREE' && (
+                <><Shield className="h-5 w-5 text-purple-500" /> Cloturer la seance ?</>
+              )}
+            </AlertDialogTitle>
+            <div className="space-y-3 mt-2">
+              {statusChangeDialog === 'CONVOQUEE' && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Les convocations pourront etre envoyees aux {seance.convocataires.length} membre{seance.convocataires.length > 1 ? 's' : ''} convoques.
+                  </p>
+                  {warnings.length > 0 && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                      <p className="text-xs font-medium text-amber-800 mb-1">Points d&apos;attention :</p>
+                      <ul className="space-y-1">
+                        {warnings.map((w, i) => (
+                          <li key={i} className="text-xs text-amber-700 flex items-center gap-1.5">
+                            <AlertTriangle className="h-3 w-3 shrink-0" /> {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+              {statusChangeDialog === 'EN_COURS' && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    La seance sera officiellement ouverte. L&apos;heure d&apos;ouverture sera enregistree automatiquement.
+                  </p>
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1.5">
+                    <p className="text-xs font-medium text-blue-800">Ce qui va se passer :</p>
+                    <ul className="space-y-1">
+                      <li className="text-xs text-blue-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> L&apos;appel des presences sera possible
+                      </li>
+                      <li className="text-xs text-blue-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le quorum sera verifie
+                      </li>
+                      <li className="text-xs text-blue-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Les votes pourront commencer
+                      </li>
+                    </ul>
+                  </div>
+                  {!seance.secretaire_seance && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+                      <p className="text-xs text-amber-700 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        Aucun secretaire de seance designe — pensez a en nommer un.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+              {statusChangeDialog === 'SUSPENDUE' && (
+                <p className="text-sm text-muted-foreground">
+                  La seance sera suspendue temporairement. Les votes en cours seront interrompus.
+                  Vous pourrez reprendre la seance a tout moment.
+                </p>
+              )}
+              {statusChangeDialog === 'CLOTUREE' && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    La seance sera definitivement cloturee. L&apos;heure de cloture sera enregistree.
+                  </p>
+                  <div className="rounded-lg bg-purple-50 border border-purple-200 p-3 space-y-1.5">
+                    <p className="text-xs font-medium text-purple-800">Apres la cloture :</p>
+                    <ul className="space-y-1">
+                      <li className="text-xs text-purple-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le proces-verbal pourra etre redige
+                      </li>
+                      <li className="text-xs text-purple-700 flex items-center gap-1.5">
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Les deliberations seront numerotees
+                      </li>
+                      <li className="text-xs text-purple-700 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3 w-3 shrink-0" /> Plus aucun vote ne sera possible
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => statusChangeDialog && handleStatusChange(statusChangeDialog)}
               disabled={isPending}
+              className={
+                statusChangeDialog === 'EN_COURS' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                statusChangeDialog === 'CLOTUREE' ? 'bg-purple-600 hover:bg-purple-700' :
+                ''
+              }
             >
-              {isPending ? 'En cours...' : 'Confirmer'}
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> En cours...</>
+              ) : (
+                <>
+                  {statusChangeDialog === 'CONVOQUEE' && 'Confirmer'}
+                  {statusChangeDialog === 'EN_COURS' && 'Ouvrir la seance'}
+                  {statusChangeDialog === 'SUSPENDUE' && 'Suspendre'}
+                  {statusChangeDialog === 'CLOTUREE' && 'Cloturer definitivement'}
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Standard points confirmation ─── */}
+      <AlertDialog open={standardPointsDialog} onOpenChange={setStandardPointsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ListPlus className="h-5 w-5 text-blue-500" />
+              Ajouter les points standards ?
+            </AlertDialogTitle>
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Deux points standards seront ajoutes a l&apos;ordre du jour :
+              </p>
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">1</span>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800">Approbation du PV precedent</p>
+                    <p className="text-xs text-blue-600">Soumis au vote — en position 1</p>
+                  </div>
+                </div>
+                <Separator className="bg-blue-200" />
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">N</span>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">Questions diverses</p>
+                    <p className="text-xs text-amber-600">Information — en derniere position</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Les points existants seront repositionnes automatiquement. Si ces points existent deja, ils ne seront pas dupliques.
+              </p>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleAddStandardPointsConfirmed}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Ajout en cours...</>
+              ) : (
+                <><ListPlus className="h-4 w-4 mr-2" /> Ajouter les points</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Send convocations confirmation ─── */}
+      <AlertDialog open={sendConvocationsDialog} onOpenChange={setSendConvocationsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5 text-blue-500" />
+              Envoyer les convocations ?
+            </AlertDialogTitle>
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Un email de convocation sera envoye a chaque membre qui n&apos;a pas encore ete convoque.
+              </p>
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <div className="grid grid-cols-2 gap-3 text-center">
+                  <div>
+                    <p className="text-lg font-bold text-blue-700">{convocationStats.nonEnvoyes}</p>
+                    <p className="text-xs text-blue-600">A envoyer</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-emerald-600">{convocationStats.envoyes + convocationStats.confirmes}</p>
+                    <p className="text-xs text-emerald-600">Deja envoyees</p>
+                  </div>
+                </div>
+              </div>
+              {convocationStats.erreurs > 0 && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                  <p className="text-xs text-red-700 flex items-center gap-1.5">
+                    <MailX className="h-3 w-3 shrink-0" />
+                    {convocationStats.erreurs} convocation{convocationStats.erreurs > 1 ? 's' : ''} en erreur — elles seront renvoyees.
+                  </p>
+                </div>
+              )}
+              {legalDelayWarning && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                  <p className="text-xs text-red-700 flex items-center gap-1.5">
+                    <AlertOctagon className="h-3 w-3 shrink-0" />
+                    Attention : le delai legal de convocation ({legalDelayWarning.delai} jours) n&apos;est pas respecte.
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                L&apos;email contient le lien de confirmation de presence et l&apos;ordre du jour.
+              </p>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSendConvocationsConfirmed}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Envoi en cours...</>
+              ) : (
+                <><Send className="h-4 w-4 mr-2" /> Envoyer {convocationStats.nonEnvoyes > 0 ? `${convocationStats.nonEnvoyes} convocation${convocationStats.nonEnvoyes > 1 ? 's' : ''}` : 'les convocations'}</>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Remove convocataire confirmation ─── */}
+      <AlertDialog open={!!removeConvocataireDialog} onOpenChange={() => setRemoveConvocataireDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserMinus className="h-5 w-5 text-red-500" />
+              Retirer ce convocataire ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const member = seance.convocataires.find(c => c.member_id === removeConvocataireDialog)?.member
+                return member ? (
+                  <>
+                    <strong>{member.prenom} {member.nom}</strong> ({member.email}) ne sera plus convoque pour cette seance.
+                  </>
+                ) : 'Ce membre ne sera plus convoque pour cette seance.'
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveConvocataireConfirmed}
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? 'Suppression...' : 'Retirer'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

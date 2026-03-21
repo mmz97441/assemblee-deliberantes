@@ -476,9 +476,18 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
 
   // Build editable instances from existing DB rows + templates
   const [instances, setInstances] = useState<EditableInstance[]>(() => {
-    const existing = existingInstances.map(existingToEditable)
-    return existing
+    return existingInstances.map(existingToEditable)
   })
+
+  // Sync instances when existingInstances prop changes (e.g. after router.refresh())
+  const [lastInstanceIds, setLastInstanceIds] = useState(() =>
+    existingInstances.map(i => i.id).sort().join(',')
+  )
+  const currentInstanceIds = existingInstances.map(i => i.id).sort().join(',')
+  if (currentInstanceIds !== lastInstanceIds) {
+    setLastInstanceIds(currentInstanceIds)
+    setInstances(existingInstances.map(existingToEditable))
+  }
 
   // Persist step to URL
   useEffect(() => {
@@ -563,8 +572,11 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
         return
       }
 
-      // Update local state
-      const saved = { ...inst, isNew: false, isSaved: true }
+      // Get the ID from the result
+      const savedId = 'id' in result ? (result as { id: string }).id : inst.id
+
+      // Update local state with the DB-generated ID
+      const saved = { ...inst, id: savedId, isNew: false, isSaved: true }
       setInstances((prev) => {
         const idx = prev.findIndex((i) =>
           i.id === inst.id || (i.nom === inst.nom && !i.id)
@@ -578,7 +590,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
       })
 
       setEditingInstance(null)
-      toast.success(inst.id ? 'Instance mise à jour' : 'Instance créée')
+      toast.success(inst.id ? 'Instance mise à jour' : 'Instance créée avec succès !')
       router.refresh()
     } finally {
       setIsSavingInstance(false)

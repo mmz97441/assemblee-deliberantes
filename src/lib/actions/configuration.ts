@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 
-type ActionResult = { success: true } | { error: string }
+type ActionResult = { success: true } | { success: true; id: string } | { error: string }
 
 async function getAuthenticatedUser() {
   const supabase = await createServerSupabaseClient()
@@ -125,15 +125,20 @@ export async function saveInstanceConfig(formData: FormData): Promise<ActionResu
         .update(payload)
         .eq('id', id)
       if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.CONFIGURATION)
+      return { success: true, id }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('instance_config')
         .insert({ ...payload, actif: true })
+        .select('id')
+        .single()
       if (error) return { error: `Erreur de création : ${error.message}` }
-    }
 
-    revalidatePath(ROUTES.CONFIGURATION)
-    return { success: true }
+      revalidatePath(ROUTES.CONFIGURATION)
+      return { success: true, id: inserted.id }
+    }
   } catch (err) {
     console.error('saveInstanceConfig error:', err)
     return { error: 'Erreur inattendue lors de la sauvegarde' }
