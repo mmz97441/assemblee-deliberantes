@@ -218,10 +218,27 @@ Ne pas attendre que l'utilisateur le demande. C'est le STANDARD MINIMUM.
 - **Boutons désactivés avec explication** : si un bouton est disabled, l'utilisateur doit comprendre pourquoi (title/tooltip)
 - **Guidage proactif** : quand une page est vide ou qu'il manque une étape, afficher un message contextuel qui guide l'utilisateur
 
+### Philosophie : faciliter la vie de l'utilisateur
+L'objectif n°1 est que l'utilisateur n'ait JAMAIS à réfléchir à comment fonctionne l'application.
+Tout doit être évident, guidé, et demander le minimum d'efforts.
+- **Moins de clics** : si une action peut se faire en 1 clic au lieu de 3, faire en 1 clic
+- **Valeurs par défaut intelligentes** : pré-remplir tout ce qui peut l'être (date du jour, membres de l'instance, paramètres hérités de la config)
+- **Actions groupées** : ne jamais forcer l'utilisateur à répéter N fois la même action (ex: ajouter 24 convocataires un par un)
+- **Anticipation** : proposer automatiquement l'étape suivante logique ("Vous avez créé l'ODJ → voulez-vous ajouter les convocataires ?")
+- **Pas de jargon technique** : les messages d'erreur doivent être compréhensibles par un secrétaire de mairie, pas par un développeur
+- **Tolérance** : permettre d'annuler, de revenir en arrière, de modifier — ne pas enfermer l'utilisateur dans un parcours rigide
+
+### Tooltips et aide contextuelle
+- **Tooltip sur CHAQUE icône** sans texte (title ou Tooltip shadcn) — l'utilisateur doit savoir ce que fait un bouton au survol
+- **Tooltip sur les badges** : expliquer ce que signifie chaque statut (ex: "Convoquée : les convocations ont été envoyées")
+- **Tooltip sur les boutons désactivés** : expliquer POURQUOI le bouton est grisé (ex: "Ajoutez d'abord des points à l'ordre du jour")
+- **Labels descriptifs** : chaque champ de formulaire doit avoir un label + une description courte si le champ n'est pas évident
+- **Aide inline** : pour les concepts métier complexes (quorum, majorité qualifiée, voix prépondérante), ajouter une icône ℹ️ avec tooltip explicatif
+
 ### Penser aux 3 profils utilisateurs
 À chaque composant, se demander :
-1. **Gestionnaire** (crée, configure, prépare) → a-t-il accès à tout ce dont il a besoin ? Le flux est-il logique ?
-2. **Élu** (consulte, vote, signe) → l'interface est-elle lisible sans formation ? Les actions sont-elles évidentes ?
+1. **Gestionnaire** (crée, configure, prépare) → a-t-il accès à tout ce dont il a besoin ? Le flux est-il logique ? Peut-il tout faire vite ?
+2. **Élu** (consulte, vote, signe) → l'interface est-elle lisible sans formation ? Les actions sont-elles évidentes ? Peut-il comprendre sans aide ?
 3. **Président** (dirige, valide) → peut-il voir l'état global rapidement ? Les actions prioritaires sont-elles mises en avant ?
 
 ### Responsive et accessibilité
