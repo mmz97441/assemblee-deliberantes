@@ -494,6 +494,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(initialStep)
   const [values, setValues] = useState<FormValues>(() => getInitialValues(data))
+  const [savedInstitutionId, setSavedInstitutionId] = useState<string | null>(data?.id || null)
   const [editingInstance, setEditingInstance] = useState<EditableInstance | null>(null)
   const [isSavingInstance, setIsSavingInstance] = useState(false)
 
@@ -627,13 +628,18 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
       Object.entries(values).forEach(([key, value]) => {
         formData.set(key, String(value))
       })
-      if (data?.id) formData.set('id', data.id)
+      // Use tracked ID — critical to avoid INSERT when row already exists
+      if (savedInstitutionId) formData.set('id', savedInstitutionId)
 
       startTransition(async () => {
         const result = await saveInstitutionConfig(formData)
         if ('error' in result) {
           toast.error(result.error)
           return
+        }
+        // Track the ID for subsequent saves
+        if ('id' in result && result.id) {
+          setSavedInstitutionId(result.id as string)
         }
         toast.success('Enregistré ✓', { duration: 1500 })
         setCurrentStep((s) => s + 1)

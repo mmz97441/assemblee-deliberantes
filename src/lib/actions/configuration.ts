@@ -65,15 +65,20 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
         .update(payload)
         .eq('id', existingId)
       if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.CONFIGURATION)
+      return { success: true, id: existingId }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('institution_config')
         .insert(payload)
+        .select('id')
+        .single()
       if (error) return { error: `Erreur de création : ${error.message}` }
-    }
 
-    revalidatePath(ROUTES.CONFIGURATION)
-    return { success: true }
+      revalidatePath(ROUTES.CONFIGURATION)
+      return { success: true, id: inserted.id }
+    }
   } catch (err) {
     console.error('saveInstitutionConfig error:', err)
     return { error: 'Erreur inattendue lors de la sauvegarde' }
