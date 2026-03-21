@@ -1694,7 +1694,7 @@ function ODJPointFormDialog({
   const [description, setDescription] = useState(point?.description || '')
   const [typeTraitement, setTypeTraitement] = useState<string>(point?.type_traitement || 'DELIBERATION')
   const [majoriteRequise, setMajoriteRequise] = useState<string>(point?.majorite_requise || defaultMajorite)
-  const [rapporteurId, setRapporteurId] = useState(point?.rapporteur_id || '')
+  const [rapporteurId, setRapporteurId] = useState(point?.rapporteur_id || '_none')
   const [huisClos, setHuisClos] = useState(point?.huis_clos || false)
   const [votesInterdits, setVotesInterdits] = useState(point?.votes_interdits || false)
   const [projetDeliberation, setProjetDeliberation] = useState(point?.projet_deliberation || '')
@@ -1708,7 +1708,7 @@ function ODJPointFormDialog({
     setDescription(point?.description || '')
     setTypeTraitement(point?.type_traitement || 'DELIBERATION')
     setMajoriteRequise(point?.majorite_requise || defaultMajorite)
-    setRapporteurId(point?.rapporteur_id || '')
+    setRapporteurId(point?.rapporteur_id || '_none')
     setHuisClos(point?.huis_clos || false)
     setVotesInterdits(point?.votes_interdits || false)
     setProjetDeliberation(point?.projet_deliberation || '')
@@ -1725,7 +1725,7 @@ function ODJPointFormDialog({
       formData.set('description', description.trim())
       formData.set('type_traitement', typeTraitement)
       formData.set('majorite_requise', majoriteRequise)
-      if (rapporteurId) formData.set('rapporteur_id', rapporteurId)
+      if (rapporteurId && rapporteurId !== '_none') formData.set('rapporteur_id', rapporteurId)
       formData.set('huis_clos', huisClos ? 'true' : 'false')
       formData.set('votes_interdits', votesInterdits ? 'true' : 'false')
       if (projetDeliberation.trim()) formData.set('projet_deliberation', projetDeliberation.trim())
@@ -1837,7 +1837,7 @@ function ODJPointFormDialog({
                 <SelectValue placeholder="Aucun rapporteur" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Aucun</SelectItem>
+                <SelectItem value="_none">Aucun</SelectItem>
                 {members.map(m => (
                   <SelectItem key={m.id} value={m.id}>
                     {m.prenom} {m.nom}
