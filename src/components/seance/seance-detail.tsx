@@ -108,6 +108,8 @@ import {
   GripVertical,
   ChevronsUpDown,
   PenLine,
+  Handshake,
+  XCircle,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -120,6 +122,7 @@ import {
   addStandardODJPoints,
 } from '@/lib/actions/seances'
 import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
+import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
@@ -141,6 +144,17 @@ interface ConvocataireItem {
   envoye_at: string | null
   confirme_at: string | null
   member: MemberOption | null
+}
+
+interface ProcurationItem {
+  id: string
+  mandant_id: string
+  mandataire_id: string
+  valide: boolean | null
+  canal_communication: string | null
+  created_at: string | null
+  mandant: { id: string; prenom: string; nom: string; email: string } | null
+  mandataire: { id: string; prenom: string; nom: string; email: string } | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -172,6 +186,7 @@ interface SeanceData extends Record<string, any> {
   convocataires: ConvocataireItem[]
   president_effectif: { id: string; prenom: string; nom: string } | null
   secretaire_seance: { id: string; prenom: string; nom: string } | null
+  procurations: ProcurationItem[]
 }
 
 interface SeanceDetailProps {
@@ -241,6 +256,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   const [addConvocataireOpen, setAddConvocataireOpen] = useState(false)
   // Standard points confirmation
   const [standardPointsDialog, setStandardPointsDialog] = useState(false)
+  // Procuration
+  const [procurationDialogOpen, setProcurationDialogOpen] = useState(false)
 
   // Status change
   const [statusChangeDialog, setStatusChangeDialog] = useState<string | null>(null)
@@ -545,6 +562,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 {seance.convocataires.length > 0 && (
                   <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
                     {seance.convocataires.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="procurations">
+                Procurations
+                {seance.procurations && (seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length > 0 && (
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                    {(seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -1094,6 +1119,126 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 )}
               </div>
             </TabsContent>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* TAB: Procurations                                              */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            <TabsContent value="procurations" className="mt-0">
+              <div className="rounded-xl border bg-card">
+                <div className="flex items-center justify-between p-5 pb-3">
+                  <h2 className="text-lg font-semibold flex items-center gap-2">
+                    <Handshake className="h-5 w-5 text-muted-foreground" />
+                    Procurations
+                  </h2>
+                  {canManage && (
+                    <Button size="sm" onClick={() => setProcurationDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Ajouter une procuration
+                    </Button>
+                  )}
+                </div>
+
+                {/* Explanation */}
+                <div className="px-5 pb-3">
+                  <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                    <strong>Procuration :</strong> un membre absent (mandant) donne son pouvoir de vote à un membre présent (mandataire).
+                    Le mandataire vote deux fois : pour lui-même et pour son mandant. Maximum 1 procuration reçue par personne par séance (CGCT L2121-20).
+                  </p>
+                </div>
+
+                {(() => {
+                  const validProcurations = ((seance.procurations || []) as ProcurationItem[]).filter(p => p.valide)
+
+                  if (validProcurations.length === 0) {
+                    return (
+                      <div className="px-5 pb-5">
+                        <div className="text-center py-8 rounded-lg border border-dashed">
+                          <Handshake className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                          <p className="text-sm text-muted-foreground">Aucune procuration enregistrée</p>
+                          {canManage && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3"
+                              onClick={() => setProcurationDialogOpen(true)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Enregistrer une procuration
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="px-5 pb-5">
+                      <div className="divide-y rounded-lg border">
+                        {validProcurations.map(proc => (
+                          <div key={proc.id} className="flex items-center justify-between px-4 py-3">
+                            <div className="flex items-center gap-4">
+                              {/* Mandant (absent) */}
+                              <div className="text-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700 mx-auto">
+                                  {proc.mandant?.prenom?.[0]}{proc.mandant?.nom?.[0]}
+                                </div>
+                                <p className="text-xs font-medium mt-1">{proc.mandant?.prenom} {proc.mandant?.nom}</p>
+                                <p className="text-[10px] text-muted-foreground">Absent (mandant)</p>
+                              </div>
+
+                              {/* Arrow */}
+                              <div className="flex flex-col items-center gap-0.5">
+                                <Handshake className="h-4 w-4 text-blue-500" />
+                                <span className="text-[10px] text-blue-500 font-medium">donne pouvoir à</span>
+                              </div>
+
+                              {/* Mandataire (present, votes for both) */}
+                              <div className="text-center">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700 mx-auto">
+                                  {proc.mandataire?.prenom?.[0]}{proc.mandataire?.nom?.[0]}
+                                </div>
+                                <p className="text-xs font-medium mt-1">{proc.mandataire?.prenom} {proc.mandataire?.nom}</p>
+                                <p className="text-[10px] text-muted-foreground">Présent (mandataire)</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Badge className="bg-blue-50 text-blue-700 border-0 text-[10px]">
+                                {proc.canal_communication === 'telephone' ? 'Par téléphone' :
+                                 proc.canal_communication === 'email' ? 'Par email' :
+                                 proc.canal_communication === 'courrier' ? 'Par courrier' :
+                                 'Enregistrée'}
+                              </Badge>
+                              {canManage && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                  onClick={() => {
+                                    startTransition(async () => {
+                                      const result = await revokeProcuration(proc.id, seance.id)
+                                      if ('error' in result) toast.error(result.error)
+                                      else {
+                                        toast.success('Procuration annulée')
+                                        router.refresh()
+                                      }
+                                    })
+                                  }}
+                                  disabled={isPending}
+                                  title="Annuler cette procuration"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </TabsContent>
           </Tabs>
         </div>
 
@@ -1561,6 +1706,15 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         existingMemberIds={seance.convocataires.map(c => c.member_id)}
         allMembers={allMembers}
         instanceMemberIds={instanceMemberIds}
+      />
+
+      {/* Add procuration dialog */}
+      <AddProcurationDialog
+        open={procurationDialogOpen}
+        onClose={() => setProcurationDialogOpen(false)}
+        seanceId={seance.id}
+        convocataires={seance.convocataires}
+        existingProcurations={(seance.procurations || []) as ProcurationItem[]}
       />
     </div>
   )
@@ -2201,6 +2355,168 @@ function AddConvocataireDialog({
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Ajout en cours...</>
             ) : (
               <><UserPlus className="h-4 w-4 mr-2" /> Ajouter {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Add Procuration Dialog ──────────────────────────────────────────────────
+
+function AddProcurationDialog({
+  open,
+  onClose,
+  seanceId,
+  convocataires,
+  existingProcurations,
+}: {
+  open: boolean
+  onClose: () => void
+  seanceId: string
+  convocataires: { id: string; member_id: string; member: MemberOption | null }[]
+  existingProcurations: ProcurationItem[]
+}) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [mandantId, setMandantId] = useState('')
+  const [mandataireId, setMandataireId] = useState('')
+  const [canal, setCanal] = useState('telephone')
+
+  // Members who can be mandant (absent = don't have a procuration yet)
+  const availableMandants = convocataires
+    .filter(c => c.member)
+    .filter(c => !existingProcurations.some(p => p.valide && p.mandant_id === c.member_id))
+    .map(c => c.member!)
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+
+  // Members who can be mandataire (don't already have a received procuration)
+  const availableMandataires = convocataires
+    .filter(c => c.member)
+    .filter(c => !existingProcurations.some(p => p.valide && p.mandataire_id === c.member_id))
+    .filter(c => c.member_id !== mandantId) // Can't be their own mandataire
+    .map(c => c.member!)
+    .sort((a, b) => a.nom.localeCompare(b.nom))
+
+  function handleSubmit() {
+    if (!mandantId || !mandataireId) {
+      toast.error('Sélectionnez le mandant et le mandataire')
+      return
+    }
+
+    startTransition(async () => {
+      const result = await createProcuration(seanceId, mandantId, mandataireId, canal)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Procuration enregistrée')
+        setMandantId('')
+        setMandataireId('')
+        router.refresh()
+        onClose()
+      }
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Handshake className="h-5 w-5 text-blue-500" />
+            Enregistrer une procuration
+          </DialogTitle>
+          <DialogDescription>
+            Le mandant (absent) donne son pouvoir de vote au mandataire (présent).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {/* Mandant (absent) */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Mandant <span className="text-xs text-muted-foreground">(absent — donne son pouvoir)</span>
+            </Label>
+            <Select value={mandantId} onValueChange={(v) => { setMandantId(v); if (v === mandataireId) setMandataireId('') }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sélectionner le membre absent..." />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMandants.length === 0 ? (
+                  <SelectItem value="_none" disabled>Tous les membres ont déjà une procuration</SelectItem>
+                ) : (
+                  availableMandants.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.prenom} {m.nom}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Arrow */}
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Handshake className="h-4 w-4" />
+            <span className="text-xs">donne son pouvoir de vote à</span>
+          </div>
+
+          {/* Mandataire (present) */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Mandataire <span className="text-xs text-muted-foreground">(présent — vote pour les deux)</span>
+            </Label>
+            <Select value={mandataireId} onValueChange={setMandataireId} disabled={!mandantId}>
+              <SelectTrigger>
+                <SelectValue placeholder={mandantId ? 'Sélectionner le mandataire...' : 'Choisissez d\'abord le mandant'} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMandataires.length === 0 ? (
+                  <SelectItem value="_none" disabled>Aucun mandataire disponible</SelectItem>
+                ) : (
+                  availableMandataires.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.prenom} {m.nom}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Canal */}
+          <div className="space-y-2">
+            <Label>Moyen de communication</Label>
+            <Select value={canal} onValueChange={setCanal}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="telephone">Par téléphone</SelectItem>
+                <SelectItem value="email">Par email</SelectItem>
+                <SelectItem value="courrier">Par courrier</SelectItem>
+                <SelectItem value="en_personne">En personne</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Comment le mandant a-t-il communiqué sa procuration ?
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="mt-4">
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Annuler
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isPending || !mandantId || !mandataireId}
+          >
+            {isPending ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...</>
+            ) : (
+              <><Handshake className="h-4 w-4 mr-2" /> Enregistrer la procuration</>
             )}
           </Button>
         </DialogFooter>

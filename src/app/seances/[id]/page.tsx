@@ -37,7 +37,17 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         member:members (id, prenom, nom, email, role, qualite_officielle)
       ),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
-      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom)
+      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
+      procurations (
+        id,
+        mandant_id,
+        mandataire_id,
+        valide,
+        canal_communication,
+        created_at,
+        mandant:members!procurations_mandant_id_fkey (id, prenom, nom, email),
+        mandataire:members!procurations_mandataire_id_fkey (id, prenom, nom, email)
+      )
     `)
     .eq('id', id)
     .single()
