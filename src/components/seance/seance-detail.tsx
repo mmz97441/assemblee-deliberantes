@@ -1154,6 +1154,17 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Button>
               )}
 
+              {/* Conduct session — EN_COURS */}
+              {seance.statut === 'EN_COURS' && (
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => router.push(`/seances/${seance.id}/en-cours`)}
+                >
+                  <Monitor className="h-4 w-4 mr-2" />
+                  Conduite de séance
+                </Button>
+              )}
+
               {/* Emargement button — visible for CONVOQUEE and EN_COURS */}
               {(seance.statut === 'CONVOQUEE' || seance.statut === 'EN_COURS') && (
                 <Button

@@ -47,7 +47,10 @@
       "Bash(grep -r \"bucket\\\\|Storage\\\\|upload\" /Users/niceguillaume/Desktop/assemblee-deliberantes/src --include=*.ts --include=*.tsx -i)",
       "Bash(git checkout:*)",
       "Bash(npx shadcn@latest add command popover)",
-      "Bash(ls src/app/seances/[id]/)"
+      "Bash(ls src/app/seances/[id]/)",
+      "Bash(mkdir -p src/app/seances/[id]/en-cours)",
+      "Bash(mkdir -p src/app/seances/[id]/tablette)",
+      "Bash(mkdir -p src/app/seances/[id]/grande-scene)"
     ]
   }
 }
