@@ -41,6 +41,7 @@ import {
 import { updateSeanceStatut } from '@/lib/actions/seances'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
+import { VoteMainLevee } from '@/components/vote/vote-main-levee'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,25 @@ interface SeanceData extends Record<string, any> {
   presences: PresenceItem[]
   president_effectif: { id: string; prenom: string; nom: string } | null
   secretaire_seance: { id: string; prenom: string; nom: string } | null
+  votes: VoteItem[]
+}
+
+interface VoteItem {
+  id: string
+  odj_point_id: string
+  type_vote: string | null
+  statut: string | null
+  pour: number | null
+  contre: number | null
+  abstention: number | null
+  total_votants: number | null
+  resultat: string | null
+  formule_pv: string | null
+  noms_contre: string[] | null
+  noms_abstention: string[] | null
+  voix_preponderante_activee: boolean | null
+  ouvert_at: string | null
+  clos_at: string | null
 }
 
 interface SessionConductorProps {
@@ -540,28 +560,39 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                 <Separator className="my-4" />
 
                 {/* Vote action area */}
-                {isVotable && seance.statut === 'EN_COURS' && (
-                  <div className="flex items-center gap-3">
-                    <Button
-                      size="lg"
-                      className="flex-1 h-14 text-lg gap-2 bg-institutional-blue hover:bg-institutional-blue/90"
-                      onClick={() => toast.info('Vote main levée — prochaine étape du développement')}
-                    >
-                      <Vote className="h-5 w-5" />
-                      Ouvrir le vote
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="h-14 gap-2"
-                      onClick={() => toast.info('Vote secret — prochaine étape')}
-                      title="Lancer un vote à bulletin secret"
-                    >
-                      <Lock className="h-5 w-5" />
-                      Secret
-                    </Button>
-                  </div>
-                )}
+                {isVotable && seance.statut === 'EN_COURS' && (() => {
+                  // Find existing vote for this point
+                  const existingVote = (seance.votes || []).find(
+                    v => v.odj_point_id === currentPoint.id && v.statut !== 'ANNULE'
+                  ) || null
+
+                  // Build list of present members for name selection
+                  const presentMembersList = seance.presences
+                    .filter(p => (p.statut === 'PRESENT' || p.statut === 'PROCURATION') && !p.heure_depart)
+                    .map(p => {
+                      const conv = seance.convocataires.find(c => c.member_id === p.member_id)
+                      return conv?.member ? {
+                        id: conv.member.id,
+                        prenom: conv.member.prenom,
+                        nom: conv.member.nom,
+                      } : null
+                    })
+                    .filter((m): m is { id: string; prenom: string; nom: string } => m !== null)
+
+                  return (
+                    <VoteMainLevee
+                      seanceId={seance.id}
+                      odjPointId={currentPoint.id}
+                      odjPointTitre={currentPoint.titre}
+                      odjPointMajorite={currentPoint.majorite_requise || 'SIMPLE'}
+                      totalPresents={presentMembersList.length}
+                      voixPreponderante={seance.instance_config?.voix_preponderante ?? false}
+                      presentMembers={presentMembersList}
+                      existingVote={existingVote}
+                      onVoteComplete={() => router.refresh()}
+                    />
+                  )
+                })()}
 
                 {!isVotable && (
                   <div className="flex items-center gap-2 text-muted-foreground">

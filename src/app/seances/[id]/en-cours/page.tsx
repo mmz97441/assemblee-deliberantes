@@ -66,7 +66,24 @@ export default async function SeanceEnCoursPage({ params }: Props) {
         mode_authentification
       ),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
-      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom)
+      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
+      votes (
+        id,
+        odj_point_id,
+        type_vote,
+        statut,
+        pour,
+        contre,
+        abstention,
+        total_votants,
+        resultat,
+        formule_pv,
+        noms_contre,
+        noms_abstention,
+        voix_preponderante_activee,
+        ouvert_at,
+        clos_at
+      )
     `)
     .eq('id', id)
     .single()
