@@ -46,7 +46,8 @@
       "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/app -type f -name *.ts -o -name *.tsx)",
       "Bash(grep -r \"bucket\\\\|Storage\\\\|upload\" /Users/niceguillaume/Desktop/assemblee-deliberantes/src --include=*.ts --include=*.tsx -i)",
       "Bash(git checkout:*)",
-      "Bash(npx shadcn@latest add command popover)"
+      "Bash(npx shadcn@latest add command popover)",
+      "Bash(ls src/app/seances/[id]/)"
     ]
   }
 }

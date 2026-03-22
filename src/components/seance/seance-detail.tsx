@@ -107,6 +107,7 @@ import {
   CircleDot,
   GripVertical,
   ChevronsUpDown,
+  PenLine,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -1150,6 +1151,19 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 >
                   <Clock className="h-4 w-4 mr-2" />
                   Ouvrir la seance
+                </Button>
+              )}
+
+              {/* Emargement button — visible for CONVOQUEE and EN_COURS */}
+              {(seance.statut === 'CONVOQUEE' || seance.statut === 'EN_COURS') && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => router.push(`/seances/${seance.id}/emargement`)}
+                  title="Ouvrir la vue tablette d'émargement — les membres signent leur présence"
+                >
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Émargement tablette
                 </Button>
               )}
 
