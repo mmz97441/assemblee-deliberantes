@@ -19,8 +19,7 @@ import {
   Shield,
   AlertTriangle,
 } from 'lucide-react'
-import { SignaturePad } from '@/components/presence/signature-pad'
-import { markPresence } from '@/lib/actions/presences'
+import { markPresence, scanQREmargement } from '@/lib/actions/presences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,7 +124,9 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
-  const [signingMember, setSigningMember] = useState<MemberInfo | null>(null)
+  const [mode, setMode] = useState<'list' | 'scan'>('list')
+  const [scanInput, setScanInput] = useState('')
+  const [lastScanResult, setLastScanResult] = useState<{ success: boolean; message: string } | null>(null)
 
   // Build presence map: member_id -> presence
   const presenceMap = useMemo(() => {
@@ -175,27 +176,44 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
-  function handleMemberTap(member: MemberInfo) {
+  // ─── QR Scan handler ───────────────────────────────────────────────────
+  function handleQRScan(tokenOrData: string) {
+    const token = tokenOrData.trim()
+    if (!token) return
+
+    startTransition(async () => {
+      const result = await scanQREmargement(seance.id, token)
+      if ('error' in result) {
+        setLastScanResult({ success: false, message: result.error })
+        toast.error(result.error)
+      } else {
+        setLastScanResult({ success: true, message: `${result.memberName} — Présence enregistrée !` })
+        toast.success(`${result.memberName} — Présence enregistrée !`, {
+          icon: '✅',
+          duration: 3000,
+        })
+        router.refresh()
+      }
+      setScanInput('')
+      // Clear result after 4 seconds
+      setTimeout(() => setLastScanResult(null), 4000)
+    })
+  }
+
+  // ─── Manual presence (gestionnaire checks in a member) ────────────────
+  function handleManualCheckIn(member: MemberInfo) {
     const existing = presenceMap.get(member.id)
-    // Already present → don't re-sign
     if (existing?.statut === 'PRESENT') {
       toast.info(`${member.prenom} ${member.nom} est déjà enregistré(e) comme présent(e)`)
       return
     }
-    setSigningMember(member)
-  }
-
-  function handleSignatureConfirm(signatureSvg: string) {
-    if (!signingMember) return
-    const member = signingMember
-    setSigningMember(null)
 
     startTransition(async () => {
-      const result = await markPresence(seance.id, member.id, signatureSvg, 'PRESENT')
+      const result = await markPresence(seance.id, member.id, null, 'PRESENT')
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`${member.prenom} ${member.nom} — Présence enregistrée !`, {
+        toast.success(`${member.prenom} ${member.nom} — Présence enregistrée (manuellement)`, {
           icon: '✅',
           duration: 3000,
         })
@@ -210,26 +228,7 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
   const isSessionActive = seance.statut === 'EN_COURS' || seance.statut === 'CONVOQUEE'
 
-  // ─── Render: Signature mode ─────────────────────────────────────────────
-
-  if (signingMember) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="w-full max-w-lg">
-          <SignaturePad
-            memberName={`${signingMember.prenom} ${signingMember.nom}`}
-            onConfirm={handleSignatureConfirm}
-            onCancel={() => setSigningMember(null)}
-            isPending={isPending}
-            width={Math.min(450, typeof window !== 'undefined' ? window.innerWidth - 48 : 450)}
-            height={220}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // ─── Render: Member list ────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -254,6 +253,31 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Mode toggle: Scan QR / Liste */}
+              <div className="flex rounded-lg border overflow-hidden">
+                <button
+                  onClick={() => setMode('scan')}
+                  className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                    mode === 'scan'
+                      ? 'bg-institutional-blue text-white'
+                      : 'bg-white text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  Scanner QR
+                </button>
+                <button
+                  onClick={() => setMode('list')}
+                  className={`px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                    mode === 'list'
+                      ? 'bg-institutional-blue text-white'
+                      : 'bg-white text-muted-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Liste
+                </button>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -351,8 +375,99 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
         </div>
       </header>
 
-      {/* Member grid */}
+      {/* Content */}
       <main className="p-4">
+
+        {/* ─── Mode: QR Scan ─── */}
+        {mode === 'scan' && (
+          <div className="max-w-lg mx-auto space-y-6 py-8">
+            <div className="text-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-institutional-blue/10 mx-auto mb-4">
+                <Search className="h-10 w-10 text-institutional-blue" />
+              </div>
+              <h2 className="text-xl font-bold">Scanner un QR code</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Scannez le QR code de la convocation du membre avec un lecteur externe,
+                ou saisissez le code manuellement ci-dessous.
+              </p>
+            </div>
+
+            {/* Manual token input (for barcode scanner or paste) */}
+            <div className="space-y-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  handleQRScan(scanInput)
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  value={scanInput}
+                  onChange={(e) => setScanInput(e.target.value)}
+                  placeholder="Scannez ou collez le code ici..."
+                  className="h-14 text-lg font-mono"
+                  autoFocus
+                  disabled={isPending}
+                />
+                <Button
+                  type="submit"
+                  disabled={!scanInput.trim() || isPending}
+                  className="h-14 px-6"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5" />
+                  )}
+                </Button>
+              </form>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Le champ reçoit automatiquement le contenu du QR code si vous utilisez un lecteur USB/Bluetooth.
+              </p>
+            </div>
+
+            {/* Last scan result */}
+            {lastScanResult && (
+              <div className={`rounded-xl p-6 text-center animate-in fade-in zoom-in duration-300 ${
+                lastScanResult.success
+                  ? 'bg-emerald-50 border-2 border-emerald-300'
+                  : 'bg-red-50 border-2 border-red-300'
+              }`}>
+                {lastScanResult.success ? (
+                  <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
+                ) : (
+                  <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-3" />
+                )}
+                <p className={`text-lg font-semibold ${
+                  lastScanResult.success ? 'text-emerald-800' : 'text-red-800'
+                }`}>
+                  {lastScanResult.message}
+                </p>
+              </div>
+            )}
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-3 text-center pt-4">
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-2xl font-bold text-emerald-700">{presents}</p>
+                <p className="text-xs text-emerald-600">Présents</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                <p className="text-2xl font-bold text-slate-600">{total - presents - excuses - procurations}</p>
+                <p className="text-xs text-slate-500">En attente</p>
+              </div>
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
+                <p className="text-2xl font-bold text-blue-600">{total}</p>
+                <p className="text-xs text-blue-500">Total convoqués</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Mode: Member list (manual fallback) ─── */}
+        {mode === 'list' && (
+          <>
         {!isSessionActive && (
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 mb-4 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
@@ -379,7 +494,7 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
             return (
               <button
                 key={member.id}
-                onClick={() => handleMemberTap(member)}
+                onClick={() => handleManualCheckIn(member)}
                 disabled={isPending}
                 className={`
                   relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition-all
@@ -450,10 +565,10 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                   </p>
                 )}
 
-                {/* Tap hint for unsigned */}
+                {/* Tap hint */}
                 {!isPresent && !isExcuse && !isProcuration && (
                   <p className="text-[10px] text-muted-foreground">
-                    Appuyez pour signer
+                    Appuyez pour pointer
                   </p>
                 )}
               </button>
@@ -468,6 +583,8 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
               {search ? 'Aucun membre ne correspond à la recherche' : 'Aucun convocataire'}
             </p>
           </div>
+        )}
+          </>
         )}
 
         {/* Pending overlay */}

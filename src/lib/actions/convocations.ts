@@ -55,6 +55,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
           member_id,
           statut_convocation,
           token_confirmation,
+          token_emargement,
           member:members (id, prenom, nom, email)
         )
       `)
@@ -142,7 +143,18 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
           .eq('id', conv.id)
       }
 
+      // Ensure emargement token exists
+      let tokenEmargement = conv.token_emargement
+      if (!tokenEmargement) {
+        tokenEmargement = crypto.randomUUID()
+        await supabase
+          .from('convocataires')
+          .update({ token_emargement: tokenEmargement })
+          .eq('id', conv.id)
+      }
+
       const confirmationUrl = `${appUrl}/convocation/confirmer?token=${token}`
+      const qrCodeUrl = `${appUrl}/api/qr?data=${encodeURIComponent(tokenEmargement)}`
 
       const emailData = {
         prenomMembre: member.prenom,
@@ -156,6 +168,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
         odjPoints,
         confirmationUrl,
         institutionNom: institutionNom,
+        qrCodeUrl,
       }
 
       try {

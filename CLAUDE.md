@@ -273,6 +273,34 @@ Claude applique ces 10 règles AUTOMATIQUEMENT. L'utilisateur ne devrait JAMAIS 
 
 ---
 
+## RÈGLE DE LÉGALITÉ — SÉANCES OFFICIELLES
+
+Ce sont des assemblées délibérantes officielles (communes, associations loi 1901, syndicats...).
+Toute fonctionnalité doit être pensée sous l'angle de la **validité juridique**.
+
+### Identification des membres
+- **QR code unique à usage unique** = méthode principale d'émargement
+  - Généré par convocation (1 QR = 1 membre + 1 séance)
+  - Expire après scan (non réutilisable)
+  - Envoyé dans l'email de convocation + affichable dans l'app
+- **PAS de code PIN** pour l'émargement — un PIN se partage, aucune valeur légale
+- **Fallback** = le gestionnaire identifie visuellement la personne et la coche manuellement
+- **WebAuthn/biométrie** = option future pour renforcer (Phase 2+)
+
+### Procurations
+- Le membre absent déclare sa procuration AVANT la séance
+- Le gestionnaire enregistre : "X donne procuration à Y"
+- Au scan du QR code de Y, le système affiche "Vous représentez aussi X"
+- Y confirme → 2 présences enregistrées
+
+### Principes généraux
+- Toute action en séance doit être **horodatée** et **tracée** (audit_log)
+- Les votes sont **INSERT-ONLY** — pas de modification après coup
+- Les signatures et émargements sont des **preuves** — les stocker avec soin
+- En cas de doute sur la légalité d'une fonctionnalité → être plus strict, pas moins
+
+---
+
 ## POINTS D'ATTENTION CRITIQUES
 
 Ces points ont été identifiés comme risques en production (voir section 21 du CDC) :

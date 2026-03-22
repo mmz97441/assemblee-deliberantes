@@ -231,6 +231,78 @@ export async function calculateQuorum(seanceId: string): Promise<QuorumResult | 
   }
 }
 
+// ─── Scan QR code (émargement par token unique) ──────────────────────────────
+
+export async function scanQREmargement(
+  seanceId: string,
+  token: string
+): Promise<{ success: true; memberName: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    // Find the convocataire by emargement token
+    const { data: convocataire, error: findError } = await supabase
+      .from('convocataires')
+      .select(`
+        id,
+        member_id,
+        seance_id,
+        token_emargement,
+        emargement_scanne_at,
+        member:members (id, prenom, nom)
+      `)
+      .eq('token_emargement', token)
+      .eq('seance_id', seanceId)
+      .maybeSingle()
+
+    if (findError || !convocataire) {
+      return { error: 'QR code invalide ou non reconnu pour cette séance' }
+    }
+
+    // Check if already scanned (usage unique)
+    if (convocataire.emargement_scanne_at) {
+      const member = convocataire.member as { prenom: string; nom: string } | null
+      const name = member ? `${member.prenom} ${member.nom}` : 'Ce membre'
+      return { error: `${name} a déjà émargé à ${new Date(convocataire.emargement_scanne_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` }
+    }
+
+    // Mark as scanned (usage unique)
+    const { error: updateError } = await supabase
+      .from('convocataires')
+      .update({ emargement_scanne_at: new Date().toISOString() })
+      .eq('id', convocataire.id)
+
+    if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
+
+    // Upsert presence
+    const { error: presenceError } = await supabase
+      .from('presences')
+      .upsert(
+        {
+          seance_id: seanceId,
+          member_id: convocataire.member_id,
+          statut: 'PRESENT' as const,
+          heure_arrivee: new Date().toISOString(),
+          mode_authentification: 'MANUEL' as const,
+        },
+        { onConflict: 'seance_id,member_id' }
+      )
+
+    if (presenceError) return { error: `Erreur présence : ${presenceError.message}` }
+
+    const member = convocataire.member as { prenom: string; nom: string } | null
+    const memberName = member ? `${member.prenom} ${member.nom}` : 'Membre'
+
+    revalidatePath(`/seances/${seanceId}`)
+    revalidatePath(`/seances/${seanceId}/emargement`)
+    return { success: true, memberName }
+  } catch (err) {
+    console.error('scanQREmargement error:', err)
+    return { error: 'Erreur inattendue lors du scan' }
+  }
+}
+
 // ─── Get all presences for a seance ──────────────────────────────────────────
 
 export async function getPresences(seanceId: string) {

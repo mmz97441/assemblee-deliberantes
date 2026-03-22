@@ -172,6 +172,8 @@ export type Database = {
             | Database["public"]["Enums"]["convocation_statut"]
             | null
           token_confirmation: string | null
+          token_emargement: string | null
+          emargement_scanne_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -189,6 +191,8 @@ export type Database = {
             | Database["public"]["Enums"]["convocation_statut"]
             | null
           token_confirmation?: string | null
+          token_emargement?: string | null
+          emargement_scanne_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -206,6 +210,8 @@ export type Database = {
             | Database["public"]["Enums"]["convocation_statut"]
             | null
           token_confirmation?: string | null
+          token_emargement?: string | null
+          emargement_scanne_at?: string | null
           updated_at?: string | null
         }
         Relationships: [

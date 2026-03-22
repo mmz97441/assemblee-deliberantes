@@ -17,6 +17,7 @@ interface ConvocationEmailData {
   odjPoints: { position: number; titre: string; type: string }[]
   confirmationUrl: string
   institutionNom: string
+  qrCodeUrl?: string // URL de l'image QR code d'émargement
 }
 
 function formatMode(mode: string): string {
@@ -153,6 +154,24 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
             </td>
           </tr>
         </table>
+
+        ${data.qrCodeUrl ? `
+        <!-- QR Code émargement -->
+        <table width="100%" style="margin: 24px 0 0;">
+          <tr>
+            <td style="text-align: center; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+              <p style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #1e293b;">
+                Votre QR code d'emargement
+              </p>
+              <img src="${data.qrCodeUrl}" alt="QR Code" width="200" height="200" style="display: block; margin: 0 auto;" />
+              <p style="margin: 12px 0 0; font-size: 12px; color: #64748b;">
+                Presentez ce QR code a l'entree de la salle pour confirmer votre presence.
+                <br/>Ce code est personnel et a usage unique.
+              </p>
+            </td>
+          </tr>
+        </table>
+        ` : ''}
 
         <p style="margin: 16px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
           Si vous ne pouvez pas assister a cette seance, veuillez en informer le secretariat
