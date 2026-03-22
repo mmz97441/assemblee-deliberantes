@@ -51,7 +51,11 @@
       "Bash(mkdir -p src/app/seances/[id]/en-cours)",
       "Bash(mkdir -p src/app/seances/[id]/tablette)",
       "Bash(mkdir -p src/app/seances/[id]/grande-scene)",
-      "Bash(npx shadcn@latest add collapsible)"
+      "Bash(npx shadcn@latest add collapsible)",
+      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes -type f -name *qr* -o -name *convocation*)",
+      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/src/app/api -type f -name *.ts -o -name *.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"http://localhost:3000/api/qr?data=test-token-123\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://assemblee-deliberantes.vercel.app/api/qr?data=test-token-123\")"
     ]
   }
 }
