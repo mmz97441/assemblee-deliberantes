@@ -228,6 +228,21 @@ Tout doit être évident, guidé, et demander le minimum d'efforts.
 - **Pas de jargon technique** : les messages d'erreur doivent être compréhensibles par un secrétaire de mairie, pas par un développeur
 - **Tolérance** : permettre d'annuler, de revenir en arrière, de modifier — ne pas enfermer l'utilisateur dans un parcours rigide
 
+**IMPORTANT — CLAUDE DOIT PENSER COMME UN PRODUCT DESIGNER, PAS COMME UN DÉVELOPPEUR :**
+Claude ne doit PAS attendre que l'utilisateur demande une amélioration UX. À chaque composant créé ou modifié, Claude doit SE POSER CES QUESTIONS avant de coder :
+1. Est-ce que je force l'utilisateur à faire une action répétitive ? → Si oui, grouper.
+2. Est-ce que je peux pré-remplir ou deviner une valeur ? → Si oui, pré-remplir.
+3. Est-ce que l'utilisateur sait quoi faire ensuite ? → Si non, ajouter un guidage.
+4. Est-ce qu'un bouton est grisé sans explication ? → Si oui, ajouter un tooltip.
+5. Est-ce que je peux réduire le nombre de clics ? → Si oui, simplifier.
+6. Est-ce que l'utilisateur peut se tromper sans pouvoir revenir en arrière ? → Si oui, ajouter confirmation + annulation.
+7. Est-ce qu'une icône n'a pas de texte ? → Si oui, ajouter un tooltip.
+8. Est-ce que la liste est longue sans recherche ? → Si oui, ajouter recherche.
+9. Est-ce qu'un wizard a un bouton "Enregistrer" séparé du "Suivant" ? → Si oui, fusionner.
+10. Est-ce que la page est vide sans guidage ? → Si oui, ajouter un empty state avec action.
+
+Claude applique ces 10 règles AUTOMATIQUEMENT. L'utilisateur ne devrait JAMAIS avoir à demander ces améliorations.
+
 ### Tooltips et aide contextuelle
 - **Tooltip sur CHAQUE icône** sans texte (title ou Tooltip shadcn) — l'utilisateur doit savoir ce que fait un bouton au survol
 - **Tooltip sur les badges** : expliquer ce que signifie chaque statut (ex: "Convoquée : les convocations ont été envoyées")
