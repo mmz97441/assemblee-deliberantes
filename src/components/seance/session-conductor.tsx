@@ -34,6 +34,9 @@ import {
   Lock,
   Pause,
   Square,
+  Tablet,
+  Play,
+  Clock,
 } from 'lucide-react'
 import { updateSeanceStatut } from '@/lib/actions/seances'
 import type { ODJPointRow } from '@/lib/supabase/types'
@@ -151,6 +154,13 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   const [isPending, startTransition] = useTransition()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [statusDialog, setStatusDialog] = useState<string | null>(null)
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // Live clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Sort ODJ points by position
   const sortedPoints = useMemo(() =>
@@ -184,6 +194,25 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   // Votants count (presents + procurations, for vote calculations)
   const votantsCount = presenceStats.presents + presenceStats.procurations
 
+  // Session duration
+  const sessionDuration = useMemo(() => {
+    if (!seance.heure_ouverture) return null
+    const start = new Date(seance.heure_ouverture).getTime()
+    const now = currentTime.getTime()
+    const diffMs = now - start
+    if (diffMs < 0) return null
+    const hours = Math.floor(diffMs / 3600000)
+    const minutes = Math.floor((diffMs % 3600000) / 60000)
+    return hours > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${minutes} min`
+  }, [seance.heure_ouverture, currentTime])
+
+  // Rapporteur for current point (memoized, not repeated .find())
+  const currentRapporteur = useMemo(() => {
+    if (!currentPoint?.rapporteur_id) return null
+    const conv = seance.convocataires.find(c => c.member?.id === currentPoint.rapporteur_id)
+    return conv?.member || null
+  }, [currentPoint, seance.convocataires])
+
   // Documents for current point
   const currentDocuments: DocumentInfo[] = useMemo(() => {
     if (!currentPoint) return []
@@ -205,6 +234,9 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
       case 'j':
       case 'arrowleft':
         if (currentPointIndex > 0) setCurrentPointIndex(i => i - 1)
+        break
+      case 'escape':
+        // Cancel / go back
         break
     }
   }, [currentPointIndex, totalPoints])
@@ -262,6 +294,21 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Live clock + session duration */}
+          <div className="text-right mr-2 hidden sm:block">
+            <p className="text-sm font-mono font-bold tabular-nums">
+              {currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </p>
+            {sessionDuration && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
+                <Clock className="h-2.5 w-2.5" />
+                Séance : {sessionDuration}
+              </p>
+            )}
+          </div>
+
+          <Separator orientation="vertical" className="h-6" />
+
           {/* Quick links to other screens */}
           <Button
             variant="outline" size="sm"
@@ -270,6 +317,14 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           >
             <Monitor className="h-4 w-4 mr-1.5" />
             Grande Scène
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            onClick={() => window.open(`/seances/${seance.id}/tablette`, '_blank')}
+            title="Ouvrir la vue tablette élu dans un nouvel onglet"
+          >
+            <Tablet className="h-4 w-4 mr-1.5" />
+            Vue élu
           </Button>
           <Button
             variant="outline" size="sm"
@@ -283,20 +338,27 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           <Separator orientation="vertical" className="h-6" />
 
           {/* Session controls */}
+          {seance.statut === 'CONVOQUEE' && (
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')} title="Ouvrir officiellement la séance">
+              <Play className="h-4 w-4 mr-1.5" />
+              Ouvrir la séance
+            </Button>
+          )}
           {seance.statut === 'EN_COURS' && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setStatusDialog('SUSPENDUE')}>
+              <Button variant="outline" size="sm" onClick={() => setStatusDialog('SUSPENDUE')} title="Suspendre temporairement la séance">
                 <Pause className="h-4 w-4 mr-1.5" />
                 Suspendre
               </Button>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => setStatusDialog('CLOTUREE')}>
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => setStatusDialog('CLOTUREE')} title="Clôturer définitivement la séance">
                 <Square className="h-4 w-4 mr-1.5" />
                 Clôturer
               </Button>
             </>
           )}
           {seance.statut === 'SUSPENDUE' && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')}>
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')} title="Reprendre la séance">
+              <Play className="h-4 w-4 mr-1.5" />
               Reprendre
             </Button>
           )}
@@ -314,6 +376,17 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           </Badge>
         </div>
       </header>
+
+      {/* ═══ Quorum alert banner — impossible to miss ═══ */}
+      {!quorum.reached && seance.statut === 'EN_COURS' && (
+        <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-center gap-3 animate-pulse">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-bold">
+            QUORUM NON ATTEINT — {quorum.presents} présent{quorum.presents > 1 ? 's' : ''} sur {quorum.required} requis (manque {quorum.required - quorum.presents})
+          </p>
+          <AlertTriangle className="h-5 w-5 shrink-0" />
+        </div>
+      )}
 
       {/* ═══ Main content ═══ */}
       <div className="flex-1 flex">
@@ -412,15 +485,11 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                 <Separator className="my-4" />
 
                 {/* Rapporteur */}
-                {currentPoint.rapporteur_id && (
+                {currentRapporteur && (
                   <div className="flex items-center gap-2 mb-4 text-sm">
                     <MessageSquare className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">Rapporteur :</span>
-                    <span className="font-medium">
-                      {seance.convocataires.find(c => c.member?.id === currentPoint.rapporteur_id)?.member
-                        ? `${seance.convocataires.find(c => c.member?.id === currentPoint.rapporteur_id)!.member!.prenom} ${seance.convocataires.find(c => c.member?.id === currentPoint.rapporteur_id)!.member!.nom}`
-                        : 'Non trouvé'}
-                    </span>
+                    <span className="font-medium">{currentRapporteur.prenom} {currentRapporteur.nom}</span>
                   </div>
                 )}
 
@@ -677,10 +746,14 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           {/* Keyboard shortcuts help */}
           <div className="rounded-xl border p-3 text-xs text-muted-foreground">
             <p className="font-medium mb-1">Raccourcis clavier</p>
-            <div className="grid grid-cols-2 gap-1">
-              <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd> Point précédent</span>
-              <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> Point suivant</span>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd> Précédent</span>
+              <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> Suivant</span>
+              <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Esc</kbd> Annuler</span>
             </div>
+            <p className="text-[10px] text-muted-foreground/60 mt-1">
+              Vote : <kbd className="px-1 bg-muted rounded">U</kbd> unanimité · <kbd className="px-1 bg-muted rounded">V</kbd> vote · <kbd className="px-1 bg-muted rounded">Entrée</kbd> clôturer
+            </p>
           </div>
         </aside>
       </div>
@@ -707,11 +780,37 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
+              {statusDialog === 'EN_COURS' && seance.statut === 'CONVOQUEE' && 'Ouvrir la séance ?'}
+              {statusDialog === 'EN_COURS' && seance.statut === 'SUSPENDUE' && 'Reprendre la séance ?'}
               {statusDialog === 'SUSPENDUE' && 'Suspendre la séance ?'}
               {statusDialog === 'CLOTUREE' && 'Clôturer la séance ?'}
-              {statusDialog === 'EN_COURS' && 'Reprendre la séance ?'}
             </AlertDialogTitle>
             <div className="space-y-2 mt-2">
+              {statusDialog === 'EN_COURS' && seance.statut === 'CONVOQUEE' && (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    La séance sera officiellement ouverte. L&apos;heure d&apos;ouverture sera enregistrée.
+                  </p>
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1 text-xs text-blue-700">
+                    <p className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Les votes pourront commencer</p>
+                    <p className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> Le quorum sera vérifié en continu</p>
+                    <p className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> La Grande Scène affichera le point en cours</p>
+                  </div>
+                  {!quorum.reached && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-3">
+                      <p className="text-xs text-red-700 flex items-center gap-1.5">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Attention : le quorum n&apos;est pas encore atteint ({quorum.presents}/{quorum.required})
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+              {statusDialog === 'EN_COURS' && seance.statut === 'SUSPENDUE' && (
+                <p className="text-sm text-muted-foreground">
+                  La séance reprendra là où elle a été suspendue.
+                </p>
+              )}
               {statusDialog === 'CLOTUREE' && (
                 <>
                   <p className="text-sm text-muted-foreground">
@@ -744,7 +843,8 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
               {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {statusDialog === 'SUSPENDUE' && 'Suspendre'}
               {statusDialog === 'CLOTUREE' && 'Clôturer définitivement'}
-              {statusDialog === 'EN_COURS' && 'Reprendre'}
+              {statusDialog === 'EN_COURS' && seance.statut === 'CONVOQUEE' && 'Ouvrir la séance'}
+              {statusDialog === 'EN_COURS' && seance.statut === 'SUSPENDUE' && 'Reprendre'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

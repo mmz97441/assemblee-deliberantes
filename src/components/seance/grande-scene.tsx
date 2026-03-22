@@ -37,6 +37,22 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
     return () => clearInterval(interval)
   }, [router])
 
+  // Auto-fullscreen on load (try once)
+  useEffect(() => {
+    const tryFullscreen = async () => {
+      try {
+        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+          await document.documentElement.requestFullscreen()
+        }
+      } catch {
+        // User may need to interact first — that's fine
+      }
+    }
+    // Attempt fullscreen after a short delay
+    const timer = setTimeout(tryFullscreen, 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
   // Sort points
   const sortedPoints = useMemo(() =>
     [...seance.odj_points].sort((a, b) => (a.position || 0) - (b.position || 0)),
@@ -72,7 +88,17 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
 
   if (!isEnCours && !isCloturee) {
     return (
-      <div className="min-h-screen bg-[#0D2B55] flex flex-col items-center justify-center text-white p-12">
+      <div
+        className="min-h-screen bg-[#0D2B55] flex flex-col items-center justify-center text-white p-12 cursor-pointer"
+        onClick={async () => {
+          try {
+            if (!document.fullscreenElement) {
+              await document.documentElement.requestFullscreen()
+            }
+          } catch { /* ignore */ }
+        }}
+        title="Cliquez pour passer en plein écran"
+      >
         {/* Institution */}
         <div className="flex items-center gap-6 mb-12">
           <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10 border border-white/20">
@@ -232,12 +258,8 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
               </p>
             )}
 
-            {/* Rapporteur */}
-            {currentPoint.rapporteur_id && (
-              <p className="text-xl text-white/40 mb-4">
-                Rapporteur : présenté par un membre du conseil
-              </p>
-            )}
+            {/* Note: rapporteur name not loaded here to keep query light.
+                The gestionnaire sees the name on their screen. */}
 
             {/* Majority info */}
             {isVotable && currentPoint.majorite_requise && currentPoint.majorite_requise !== 'SIMPLE' && (

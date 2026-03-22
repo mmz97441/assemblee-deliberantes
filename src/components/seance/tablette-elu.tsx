@@ -116,8 +116,36 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
   }, [currentPoint])
 
   const isEnCours = seance.statut === 'EN_COURS'
+  const isCloturee = seance.statut === 'CLOTUREE'
+  const isSuspendue = seance.statut === 'SUSPENDUE'
 
-  // ─── Render ───────────────────────────────────────────────────────────
+  // ─── Render: Séance clôturée ──────────────────────────────────────────
+
+  if (isCloturee) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+        <Landmark className="h-16 w-16 text-purple-400 mb-6" />
+        <h1 className="text-3xl font-bold text-purple-800 mb-3">Séance clôturée</h1>
+        <p className="text-lg text-muted-foreground mb-2">{seance.titre}</p>
+        <p className="text-base text-muted-foreground">Merci de votre participation.</p>
+      </div>
+    )
+  }
+
+  // ─── Render: Séance suspendue ─────────────────────────────────────────
+
+  if (isSuspendue) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8 text-center">
+        <Landmark className="h-16 w-16 text-amber-400 mb-6" />
+        <h1 className="text-3xl font-bold text-amber-800 mb-3 animate-pulse">Séance suspendue</h1>
+        <p className="text-lg text-muted-foreground mb-2">{seance.titre}</p>
+        <p className="text-base text-muted-foreground">La séance reprendra prochainement.</p>
+      </div>
+    )
+  }
+
+  // ─── Render: Active ───────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col" style={{ fontSize: '22px' }}>
