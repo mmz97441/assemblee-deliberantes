@@ -174,10 +174,11 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   const [isPending, startTransition] = useTransition()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [statusDialog, setStatusDialog] = useState<string | null>(null)
-  const [currentTime, setCurrentTime] = useState(new Date())
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
 
-  // Live clock
+  // Live clock (client-only to avoid hydration mismatch)
   useEffect(() => {
+    setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
@@ -216,7 +217,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
 
   // Session duration
   const sessionDuration = useMemo(() => {
-    if (!seance.heure_ouverture) return null
+    if (!seance.heure_ouverture || !currentTime) return null
     const start = new Date(seance.heure_ouverture).getTime()
     const now = currentTime.getTime()
     const diffMs = now - start
@@ -317,7 +318,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           {/* Live clock + session duration */}
           <div className="text-right mr-2 hidden sm:block">
             <p className="text-sm font-mono font-bold tabular-nums">
-              {currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              {currentTime?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) ?? '--:--:--'}
             </p>
             {sessionDuration && (
               <p className="text-[10px] text-muted-foreground flex items-center gap-1 justify-end">
@@ -808,7 +809,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
 
       {/* ═══ Status change dialog ═══ */}
       <AlertDialog open={!!statusDialog} onOpenChange={() => setStatusDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>
               {statusDialog === 'EN_COURS' && seance.statut === 'CONVOQUEE' && 'Ouvrir la séance ?'}

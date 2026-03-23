@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback } from 'react'
+import { useState, useTransition, useMemo, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -292,29 +292,29 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     return { total, envoyes, confirmes, erreurs, nonEnvoyes }
   }, [seance.convocataires])
 
-  // ─── Legal delay warning ─────────────────────────────────────────────────
-  const legalDelayWarning = useMemo(() => {
+  // ─── Legal delay warning (client-only to avoid hydration mismatch) ────────
+  const [legalDelayWarning, setLegalDelayWarning] = useState<{
+    daysUntil: number; delai: number; critical: boolean
+  } | null>(null)
+
+  useEffect(() => {
     const delai = seance.instance_config?.delai_convocation_jours
-    if (!delai || delai <= 0) return null
+    if (!delai || delai <= 0) { setLegalDelayWarning(null); return }
 
     const now = new Date()
     const dateSeance = new Date(seance.date_seance)
     const daysUntil = Math.ceil((dateSeance.getTime() - now.getTime()) / 86400000)
 
-    // Check if convocations have been sent
     const allNonEnvoye = seance.convocataires.every(
       c => (c.statut_convocation || 'NON_ENVOYE') === 'NON_ENVOYE'
     )
     const hasConvocataires = seance.convocataires.length > 0
 
     if (daysUntil < delai && allNonEnvoye && hasConvocataires) {
-      return {
-        daysUntil,
-        delai,
-        critical: daysUntil <= 0,
-      }
+      setLegalDelayWarning({ daysUntil, delai, critical: daysUntil <= 0 })
+    } else {
+      setLegalDelayWarning(null)
     }
-    return null
   }, [seance.date_seance, seance.instance_config?.delai_convocation_jours, seance.convocataires])
 
   // ─── ODJ quick stats ─────────────────────────────────────────────────────

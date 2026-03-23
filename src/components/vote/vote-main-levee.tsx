@@ -553,7 +553,7 @@ export function VoteMainLevee({
 
       {/* ─── Confirmation dialogs ─── */}
       <AlertDialog open={confirmType === 'unanimite'} onOpenChange={() => setConfirmType(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-emerald-500" />
@@ -588,7 +588,7 @@ export function VoteMainLevee({
       </AlertDialog>
 
       <AlertDialog open={confirmType === 'standard'} onOpenChange={() => setConfirmType(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Vote className="h-5 w-5 text-blue-500" />
