@@ -117,7 +117,7 @@ export function TabletAuthScreen({
   const handleEnrollWebAuthn = useCallback(async () => {
     // TODO: Implement actual WebAuthn enrollment with server-side challenge
     // For Phase 2 MVP, we skip actual WebAuthn and just note that it's available
-    toast.success('Empreinte biometrique enregistree (simulation Phase 2)')
+    toast.success('Empreinte biométrique enregistrée (simulation Phase 2)')
     setState('authenticated')
     try {
       const memberId = localStorage.getItem(`device_session_${seanceId}`)
@@ -204,7 +204,7 @@ export function TabletAuthScreen({
               {isPending ? (
                 <>
                   <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                  Verification...
+                  Vérification...
                 </>
               ) : (
                 <>
@@ -232,7 +232,7 @@ export function TabletAuthScreen({
               Bienvenue {authenticatedName} !
             </h1>
             <p className="text-base text-muted-foreground">
-              Enregistrez votre empreinte pour les prochaines seances
+              Enregistrez votre empreinte pour les prochaines séances
             </p>
           </div>
 
@@ -252,7 +252,7 @@ export function TabletAuthScreen({
               onClick={handleSkipWebAuthn}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
             >
-              Passer cette etape
+              Passer cette étape
             </button>
           </div>
 
@@ -260,7 +260,7 @@ export function TabletAuthScreen({
           <div className="rounded-xl bg-blue-50 border border-blue-200 p-4">
             <p className="text-xs text-blue-700 text-center">
               <Fingerprint className="h-3.5 w-3.5 inline mr-1" />
-              La biometrie permet de vous identifier rapidement aux prochaines seances, sans code.
+              La biométrie permet de vous identifier rapidement aux prochaines séances, sans code.
             </p>
           </div>
         </div>
@@ -276,18 +276,18 @@ export function TabletAuthScreen({
         <div className="rounded-3xl bg-emerald-100 border-2 border-emerald-300 p-10 space-y-4">
           <CheckCircle2 className="h-20 w-20 text-emerald-600 mx-auto animate-in zoom-in-50 duration-300" />
           <h1 className="text-3xl font-bold text-emerald-800">
-            Session verrouillee
+            Session verrouillée
           </h1>
           <p className="text-xl text-emerald-700">
             {authenticatedName}
           </p>
           <Badge className="bg-emerald-200 text-emerald-800 border-0 text-base px-4 py-1.5">
             <ShieldCheck className="h-4 w-4 mr-1.5" />
-            Tablette identifiee
+            Tablette identifiée
           </Badge>
         </div>
         <Loader2 className="h-6 w-6 animate-spin text-emerald-500 mx-auto" />
-        <p className="text-sm text-emerald-600">Chargement de la seance...</p>
+        <p className="text-sm text-emerald-600">Chargement de la séance...</p>
       </div>
     </div>
   )

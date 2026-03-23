@@ -80,7 +80,7 @@ export default async function SeancesPage() {
         ]}
       />
 
-      <main className="px-8 py-6 page-enter">
+      <main className="px-4 sm:px-8 py-6 page-enter">
         <SeancesList
           seances={seances}
           instances={instances}

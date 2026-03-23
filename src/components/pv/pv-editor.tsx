@@ -186,6 +186,18 @@ export function PVEditor({
     contenuRef.current = contenu
   }, [contenu])
 
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
   // ─── Auto-save logic ─────────────────────────────────────────────────────
   const doSave = useCallback(async () => {
     if (!pvId || !contenuRef.current || isSaving) return

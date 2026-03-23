@@ -67,14 +67,14 @@ export default async function MembresPage() {
     <AuthenticatedLayout>
       <PageHeader
         title="Membres"
-        description="Gestion des elus et agents de l'institution"
+        description="Gestion des élus et agents de l'institution"
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
           { label: 'Membres' },
         ]}
       />
 
-      <main className="px-8 py-6 page-enter">
+      <main className="px-4 sm:px-8 py-6 page-enter">
         <MembersList
           members={members}
           instances={instances}

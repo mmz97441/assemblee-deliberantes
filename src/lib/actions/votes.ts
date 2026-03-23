@@ -255,10 +255,15 @@ export async function closeVoteMainLevee(
     })
 
     // Compute HMAC integrity hash (tamper-proof vote results)
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || 'dev-secret-change-in-production'
+    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    if (!hmacSecret) {
+      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+    }
     const closedAt = new Date().toISOString()
     const hashData = `${voteId}|${pour}|${contre}|${abstentions}|${resultat}|${closedAt}`
-    const hashIntegrite = crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+    const hashIntegrite = hmacSecret
+      ? crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+      : null
 
     // Close the vote
     const { error: updateError } = await supabase
@@ -529,7 +534,10 @@ export async function submitSecretBallot(
       return { error: 'La clé de chiffrement des votes n\'est pas configurée (VOTE_ENCRYPTION_KEY)' }
     }
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || 'dev-secret-change-in-production'
+    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    if (!hmacSecret) {
+      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+    }
 
     // Rate limiting: max 60 soumissions de bulletin par heure par utilisateur
     const rateCheck = await checkRateLimit(supabase, user.id, {
@@ -595,13 +603,15 @@ export async function submitSecretBallot(
     const bulletinToken = generateBulletinToken()
     const encrypted = encryptChoice(choice, sessionKeyBuffer)
     const choixChiffre = `${encrypted.ciphertext}:${encrypted.iv}:${encrypted.tag}`
-    const hashIntegrite = computeBulletinHash(
-      voteId,
-      bulletinToken,
-      choixChiffre,
-      encrypted.iv,
-      hmacSecret
-    )
+    const hashIntegrite = hmacSecret
+      ? computeBulletinHash(
+          voteId,
+          bulletinToken,
+          choixChiffre,
+          encrypted.iv,
+          hmacSecret
+        )
+      : null
 
     // Destroy key from memory
     destroyKey(sessionKeyBuffer)
@@ -628,11 +638,11 @@ export async function submitSecretBallot(
     const { error: bulletinError } = await supabase
       .from('bulletins_secret')
       .insert({
-        vote_id: voteId,
-        bulletin_token: bulletinToken,
-        choix_chiffre: choixChiffre,
-        hash_integrite: hashIntegrite,
-        nonce: encrypted.iv,
+        vote_id: voteId as string,
+        bulletin_token: bulletinToken as string,
+        choix_chiffre: choixChiffre as string,
+        hash_integrite: hashIntegrite as string,
+        nonce: encrypted.iv as string,
       })
 
     if (bulletinError) {
@@ -669,7 +679,10 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
       return { error: 'La clé de chiffrement des votes n\'est pas configurée (VOTE_ENCRYPTION_KEY)' }
     }
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || 'dev-secret-change-in-production'
+    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    if (!hmacSecret) {
+      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+    }
 
     // Fetch the vote
     const { data: vote } = await supabase
@@ -712,14 +725,16 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
       const [ciphertext, iv, tag] = parts
 
       // Verify HMAC integrity
-      const expectedHash = computeBulletinHash(
-        voteId,
-        bulletin.bulletin_token,
-        bulletin.choix_chiffre,
-        bulletin.nonce,
-        hmacSecret
-      )
-      if (expectedHash !== bulletin.hash_integrite) {
+      const expectedHash = hmacSecret
+        ? computeBulletinHash(
+            voteId,
+            bulletin.bulletin_token,
+            bulletin.choix_chiffre,
+            bulletin.nonce,
+            hmacSecret
+          )
+        : null
+      if (hmacSecret && expectedHash !== bulletin.hash_integrite) {
         destroyKey(sessionKeyBuffer)
         return { error: `Intégrité compromise sur un bulletin — le vote ne peut pas être clos. Contactez l'administrateur.` }
       }
@@ -1392,10 +1407,15 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
       titrePoint: point?.titre || vote.question || '',
     })
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || 'dev-secret-change-in-production'
+    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    if (!hmacSecret) {
+      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+    }
     const closedAt = new Date().toISOString()
     const hashData = `${voteId}|${pour}|${contre}|${abstention}|${resultat}|${closedAt}`
-    const hashIntegrite = crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+    const hashIntegrite = hmacSecret
+      ? crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+      : null
 
     const { error: updateError } = await supabase
       .from('votes')
@@ -1434,6 +1454,7 @@ export async function getPublicVoteInfo(voteId: string): Promise<
       seanceTitre: string
       statut: string
       typeVote: string
+      expires_at: string | null
     }
   | { error: string }
 > {
@@ -1454,12 +1475,22 @@ export async function getPublicVoteInfo(voteId: string): Promise<
       .eq('id', vote.seance_id)
       .single()
 
+    // Get the latest OTP expiry for this vote to provide a server-based timer
+    const { data: latestOtp } = await televoteOtps(supabase)
+      .select('expires_at')
+      .eq('vote_id', voteId)
+      .eq('used', false)
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
     return {
       question: vote.question || 'Vote en cours',
       institutionName: process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution',
       seanceTitre: seance?.titre || 'Séance',
       statut: vote.statut || 'OUVERT',
       typeVote: vote.type_vote || 'TELEVOTE',
+      expires_at: latestOtp?.expires_at || null,
     }
   } catch (err) {
     console.error('getPublicVoteInfo error:', err)

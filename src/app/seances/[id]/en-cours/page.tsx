@@ -102,7 +102,7 @@ export default async function SeanceEnCoursPage({ params }: Props) {
   const { count: instanceMemberCount } = await supabase
     .from('instance_members')
     .select('*', { count: 'exact', head: true })
-    .eq('instance_id', seance.instance_id)
+    .eq('instance_config_id', seance.instance_id)
 
   // Load recusations for the entire séance
   const { data: recusations } = await supabase

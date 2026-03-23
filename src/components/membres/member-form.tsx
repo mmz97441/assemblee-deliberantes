@@ -128,7 +128,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
 
   function handleSubmit() {
     // Basic validation
-    if (!prenom.trim()) { toast.error('Le prenom est requis'); return }
+    if (!prenom.trim()) { toast.error('Le prénom est requis'); return }
     if (!nom.trim()) { toast.error('Le nom est requis'); return }
     if (!email.trim()) { toast.error('L\'email est requis'); return }
 
@@ -199,7 +199,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           <TabsList className="grid w-full grid-cols-4 h-10">
             <TabsTrigger value="identite" className="gap-1.5 text-xs">
               <User className="h-3.5 w-3.5" />
-              Identite
+              Identité
             </TabsTrigger>
             <TabsTrigger value="fonction" className="gap-1.5 text-xs">
               <Briefcase className="h-3.5 w-3.5" />
@@ -219,7 +219,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           <TabsContent value="identite" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prenom *</Label>
+                <Label htmlFor="prenom">Prénom *</Label>
                 <Input
                   id="prenom"
                   value={prenom}
@@ -248,7 +248,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="telephone">Telephone</Label>
+              <Label htmlFor="telephone">Téléphone</Label>
               <Input
                 id="telephone"
                 type="tel"
@@ -262,7 +262,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           {/* Tab: Fonction */}
           <TabsContent value="fonction" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="role">Role dans l&apos;application *</Label>
+              <Label htmlFor="role">Rôle dans l&apos;application *</Label>
               <Select value={role} onValueChange={(v) => setRole(v as UserRole)}>
                 <SelectTrigger id="role">
                   <SelectValue />
@@ -277,7 +277,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="qualite_officielle">Qualite officielle</Label>
+              <Label htmlFor="qualite_officielle">Qualité officielle</Label>
               <Input
                 id="qualite_officielle"
                 value={qualiteOfficielle}
@@ -291,7 +291,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                 id="groupe_politique"
                 value={groupePolitique}
                 onChange={e => setGroupePolitique(e.target.value)}
-                placeholder="Majorite, Opposition..."
+                placeholder="Majorité, Opposition..."
               />
             </div>
           </TabsContent>
@@ -300,7 +300,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           <TabsContent value="mandat" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="mandat_debut">Debut de mandat</Label>
+                <Label htmlFor="mandat_debut">Début de mandat</Label>
                 <Input
                   id="mandat_debut"
                   type="date"
@@ -327,7 +327,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           <TabsContent value="instances" className="space-y-4 mt-4">
             {instances.length === 0 ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
-                Aucune instance configuree. Creez d&apos;abord des instances dans la page Configuration.
+                Aucune instance configurée. Créez d&apos;abord des instances dans la page Configuration.
               </p>
             ) : (
               <div className="space-y-3">
@@ -389,7 +389,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
           </Button>
           <Button onClick={handleSubmit} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isEditing ? 'Enregistrer' : 'Creer le membre'}
+            {isEditing ? 'Enregistrer' : 'Créer le membre'}
           </Button>
         </DialogFooter>
       </DialogContent>

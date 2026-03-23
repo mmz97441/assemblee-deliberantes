@@ -123,7 +123,7 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
       } else {
         setIsPresent(true)
         setPresenceTime(new Date().toISOString())
-        toast.success('Presence confirmee !')
+        toast.success('Présence confirmée !')
       }
     } catch {
       toast.error('Erreur lors de la confirmation')
@@ -295,6 +295,22 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
     <TooltipProvider>
     <div className="min-h-screen bg-slate-50 flex flex-col" style={{ fontSize: '22px' }}>
 
+      {/* Banner when séance not yet started */}
+      {seance.statut !== 'EN_COURS' && (
+        <div className="bg-blue-600 text-white px-6 py-4 text-center">
+          <p className="text-sm font-bold">
+            {seance.statut === 'CONVOQUEE'
+              ? 'La séance n\'a pas encore commencé'
+              : 'En attente d\'ouverture'}
+          </p>
+          <p className="text-xs text-white/80 mt-1">
+            {seance.statut === 'CONVOQUEE'
+              ? 'Vous pouvez consulter l\'ordre du jour en attendant.'
+              : ''}
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
@@ -373,10 +389,10 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
           <p className="text-xs text-muted-foreground">
             Point {currentPointIndex + 1} / {totalPoints}
           </p>
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Mise a jour automatique toutes les 3 secondes">
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Mise à jour automatique toutes les 3 secondes">
             <RefreshCw className={`h-2.5 w-2.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
             <span className="tabular-nums">
-              {isRefreshing ? 'Mise a jour...' : `il y a ${secondsSinceRefresh}s`}
+              {isRefreshing ? 'Mise à jour...' : `il y a ${secondsSinceRefresh}s`}
             </span>
           </span>
         </div>
@@ -390,14 +406,14 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
               <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-5 py-3">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
                 <span className="text-base font-medium text-emerald-800">
-                  Present(e) depuis {formatTime(presenceTime)}
+                  Présent(e) depuis {formatTime(presenceTime)}
                 </span>
               </div>
             ) : (seance.statut === 'EN_COURS' || seance.statut === 'CONVOQUEE') && (
               <div className="rounded-xl bg-blue-50 border-2 border-blue-300 p-5 space-y-3">
                 <div className="flex items-center gap-3">
                   <UserCheck className="h-7 w-7 text-blue-600 shrink-0" />
-                  <h3 className="text-xl font-bold text-blue-800">Confirmez votre presence</h3>
+                  <h3 className="text-xl font-bold text-blue-800">Confirmez votre présence</h3>
                 </div>
                 <Button
                   onClick={handleConfirmPresence}
@@ -410,7 +426,7 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
                   ) : (
                     <CheckCircle2 className="h-6 w-6 mr-2" />
                   )}
-                  {isConfirming ? 'Confirmation...' : 'Je suis present(e)'}
+                  {isConfirming ? 'Confirmation...' : 'Je suis présent(e)'}
                 </Button>
               </div>
             )}

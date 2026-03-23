@@ -272,6 +272,15 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
 
 // ─── Changement de statut ────────────────────────────────────────────────────
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'BROUILLON': ['CONVOQUEE'],
+  'CONVOQUEE': ['EN_COURS', 'BROUILLON'],
+  'EN_COURS': ['SUSPENDUE', 'CLOTUREE'],
+  'SUSPENDUE': ['EN_COURS', 'CLOTUREE'],
+  'CLOTUREE': ['ARCHIVEE'],
+  'ARCHIVEE': [],
+}
+
 export async function updateSeanceStatut(
   id: string,
   statut: 'BROUILLON' | 'CONVOQUEE' | 'EN_COURS' | 'SUSPENDUE' | 'CLOTUREE' | 'ARCHIVEE'
@@ -280,6 +289,19 @@ export async function updateSeanceStatut(
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Validate transition
+    const { data: currentSeance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', id)
+      .single()
+
+    const currentStatut = currentSeance?.statut || 'BROUILLON'
+    const allowed = VALID_TRANSITIONS[currentStatut] || []
+    if (!allowed.includes(statut)) {
+      return { error: `Transition impossible : ${currentStatut} → ${statut}. Transitions autorisées : ${allowed.join(', ') || 'aucune'}` }
+    }
 
     const updateData: Record<string, unknown> = { statut }
 

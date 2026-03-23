@@ -24,7 +24,7 @@ export default function ErrorPage({
             Erreur inattendue
           </CardTitle>
           <CardDescription>
-            Une erreur est survenue. Nos equipes ont ete notifiees.
+            Une erreur est survenue. Nos équipes ont été notifiées.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -51,7 +51,7 @@ export default function ErrorPage({
               variant="outline"
               onClick={() => window.location.href = '/login'}
             >
-              Retour a la connexion
+              Retour à la connexion
             </Button>
           </div>
         </CardContent>

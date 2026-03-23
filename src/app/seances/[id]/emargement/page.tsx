@@ -61,7 +61,7 @@ export default async function EmargementPage({ params }: Props) {
   const { count: instanceMemberCount } = await supabase
     .from('instance_members')
     .select('*', { count: 'exact', head: true })
-    .eq('instance_id', seance.instance_id)
+    .eq('instance_config_id', seance.instance_id)
 
   return (
     <EmargementView

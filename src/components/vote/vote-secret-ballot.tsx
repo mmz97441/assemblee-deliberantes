@@ -217,7 +217,7 @@ export function VoteSecretBallot({
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2 text-purple-700">
             <Lock className="h-6 w-6" />
-            <h2 className="text-xl font-bold">Vote a bulletin secret</h2>
+            <h2 className="text-xl font-bold">Vote à bulletin secret</h2>
           </div>
           <p className="text-base text-muted-foreground leading-relaxed">
             {voteQuestion}
@@ -259,10 +259,10 @@ export function VoteSecretBallot({
         <div className="w-full rounded-2xl bg-emerald-50 border-2 border-emerald-200 p-8 text-center space-y-4">
           <CheckCircle2 className="h-16 w-16 text-emerald-600 mx-auto" />
           <h2 className="text-2xl font-bold text-emerald-800">
-            Vote enregistre
+            Vote enregistré
           </h2>
           <p className="text-base text-emerald-700">
-            Votre vote a ete enregistre de maniere anonyme
+            Votre vote a été enregistré de manière anonyme
           </p>
           <div className="flex items-center justify-center gap-2">
             <Lock className="h-4 w-4 text-emerald-600" />
@@ -280,7 +280,7 @@ export function VoteSecretBallot({
               <h3 className="text-lg font-bold">Procuration</h3>
             </div>
             <p className="text-base text-blue-700">
-              Vous avez {mandants.length - currentMandantIndex} procuration{mandants.length - currentMandantIndex > 1 ? 's' : ''} a exercer
+              Vous avez {mandants.length - currentMandantIndex} procuration{mandants.length - currentMandantIndex > 1 ? 's' : ''} à exercer
             </p>
             <Button
               onClick={handleProceedToProcuration}
@@ -351,7 +351,7 @@ export function VoteSecretBallot({
           <div className="flex items-center justify-center gap-2 text-purple-700">
             <Lock className="h-6 w-6" />
             <h2 className="text-xl font-bold">
-              {isConfirmingProcuration ? `Vote pour ${currentMandant?.prenom} ${currentMandant?.nom}` : 'Vote a bulletin secret'}
+              {isConfirmingProcuration ? `Vote pour ${currentMandant?.prenom} ${currentMandant?.nom}` : 'Vote à bulletin secret'}
             </h2>
           </div>
         </div>
@@ -379,7 +379,7 @@ export function VoteSecretBallot({
                 )
               })()}
               <p className="text-sm text-muted-foreground text-center">
-                Votre choix est definitif et ne pourra pas etre modifie.
+                Votre choix est définitif et ne pourra pas être modifié.
               </p>
             </div>
           </AlertDialogHeader>

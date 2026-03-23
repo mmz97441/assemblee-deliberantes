@@ -413,7 +413,7 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
         {/* Subtle refresh dot — blinks during refresh */}
         <span
           className={`h-2.5 w-2.5 rounded-full transition-all ${isRefreshing ? 'bg-blue-400 animate-ping' : 'bg-white/20'}`}
-          title="Rafraichissement automatique"
+          title="Rafraîchissement automatique"
         />
       </footer>
     </div>

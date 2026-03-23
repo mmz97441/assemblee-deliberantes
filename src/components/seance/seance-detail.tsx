@@ -509,7 +509,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       const result = await deleteODJPoint(deletePointDialog.id, seance.id)
       if ('error' in result) toast.error(result.error)
       else {
-        toast.success('Point supprime')
+        toast.success('Point supprimé')
         router.refresh()
       }
       setDeletePointDialog(null)
@@ -524,7 +524,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       const result = await removeConvocataire(seance.id, memberId)
       if ('error' in result) toast.error(result.error)
       else {
-        toast.success('Convocataire retire avec succes')
+        toast.success('Convocataire retiré avec succès')
         router.refresh()
       }
     })
@@ -556,7 +556,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Points standards ajoutes (Approbation PV + Questions diverses)')
+        toast.success('Points standards ajoutés (Approbation PV + Questions diverses)')
         router.refresh()
       }
     })
@@ -1635,7 +1635,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               <p className="text-sm text-muted-foreground">
-                Deux points standards seront ajoutes a l&apos;ordre du jour :
+                Deux points standards seront ajoutés à l&apos;ordre du jour :
               </p>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-2">
                 <div className="flex items-center gap-2">
@@ -1650,7 +1650,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">N</span>
                   <div>
                     <p className="text-sm font-medium text-amber-800">Questions diverses</p>
-                    <p className="text-xs text-amber-600">Information — en derniere position</p>
+                    <p className="text-xs text-amber-600">Information — en dernière position</p>
                   </div>
                 </div>
               </div>
@@ -2122,7 +2122,7 @@ function ODJPointFormDialog({
               id="odj_titre"
               value={titre}
               onChange={e => setTitre(e.target.value)}
-              placeholder="Approbation du PV de la seance precedente"
+              placeholder="Approbation du PV de la séance précédente"
             />
           </div>
 
@@ -2344,7 +2344,7 @@ function AddConvocataireDialog({
               onClick={allSelected ? selectNone : selectAll}
               className="text-xs h-7"
             >
-              {allSelected ? 'Tout deselectionner' : `Tout selectionner (${sorted.length})`}
+              {allSelected ? 'Tout désélectionner' : `Tout sélectionner (${sorted.length})`}
             </Button>
             {instanceOnly.length > 0 && instanceOnly.length < sorted.length && (
               <Button
@@ -2359,7 +2359,7 @@ function AddConvocataireDialog({
             )}
             {selectedIds.size > 0 && (
               <span className="text-xs text-institutional-blue font-medium ml-auto">
-                {selectedIds.size} selectionne{selectedIds.size > 1 ? 's' : ''}
+                {selectedIds.size} sélectionné{selectedIds.size > 1 ? 's' : ''}
               </span>
             )}
           </div>
@@ -2692,7 +2692,7 @@ function DocumentBadge({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Document supprime')
+        toast.success('Document supprimé')
       }
     })
   }

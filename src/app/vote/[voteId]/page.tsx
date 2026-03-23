@@ -129,13 +129,14 @@ export default function PublicVotePage() {
     institutionName: string
     seanceTitre: string
     statut: string
+    expires_at: string | null
   } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   const [memberName, setMemberName] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [otpVerified, setOtpVerified] = useState(false)
-  // OTP expiry timer: 8 minutes from page load (approximate)
-  const [otpExpiresAt] = useState(() => new Date(Date.now() + 8 * 60 * 1000))
+  // OTP expiry timer: from server timestamp, fallback to 8 minutes from page load
+  const [otpExpiresAt, setOtpExpiresAt] = useState(() => new Date(Date.now() + 8 * 60 * 1000))
 
   // Load vote info
   useEffect(() => {
@@ -152,6 +153,9 @@ export default function PublicVotePage() {
         return
       }
       setVoteInfo(result)
+      if (result.expires_at) {
+        setOtpExpiresAt(new Date(result.expires_at))
+      }
       setStep('otp')
     }
     load()

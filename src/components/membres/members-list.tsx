@@ -28,6 +28,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { MemberFormDialog } from './member-form'
 import { MemberImportDialog } from './member-import'
 import { toggleMemberStatus, sendMemberInvitation } from '@/lib/actions/members'
@@ -99,6 +109,11 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<MemberWithInstances | null>(null)
+  const [statusChangeConfirm, setStatusChangeConfirm] = useState<{
+    memberId: string
+    newStatut: MemberStatut
+    memberName: string
+  } | null>(null)
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
@@ -133,6 +148,20 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
   }
 
   function handleToggleStatus(memberId: string, newStatut: MemberStatut) {
+    // Require confirmation for destructive status changes
+    if (newStatut === 'SUSPENDU' || newStatut === 'FIN_DE_MANDAT' || newStatut === 'DECEDE') {
+      const member = members.find(m => m.id === memberId)
+      setStatusChangeConfirm({
+        memberId,
+        newStatut,
+        memberName: member ? `${member.prenom} ${member.nom}` : 'ce membre',
+      })
+      return
+    }
+    executeStatusChange(memberId, newStatut)
+  }
+
+  function executeStatusChange(memberId: string, newStatut: MemberStatut) {
     startTransition(async () => {
       const result = await toggleMemberStatus(memberId, newStatut)
       if ('error' in result) {
@@ -255,7 +284,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
               <TableRow>
                 <TableHead className="w-[280px]">Membre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>Rôle</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Instances</TableHead>
                 {canManage && <TableHead className="w-[50px]" />}
@@ -372,6 +401,52 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
           onClose={() => setImportOpen(false)}
         />
       )}
+
+      {/* Status change confirmation dialog */}
+      <AlertDialog open={!!statusChangeConfirm} onOpenChange={(open) => { if (!open) setStatusChangeConfirm(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer le changement de statut</AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusChangeConfirm && (
+                <>
+                  Vous allez passer <strong>{statusChangeConfirm.memberName}</strong> au statut{' '}
+                  <strong>{STATUT_LABELS[statusChangeConfirm.newStatut]}</strong>.
+                  {statusChangeConfirm.newStatut === 'SUSPENDU' && (
+                    <> Ce membre ne pourra plus participer aux séances tant qu&apos;il ne sera pas réactivé.</>
+                  )}
+                  {statusChangeConfirm.newStatut === 'FIN_DE_MANDAT' && (
+                    <> Ce membre sera retiré des futures convocations.</>
+                  )}
+                  {statusChangeConfirm.newStatut === 'DECEDE' && (
+                    <> Ce membre sera définitivement retiré de toutes les instances.</>
+                  )}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (statusChangeConfirm) {
+                  executeStatusChange(statusChangeConfirm.memberId, statusChangeConfirm.newStatut)
+                  setStatusChangeConfirm(null)
+                }
+              }}
+              className={
+                statusChangeConfirm?.newStatut === 'DECEDE'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : statusChangeConfirm?.newStatut === 'FIN_DE_MANDAT'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : ''
+              }
+            >
+              Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

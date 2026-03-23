@@ -42,4 +42,4 @@ CREATE POLICY "televote_otps_self_read" ON televote_otps
 -- Audit log trigger (la table televote_otps est sensible)
 CREATE TRIGGER audit_televote_otps
   AFTER INSERT OR UPDATE OR DELETE ON televote_otps
-  FOR EACH ROW EXECUTE FUNCTION audit_trigger();
+  FOR EACH ROW EXECUTE FUNCTION audit_trigger_func();

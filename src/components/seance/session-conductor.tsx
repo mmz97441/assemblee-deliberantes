@@ -221,7 +221,7 @@ function calculateQuorum(
 
   switch (quorumType) {
     case 'MAJORITE_MEMBRES':
-      required = Math.ceil(total / 2) + 1; label = 'Majorité des membres'; break
+      required = Math.floor(total / 2) + 1; label = 'Majorité des membres'; break
     case 'TIERS_MEMBRES':
       required = Math.ceil(total / 3); label = 'Tiers des membres'; break
     case 'DEUX_TIERS':
@@ -229,7 +229,7 @@ function calculateQuorum(
     case 'STATUTS':
       required = Math.ceil((total * num) / den); label = `${num}/${den} des membres`; break
     default:
-      required = Math.ceil(total / 2) + 1; label = 'Majorité des membres'
+      required = Math.floor(total / 2) + 1; label = 'Majorité des membres'
   }
 
   return { presents, total, required, reached: presents >= required, label }
@@ -493,7 +493,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title="Les données se rafraîchissent automatiquement toutes les 5 secondes">
             <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
             <span className="tabular-nums hidden sm:inline">
-              {isRefreshing ? 'Mise a jour...' : `il y a ${secondsSinceRefresh}s`}
+              {isRefreshing ? 'Mise à jour...' : `il y a ${secondsSinceRefresh}s`}
             </span>
           </div>
 
@@ -905,7 +905,8 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                     v => v.odj_point_id === currentPoint.id && v.statut !== 'ANNULE'
                   ) || null
 
-                  // Build list of present members for name selection
+                  // Build list of present members for name selection, excluding recused
+                  const recusedIds = (currentRecusations || []).map(r => r.member_id)
                   const presentMembersList = seance.presences
                     .filter(p => (p.statut === 'PRESENT' || p.statut === 'PROCURATION') && !p.heure_depart)
                     .map(p => {
@@ -917,6 +918,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                       } : null
                     })
                     .filter((m): m is { id: string; prenom: string; nom: string } => m !== null)
+                    .filter(m => !recusedIds.includes(m.id))
 
                   // Detect vote type from existing vote or from selection
                   const isElection = currentPoint.type_traitement === 'ELECTION'

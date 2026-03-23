@@ -42,6 +42,23 @@ export async function markPresence(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
+    // Allow gestionnaire to mark anyone, OR allow member to mark only themselves
+    const role = (user.user_metadata?.role as string) || ''
+    const isGestionnaire = ['super_admin', 'gestionnaire'].includes(role)
+
+    if (!isGestionnaire) {
+      // Check if the user is marking themselves
+      const { data: memberRecord } = await supabase
+        .from('members')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (!memberRecord || memberRecord.id !== memberId) {
+        return { error: 'Vous ne pouvez marquer que votre propre présence' }
+      }
+    }
+
     // Upsert: update if exists, insert if new
     const { error } = await supabase
       .from('presences')
@@ -248,7 +265,7 @@ export async function calculateQuorum(seanceId: string): Promise<QuorumResult | 
     const { count: totalMembers } = await supabase
       .from('instance_members')
       .select('*', { count: 'exact', head: true })
-      .eq('instance_id', seance.instance_id)
+      .eq('instance_config_id', seance.instance_id)
 
     // Count presents (including procurations that count)
     const { count: presents } = await supabase
@@ -269,7 +286,7 @@ export async function calculateQuorum(seanceId: string): Promise<QuorumResult | 
 
     switch (quorumType) {
       case 'MAJORITE_MEMBRES':
-        quorumRequired = Math.ceil(total / 2) + 1
+        quorumRequired = Math.floor(total / 2) + 1
         fractionLabel = 'Majorité des membres'
         break
       case 'TIERS_MEMBRES':
@@ -285,7 +302,7 @@ export async function calculateQuorum(seanceId: string): Promise<QuorumResult | 
         fractionLabel = `${numerateur}/${denominateur} des membres`
         break
       default:
-        quorumRequired = Math.ceil(total / 2) + 1
+        quorumRequired = Math.floor(total / 2) + 1
         fractionLabel = 'Majorité des membres'
     }
 

@@ -65,10 +65,10 @@ type Phase = 'idle' | 'waiting' | 'closing' | 'closed'
 // ─── Result config ───────────────────────────────────────────────────────────
 
 const RESULTAT_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  ADOPTE: { label: 'Adopte', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  ADOPTE_UNANIMITE: { label: 'Adopte a l\'unanimite', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: Sparkles },
-  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopte (voix preponderante)', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Scale },
-  REJETE: { label: 'Rejete', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
+  ADOPTE: { label: 'Adopté', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+  ADOPTE_UNANIMITE: { label: 'Adopté à l\'unanimité', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: Sparkles },
+  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopté (voix prépondérante)', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: Scale },
+  REJETE: { label: 'Rejeté', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
   NUL: { label: 'Vote nul', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Ban },
 }
 
@@ -164,7 +164,7 @@ export function VoteSecret({
       setPhase('idle')
       setVoteId(null)
       setConfirmType(null)
-      toast.success('Vote secret annule')
+      toast.success('Vote secret annulé')
       router.refresh()
     })
   }
@@ -204,7 +204,7 @@ export function VoteSecret({
         </Button>
         <p className="text-xs text-muted-foreground text-center">
           {totalPresents} membre{totalPresents > 1 ? 's' : ''} present{totalPresents > 1 ? 's' : ''}
-          {voixPreponderante && ' \u2022 Voix preponderante activee'}
+          {voixPreponderante && ' \u2022 Voix prépondérante activée'}
         </p>
       </div>
     )
@@ -231,14 +231,14 @@ export function VoteSecret({
           {/* Secret vote: NO names displayed */}
           <p className="text-xs mt-2 opacity-70">
             <Lock className="h-3 w-3 inline mr-1" />
-            Vote a bulletin secret — noms non divulgues
+            Vote à bulletin secret — noms non divulgués
           </p>
         </div>
 
         {/* PV Formula */}
         {lastResult.formulePV && (
           <div className="rounded-lg border bg-blue-50 border-blue-200 p-4">
-            <p className="text-xs font-semibold text-blue-700 mb-1">Formule pour le proces-verbal :</p>
+            <p className="text-xs font-semibold text-blue-700 mb-1">Formule pour le procès-verbal :</p>
             <p className="text-sm text-blue-800 italic leading-relaxed">{lastResult.formulePV}</p>
           </div>
         )}
@@ -251,7 +251,7 @@ export function VoteSecret({
           className="w-full text-xs"
         >
           <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-          Voter a nouveau sur ce point
+          Voter à nouveau sur ce point
         </Button>
       </div>
     )
@@ -262,7 +262,7 @@ export function VoteSecret({
     return (
       <div className="flex flex-col items-center justify-center py-10 space-y-4">
         <Loader2 className="h-10 w-10 animate-spin text-purple-600" />
-        <p className="text-base font-medium text-purple-700">Depouillement en cours...</p>
+        <p className="text-base font-medium text-purple-700">Dépouillement en cours...</p>
         <p className="text-xs text-muted-foreground">Comptage des bulletins</p>
       </div>
     )
@@ -312,7 +312,7 @@ export function VoteSecret({
                 {votedCount}/{totalVotants}
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {allVoted ? 'Complet' : 'ont vote'}
+                {allVoted ? 'Complet' : 'ont voté'}
               </p>
             </div>
           </div>
@@ -336,7 +336,7 @@ export function VoteSecret({
             className="w-full h-12 text-base gap-2 bg-emerald-600 hover:bg-emerald-700"
           >
             <CheckCircle2 className="h-5 w-5" />
-            Tous ont vote — Clore le scrutin
+            Tous ont voté — Clore le scrutin
           </Button>
         ) : (
           <Button
@@ -374,11 +374,11 @@ export function VoteSecret({
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               <p className="text-sm text-muted-foreground">
-                Tous les membres ont vote. Le scrutin sur <strong>&quot;{odjPointTitre}&quot;</strong> sera clos et les resultats reveles.
+                Tous les membres ont voté. Le scrutin sur <strong>&quot;{odjPointTitre}&quot;</strong> sera clos et les résultats révélés.
               </p>
               <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-center">
                 <p className="text-lg font-bold text-emerald-700">
-                  {totalVotants} bulletin{totalVotants > 1 ? 's' : ''} enregistre{totalVotants > 1 ? 's' : ''}
+                  {totalVotants} bulletin{totalVotants > 1 ? 's' : ''} enregistré{totalVotants > 1 ? 's' : ''}
                 </p>
               </div>
             </div>
@@ -391,9 +391,9 @@ export function VoteSecret({
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               {isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Depouillement...</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Dépouillement...</>
               ) : (
-                <><Lock className="h-4 w-4 mr-2" /> Clore et depouiller</>
+                <><Lock className="h-4 w-4 mr-2" /> Clore et dépouiller</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -406,17 +406,17 @@ export function VoteSecret({
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Vote className="h-5 w-5 text-amber-500" />
-              Clore le scrutin malgre les votes manquants ?
+              Clore le scrutin malgré les votes manquants ?
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
                 <p className="text-sm text-amber-800">
-                  <strong>Attention :</strong> seulement {votedCount} sur {totalVotants} ont vote.
-                  Les non-votants seront comptes comme abstentions.
+                  <strong>Attention :</strong> seulement {votedCount} sur {totalVotants} ont voté.
+                  Les non-votants seront comptés comme abstentions.
                 </p>
               </div>
               <p className="text-sm text-muted-foreground">
-                Le scrutin sur <strong>&quot;{odjPointTitre}&quot;</strong> sera clos et les resultats reveles.
+                Le scrutin sur <strong>&quot;{odjPointTitre}&quot;</strong> sera clos et les résultats révélés.
               </p>
             </div>
           </AlertDialogHeader>
@@ -428,9 +428,9 @@ export function VoteSecret({
               className="bg-amber-600 hover:bg-amber-700"
             >
               {isPending ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Depouillement...</>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Dépouillement...</>
               ) : (
-                <><Lock className="h-4 w-4 mr-2" /> Clore malgre tout</>
+                <><Lock className="h-4 w-4 mr-2" /> Clore malgré tout</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -447,8 +447,8 @@ export function VoteSecret({
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               <p className="text-sm text-muted-foreground">
-                Les {votedCount > 0 ? `${votedCount} bulletin${votedCount > 1 ? 's' : ''} deja enregistre${votedCount > 1 ? 's' : ''}` : 'bulletins'} seront supprimes.
-                Cette action est irreversible.
+                Les {votedCount > 0 ? `${votedCount} bulletin${votedCount > 1 ? 's' : ''} déjà enregistré${votedCount > 1 ? 's' : ''}` : 'bulletins'} seront supprimés.
+                Cette action est irréversible.
               </p>
             </div>
           </AlertDialogHeader>

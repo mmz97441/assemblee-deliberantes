@@ -59,7 +59,7 @@ export default async function ConfigurationPage() {
         ]}
       />
 
-      <main className="px-8 py-6 page-enter">
+      <main className="px-4 sm:px-8 py-6 page-enter">
         {isFirstSetup ? (
           <Suspense fallback={<WizardSkeleton />}>
             <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
