@@ -414,6 +414,26 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
         </div>
       )}
 
+      {/* ═══ PV banner — shown when séance is clôturée ═══ */}
+      {seance.statut === 'CLOTUREE' && (
+        <div className="mx-6 mt-4">
+          <Card className="border-purple-200 bg-purple-50">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-purple-600" />
+                <div>
+                  <p className="text-sm font-medium text-purple-800">Séance clôturée</p>
+                  <p className="text-xs text-purple-600">Le procès-verbal peut maintenant être rédigé</p>
+                </div>
+              </div>
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => router.push(`/seances/${seance.id}/pv`)}>
+                Rédiger le PV
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* ═══ Main content ═══ */}
       <div className="flex-1 flex">
 

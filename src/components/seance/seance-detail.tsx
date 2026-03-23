@@ -1377,6 +1377,19 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Button>
               )}
 
+              {/* Procès-verbal — available during session (draft) or after clôture */}
+              {(seance.statut === 'EN_COURS' || seance.statut === 'CLOTUREE' || seance.statut === 'ARCHIVEE') && (
+                <Button
+                  className={`w-full ${seance.statut === 'CLOTUREE' || seance.statut === 'ARCHIVEE' ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}`}
+                  variant={seance.statut === 'EN_COURS' ? 'outline' : 'default'}
+                  onClick={() => router.push(`/seances/${seance.id}/pv`)}
+                  title={seance.statut === 'EN_COURS' ? 'Commencer la rédaction du procès-verbal pendant la séance' : 'Rédiger ou consulter le procès-verbal'}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Procès-verbal
+                </Button>
+              )}
+
               <Separator />
 
               <div className="space-y-1.5 text-xs text-muted-foreground">

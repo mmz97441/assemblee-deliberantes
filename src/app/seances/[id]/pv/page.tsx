@@ -20,11 +20,13 @@ export default async function PVPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Load seance basic info
+  // Load seance basic info + president/secretary IDs
   const { data: seance, error: seanceError } = await supabase
     .from('seances')
     .select(`
       id, titre, date_seance, statut,
+      president_effectif_seance_id,
+      secretaire_seance_id,
       instance_config (nom)
     `)
     .eq('id', id)
@@ -37,8 +39,15 @@ export default async function PVPage({ params }: Props) {
   // Load existing PV if any
   const { data: pv } = await supabase
     .from('pv')
-    .select('*')
+    .select('id, contenu_json, statut, version, signe_par, pdf_url')
     .eq('seance_id', id)
+    .maybeSingle()
+
+  // Find the current user's member record
+  const { data: currentMember } = await supabase
+    .from('members')
+    .select('id')
+    .eq('user_id', userData.user.id)
     .maybeSingle()
 
   const userRole = (userData.user.user_metadata?.role as string) || 'elu'
@@ -64,8 +73,18 @@ export default async function PVPage({ params }: Props) {
           seanceId={id}
           seanceTitre={seance.titre}
           seanceStatut={seance.statut || 'BROUILLON'}
-          existingPV={pv}
+          existingPV={pv ? {
+            id: pv.id,
+            contenu_json: pv.contenu_json,
+            statut: pv.statut,
+            version: pv.version,
+            signe_par: pv.signe_par,
+            pdf_url: pv.pdf_url,
+          } : null}
           canEdit={canEdit}
+          currentUserMemberId={currentMember?.id || null}
+          presidentMemberId={seance.president_effectif_seance_id || null}
+          secretaireMemberId={seance.secretaire_seance_id || null}
         />
       </main>
     </AuthenticatedLayout>
