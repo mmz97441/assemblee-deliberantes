@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 import { resend, FROM_EMAIL, FROM_NAME } from '@/lib/email/resend'
 import {
   generateConvocationHTML,
@@ -42,6 +43,14 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Rate limiting: max 5 envois par séance par heure
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: `send_convocations_${seanceId}`,
+      maxAttempts: 5,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     // Fetch seance with all needed data
     const { data: seance, error: seanceError } = await supabase

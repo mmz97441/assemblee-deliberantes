@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,6 +312,14 @@ export async function scanQREmargement(
   try {
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
+
+    // Rate limiting: max 60 scans par minute (anti brute-force token)
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: 'qr_scan',
+      maxAttempts: 60,
+      windowMinutes: 1,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     // Find the convocataire by emargement token
     const { data: convocataire, error: findError } = await supabase

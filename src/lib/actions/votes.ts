@@ -1,8 +1,10 @@
 'use server'
 
+import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { determineVoteResult, generateFormulePV, type MajoriteRequise } from '@/lib/validators/vote-result'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,14 @@ export async function openVote(
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut ouvrir un vote' }
     }
+
+    // Rate limiting: max 20 ouvertures de vote par séance par heure
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: `open_vote_${seanceId}`,
+      maxAttempts: 20,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     // Verify seance is EN_COURS
     const { data: seance } = await supabase
@@ -209,6 +219,12 @@ export async function closeVoteMainLevee(
       titrePoint: point?.titre || vote.question || '',
     })
 
+    // Compute HMAC integrity hash (tamper-proof vote results)
+    const hmacSecret = process.env.VOTE_HMAC_SECRET || 'dev-secret-change-in-production'
+    const closedAt = new Date().toISOString()
+    const hashData = `${voteId}|${pour}|${contre}|${abstentions}|${resultat}|${closedAt}`
+    const hashIntegrite = crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+
     // Close the vote
     const { error: updateError } = await supabase
       .from('votes')
@@ -221,7 +237,8 @@ export async function closeVoteMainLevee(
         formule_pv: formulePV,
         noms_contre: nomsContre,
         noms_abstention: nomsAbstention,
-        clos_at: new Date().toISOString(),
+        clos_at: closedAt,
+        hash_integrite: hashIntegrite,
       })
       .eq('id', voteId)
 

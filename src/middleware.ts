@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
     process.env.SUPABASE_PUBLISHABLE_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next()
+    return new NextResponse('Service temporarily unavailable', { status: 503 })
   }
 
   let supabaseResponse = NextResponse.next({
