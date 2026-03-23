@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -383,6 +384,7 @@ export function VoteMainLevee({
                   className="h-11 w-11 shrink-0"
                   onClick={() => setContre(Math.max(0, contre - 1))}
                   disabled={contre === 0}
+                  title="Retirer une voix contre"
                 >
                   <MinusIcon className="h-5 w-5" />
                 </Button>
@@ -395,6 +397,7 @@ export function VoteMainLevee({
                   className="h-11 w-11 shrink-0"
                   onClick={() => setContre(Math.min(totalVotants - abstentions, contre + 1))}
                   disabled={contre + abstentions >= totalVotants}
+                  title="Ajouter une voix contre"
                 >
                   <PlusIcon className="h-5 w-5" />
                 </Button>
@@ -406,25 +409,34 @@ export function VoteMainLevee({
                   <p className="text-xs text-muted-foreground">
                     Noms des opposants ({nomsContre.length}/{contre}) :
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
                     {membersForContre.map(m => {
                       const fullName = `${m.prenom} ${m.nom}`
                       const selected = nomsContre.includes(fullName)
+                      const disabled = !selected && nomsContre.length >= contre
                       return (
-                        <button
+                        <label
                           key={m.id}
-                          onClick={() => toggleNameContre(fullName)}
-                          disabled={!selected && nomsContre.length >= contre}
                           className={`
-                            text-xs px-2.5 py-1.5 rounded-full border transition-colors
+                            flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer transition-colors
                             ${selected
-                              ? 'bg-red-100 border-red-300 text-red-700 font-medium'
-                              : 'hover:bg-muted/50 disabled:opacity-30'
+                              ? 'bg-red-50 border border-red-200'
+                              : disabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'hover:bg-muted/50'
                             }
                           `}
                         >
-                          {fullName}
-                        </button>
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => !disabled && toggleNameContre(fullName)}
+                            disabled={disabled}
+                            className={selected ? 'border-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500' : ''}
+                          />
+                          <span className={`text-sm ${selected ? 'font-medium text-red-700' : ''}`}>
+                            {fullName}
+                          </span>
+                        </label>
                       )
                     })}
                   </div>
@@ -447,6 +459,7 @@ export function VoteMainLevee({
                   className="h-11 w-11 shrink-0"
                   onClick={() => setAbstentions(Math.max(0, abstentions - 1))}
                   disabled={abstentions === 0}
+                  title="Retirer une abstention"
                 >
                   <MinusIcon className="h-5 w-5" />
                 </Button>
@@ -459,6 +472,7 @@ export function VoteMainLevee({
                   className="h-11 w-11 shrink-0"
                   onClick={() => setAbstentions(Math.min(totalVotants - contre, abstentions + 1))}
                   disabled={contre + abstentions >= totalVotants}
+                  title="Ajouter une abstention"
                 >
                   <PlusIcon className="h-5 w-5" />
                 </Button>
@@ -470,25 +484,34 @@ export function VoteMainLevee({
                   <p className="text-xs text-muted-foreground">
                     Noms des abstentionnistes ({nomsAbstention.length}/{abstentions}) :
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
                     {membersForAbstention.map(m => {
                       const fullName = `${m.prenom} ${m.nom}`
                       const selected = nomsAbstention.includes(fullName)
+                      const disabled = !selected && nomsAbstention.length >= abstentions
                       return (
-                        <button
+                        <label
                           key={m.id}
-                          onClick={() => toggleNameAbstention(fullName)}
-                          disabled={!selected && nomsAbstention.length >= abstentions}
                           className={`
-                            text-xs px-2.5 py-1.5 rounded-full border transition-colors
+                            flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer transition-colors
                             ${selected
-                              ? 'bg-amber-100 border-amber-300 text-amber-700 font-medium'
-                              : 'hover:bg-muted/50 disabled:opacity-30'
+                              ? 'bg-amber-50 border border-amber-200'
+                              : disabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'hover:bg-muted/50'
                             }
                           `}
                         >
-                          {fullName}
-                        </button>
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => !disabled && toggleNameAbstention(fullName)}
+                            disabled={disabled}
+                            className={selected ? 'border-amber-500 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500' : ''}
+                          />
+                          <span className={`text-sm ${selected ? 'font-medium text-amber-700' : ''}`}>
+                            {fullName}
+                          </span>
+                        </label>
                       )
                     })}
                   </div>
@@ -506,38 +529,39 @@ export function VoteMainLevee({
               </div>
             )}
 
-            {/* Summary + close button */}
-            {(contre > 0 || abstentions > 0) && !isOverflow && (
-              <div className="space-y-3">
-                <div className="rounded-lg bg-muted/50 p-3">
-                  <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                    <div>
-                      <p className="text-2xl font-bold text-emerald-600">{pour}</p>
-                      <p className="text-[10px] text-muted-foreground">Pour</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-red-600">{contre}</p>
-                      <p className="text-[10px] text-muted-foreground">Contre</p>
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold text-amber-600">{abstentions}</p>
-                      <p className="text-[10px] text-muted-foreground">Abstentions</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Button
-                  className="w-full h-12"
-                  onClick={() => setConfirmType('standard')}
-                  disabled={isPending || isOverflow}
-                >
-                  <CheckCircle2 className="h-5 w-5 mr-2" />
-                  Valider et clore le vote
-                </Button>
-              </div>
-            )}
           </CollapsibleContent>
         </Collapsible>
+
+        {/* ═══ Sticky summary + validate bar ═══ */}
+        {detailsOpen && (contre > 0 || abstentions > 0) && !isOverflow && (
+          <div className="sticky bottom-0 bg-white border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] rounded-t-xl p-4 -mx-1 space-y-3 z-10">
+            <div className="rounded-lg bg-muted/50 p-3">
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div>
+                  <p className="text-2xl font-bold text-emerald-600">{pour}</p>
+                  <p className="text-[10px] text-muted-foreground">Pour</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-red-600">{contre}</p>
+                  <p className="text-[10px] text-muted-foreground">Contre</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-amber-600">{abstentions}</p>
+                  <p className="text-[10px] text-muted-foreground">Abstentions</p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12"
+              onClick={() => setConfirmType('standard')}
+              disabled={isPending || isOverflow}
+            >
+              <CheckCircle2 className="h-5 w-5 mr-2" />
+              Valider et clore le vote
+            </Button>
+          </div>
+        )}
 
         {/* ═══ Element 3: Cancel link ═══ */}
         <div className="text-center">

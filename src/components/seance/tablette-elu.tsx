@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -23,6 +24,7 @@ import {
   User,
   Landmark,
   MonitorOff,
+  RefreshCw,
 } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
@@ -74,10 +76,7 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
   const [wakeLockFailed, setWakeLockFailed] = useState(false)
 
   // Auto-refresh every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 3000)
-    return () => clearInterval(interval)
-  }, [router])
+  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 3000 })
 
   // Screen Wake Lock — keep tablet awake during session
   useEffect(() => {
@@ -174,6 +173,7 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   onClick={() => router.push(`/seances/${seance.id}`)}
+                  title="Retour à la séance"
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
@@ -236,9 +236,17 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
             />
           ))}
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5 text-center">
-          Point {currentPointIndex + 1} / {totalPoints}
-        </p>
+        <div className="flex items-center justify-center gap-3 mt-1.5">
+          <p className="text-xs text-muted-foreground">
+            Point {currentPointIndex + 1} / {totalPoints}
+          </p>
+          <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Mise a jour automatique toutes les 3 secondes">
+            <RefreshCw className={`h-2.5 w-2.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+            <span className="tabular-nums">
+              {isRefreshing ? 'Mise a jour...' : `il y a ${secondsSinceRefresh}s`}
+            </span>
+          </span>
+        </div>
       </header>
 
       {/* Main content: current point */}

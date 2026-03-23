@@ -192,6 +192,9 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
     const token = tokenOrData.trim()
     if (!token) return
 
+    // Clear previous result when a new scan starts
+    setLastScanResult(null)
+
     startTransition(async () => {
       const result = await scanQREmargement(seance.id, token)
       if ('error' in result) {
@@ -206,8 +209,6 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
         router.refresh()
       }
       setScanInput('')
-      // Clear result after 4 seconds
-      setTimeout(() => setLastScanResult(null), 4000)
     })
   }
 
@@ -490,10 +491,26 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                     Activer la caméra pour scanner
                   </Button>
                   {cameraError && (
-                    <p className="text-sm text-red-600 mt-3 flex items-center justify-center gap-1.5">
-                      <CameraOff className="h-4 w-4" />
-                      {cameraError}
-                    </p>
+                    <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-4 text-left">
+                      <div className="flex items-start gap-3">
+                        <CameraOff className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-amber-800">Accès à la caméra refusé</p>
+                          <p className="text-xs text-amber-700 mt-1">
+                            Autorisez l&apos;accès à la caméra dans les paramètres de votre navigateur, puis réessayez.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={startCamera}
+                            className="mt-3 border-amber-300 text-amber-800 hover:bg-amber-100"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Réessayer
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                   <p className="text-xs text-muted-foreground mt-3">
                     Pointez la caméra vers le QR code de la convocation du membre.
@@ -573,7 +590,7 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
             {/* Last scan result */}
             {lastScanResult && (
-              <div className={`rounded-xl p-6 text-center animate-in fade-in zoom-in duration-300 ${
+              <div className={`relative rounded-xl p-6 text-center animate-in fade-in zoom-in duration-300 ${
                 lastScanResult.success
                   ? 'bg-emerald-50 border-2 border-emerald-300'
                   : 'bg-red-50 border-2 border-red-300'
@@ -588,6 +605,14 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                 }`}>
                   {lastScanResult.message}
                 </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLastScanResult(null)}
+                  className="mt-3 text-xs"
+                >
+                  Fermer
+                </Button>
               </div>
             )}
 
@@ -703,41 +728,44 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
-                          className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium transition-colors ${
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                             isPresent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
                             : isExcuse ? 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                             : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                           }`}
                           title="Modifier le statut"
                         >
-                          {isPresent && <><CheckCircle2 className="h-3 w-3" /> Présent</>}
+                          {isPresent && <><CheckCircle2 className="h-4 w-4" /> Présent</>}
                           {isExcuse && <>Excusé</>}
                           {isProcuration && <>Procuration</>}
-                          <MoreVertical className="h-3 w-3 ml-0.5" />
+                          <MoreVertical className="h-4 w-4 ml-0.5" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {!isPresent && (
                           <DropdownMenuItem
+                            className="min-h-[44px] text-sm"
                             onClick={() => handleChangeStatus(member.id, 'PRESENT', `${member.prenom} ${member.nom}`)}
                           >
-                            <UserCheck className="h-4 w-4 mr-2 text-emerald-600" />
+                            <UserCheck className="h-5 w-5 mr-2 text-emerald-600" />
                             Marquer présent(e)
                           </DropdownMenuItem>
                         )}
                         {isPresent && (
                           <DropdownMenuItem
+                            className="min-h-[44px] text-sm"
                             onClick={() => handleChangeStatus(member.id, 'ABSENT', `${member.prenom} ${member.nom}`)}
                           >
-                            <UserX className="h-4 w-4 mr-2 text-red-500" />
+                            <UserX className="h-5 w-5 mr-2 text-red-500" />
                             Marquer absent(e)
                           </DropdownMenuItem>
                         )}
                         {!isExcuse && (
                           <DropdownMenuItem
+                            className="min-h-[44px] text-sm"
                             onClick={() => handleChangeStatus(member.id, 'EXCUSE', `${member.prenom} ${member.nom}`)}
                           >
-                            <Ban className="h-4 w-4 mr-2 text-amber-500" />
+                            <Ban className="h-5 w-5 mr-2 text-amber-500" />
                             Marquer excusé(e)
                           </DropdownMenuItem>
                         )}

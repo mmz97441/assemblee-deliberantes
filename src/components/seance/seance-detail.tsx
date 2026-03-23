@@ -1801,7 +1801,7 @@ function ODJPointCard({
             <button
               {...dragListeners}
               className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-0.5 -mb-1"
-              title="Glisser pour reordonner"
+              title="Glisser pour réordonner"
             >
               <GripVertical className="h-4 w-4" />
             </button>
@@ -1935,7 +1935,7 @@ function ODJPointCard({
         {canManage && isBrouillon && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Plus d'options">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

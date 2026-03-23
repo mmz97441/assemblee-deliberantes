@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -37,6 +38,7 @@ import {
   Tablet,
   Play,
   Clock,
+  RefreshCw,
 } from 'lucide-react'
 import { updateSeanceStatut } from '@/lib/actions/seances'
 import type { ODJPointRow } from '@/lib/supabase/types'
@@ -268,12 +270,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   }, [handleKeyDown])
 
   // ─── Auto-refresh every 5 seconds ───────────────────────────────────────
-  useEffect(() => {
-    const interval = setInterval(() => {
-      router.refresh()
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [router])
+  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 5000 })
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   function handleStatusChange(newStatut: string) {
@@ -326,6 +323,14 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                 Séance : {sessionDuration}
               </p>
             )}
+          </div>
+
+          {/* Auto-refresh indicator */}
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title="Les données se rafraîchissent automatiquement toutes les 5 secondes">
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
+            <span className="tabular-nums hidden sm:inline">
+              {isRefreshing ? 'Mise a jour...' : `il y a ${secondsSinceRefresh}s`}
+            </span>
           </div>
 
           <Separator orientation="vertical" className="h-6" />

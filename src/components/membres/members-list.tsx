@@ -315,7 +315,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isPending}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isPending} title="Plus d'options">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>

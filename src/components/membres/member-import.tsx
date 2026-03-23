@@ -397,7 +397,7 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
                   {invalidRows > 0 && ` · ${invalidRows} incomplète(s)`}
                 </p>
               </div>
-              <Button type="button" variant="ghost" size="sm" onClick={reset} className="h-8 w-8 p-0">
+              <Button type="button" variant="ghost" size="sm" onClick={reset} className="h-8 w-8 p-0" title="Effacer l'import">
                 <X className="h-4 w-4" />
               </Button>
             </div>

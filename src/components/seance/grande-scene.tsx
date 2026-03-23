@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
 import { Landmark, Clock, FileText, Vote, Shield, Eye, Lock, Maximize } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
@@ -29,14 +29,10 @@ interface GrandeSceneProps {
 // This is a FULLSCREEN display for a projector in the session room.
 
 export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
-  const router = useRouter()
   const [fullscreenFailed, setFullscreenFailed] = useState(false)
 
   // Auto-refresh every 3 seconds to stay in sync
-  useEffect(() => {
-    const interval = setInterval(() => router.refresh(), 3000)
-    return () => clearInterval(interval)
-  }, [router])
+  const { isRefreshing } = useAutoRefresh({ intervalMs: 3000 })
 
   // Track fullscreen state changes
   useEffect(() => {
@@ -329,6 +325,11 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
       <footer className="px-12 py-4 border-t border-white/10 flex items-center justify-between text-white/50 text-xl">
         <span>Point {currentIndex + 1} / {sortedPoints.length}</span>
         <span>{seance.titre}</span>
+        {/* Subtle refresh dot — blinks during refresh */}
+        <span
+          className={`h-2.5 w-2.5 rounded-full transition-all ${isRefreshing ? 'bg-blue-400 animate-ping' : 'bg-white/20'}`}
+          title="Rafraichissement automatique"
+        />
       </footer>
     </div>
   )
