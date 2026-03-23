@@ -81,6 +81,7 @@ interface TabletteEluProps {
   presenceData?: PresenceInfo | null
   votesParticipation?: { vote_id: string; member_id: string }[]
   mandants?: { id: string; prenom: string; nom: string }[]
+  memberRecusations?: { odj_point_id: string }[]
 }
 
 const MAJORITE_LABELS: Record<string, string> = {
@@ -94,7 +95,7 @@ const MAJORITE_LABELS: Record<string, string> = {
 // TABLET VIEW: Large text (22px base), big buttons (56px min), touch-friendly
 // Used by elected officials during the session on their individual tablet.
 
-export function TabletteElu({ seance, currentMember, isConvoque, presenceData, votesParticipation = [], mandants = [] }: TabletteEluProps) {
+export function TabletteElu({ seance, currentMember, isConvoque, presenceData, votesParticipation = [], mandants = [], memberRecusations = [] }: TabletteEluProps) {
   const router = useRouter()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [wakeLockFailed, setWakeLockFailed] = useState(false)
@@ -214,6 +215,50 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
           mandants={mandants}
           onVoteSubmitted={() => router.refresh()}
         />
+      </div>
+    )
+  }
+
+  // Check if current member is recused for the current point
+  const isCurrentlyRecused = currentPoint && currentMember
+    ? memberRecusations.some(r => r.odj_point_id === currentPoint.id)
+    : false
+
+  // ─── Render: Recusation overlay ────────────────────────────────────────
+  // When recused, show a full-screen amber overlay — the élu CANNOT vote.
+
+  if (isCurrentlyRecused && isEnCours && currentPoint) {
+    // Check if there's an open vote on this point (élu MUST not see vote buttons)
+    const openVoteOnPoint = (seance.votes || []).find(
+      v => v.odj_point_id === currentPoint.id && v.statut === 'OUVERT'
+    )
+
+    return (
+      <div className="min-h-screen bg-amber-50 flex flex-col items-center justify-center p-8 text-center" style={{ fontSize: '22px' }}>
+        <div className="max-w-lg space-y-6">
+          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-amber-100 border-4 border-amber-300 mx-auto">
+            <UserCheck className="h-14 w-14 text-amber-600" />
+          </div>
+          <h1 className="text-3xl font-bold text-amber-800">
+            Vous êtes récusé(e) pour ce point
+          </h1>
+          <p className="text-xl text-amber-700">
+            Vous avez déclaré un conflit d&apos;intérêt. Votre tablette est inactive pour ce vote.
+          </p>
+          <div className="rounded-xl bg-amber-100 border-2 border-amber-300 p-5">
+            <p className="text-lg font-semibold text-amber-800 mb-2">
+              Point {currentPoint.position} : {currentPoint.titre}
+            </p>
+            <p className="text-base text-amber-600">
+              {openVoteOnPoint
+                ? 'Un vote est en cours — vous ne pouvez pas y participer.'
+                : 'Vous êtes retiré(e) du débat et du vote.'}
+            </p>
+          </div>
+          <p className="text-base text-amber-600">
+            Vos droits seront rétablis au point suivant.
+          </p>
+        </div>
       </div>
     )
   }

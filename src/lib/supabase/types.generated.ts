@@ -704,6 +704,7 @@ export type Database = {
           description: string | null
           documents: Json | null
           huis_clos: boolean | null
+          huis_clos_active: boolean | null
           id: string
           majorite_requise:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -711,6 +712,7 @@ export type Database = {
           notes_seance: string | null
           position: number
           projet_deliberation: string | null
+          pv_precedent_seance_id: string | null
           rapporteur_id: string | null
           seance_id: string
           source_bureau_deliberation_id: string | null
@@ -725,6 +727,7 @@ export type Database = {
           description?: string | null
           documents?: Json | null
           huis_clos?: boolean | null
+          huis_clos_active?: boolean | null
           id?: string
           majorite_requise?:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -732,6 +735,7 @@ export type Database = {
           notes_seance?: string | null
           position: number
           projet_deliberation?: string | null
+          pv_precedent_seance_id?: string | null
           rapporteur_id?: string | null
           seance_id: string
           source_bureau_deliberation_id?: string | null
@@ -746,6 +750,7 @@ export type Database = {
           description?: string | null
           documents?: Json | null
           huis_clos?: boolean | null
+          huis_clos_active?: boolean | null
           id?: string
           majorite_requise?:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -753,6 +758,7 @@ export type Database = {
           notes_seance?: string | null
           projet_deliberation?: string | null
           position?: number
+          pv_precedent_seance_id?: string | null
           rapporteur_id?: string | null
           seance_id?: string
           source_bureau_deliberation_id?: string | null
@@ -826,6 +832,7 @@ export type Database = {
       }
       presences: {
         Row: {
+          arrivee_tardive: boolean | null
           biometrie_hash: string | null
           created_at: string | null
           device_id: string | null
@@ -846,6 +853,7 @@ export type Database = {
           webauthn_assertion_id: string | null
         }
         Insert: {
+          arrivee_tardive?: boolean | null
           biometrie_hash?: string | null
           created_at?: string | null
           device_id?: string | null
@@ -866,6 +874,7 @@ export type Database = {
           webauthn_assertion_id?: string | null
         }
         Update: {
+          arrivee_tardive?: boolean | null
           biometrie_hash?: string | null
           created_at?: string | null
           device_id?: string | null
@@ -1078,6 +1087,7 @@ export type Database = {
       }
       recusations: {
         Row: {
+          declare_par: string
           declared_by: string | null
           horodatage: string | null
           id: string
@@ -1087,6 +1097,7 @@ export type Database = {
           seance_id: string
         }
         Insert: {
+          declare_par?: string
           declared_by?: string | null
           horodatage?: string | null
           id?: string
@@ -1096,6 +1107,7 @@ export type Database = {
           seance_id: string
         }
         Update: {
+          declare_par?: string
           declared_by?: string | null
           horodatage?: string | null
           id?: string
@@ -1148,6 +1160,7 @@ export type Database = {
           quorum_atteint: number | null
           quorum_requis: number | null
           reconvocation: boolean | null
+          secretaire_designation_mode: string | null
           secretaire_seance_id: string | null
           statut: Database["public"]["Enums"]["seance_statut"] | null
           titre: string
@@ -1173,6 +1186,7 @@ export type Database = {
           quorum_atteint?: number | null
           quorum_requis?: number | null
           reconvocation?: boolean | null
+          secretaire_designation_mode?: string | null
           secretaire_seance_id?: string | null
           statut?: Database["public"]["Enums"]["seance_statut"] | null
           titre: string
@@ -1198,6 +1212,7 @@ export type Database = {
           quorum_atteint?: number | null
           quorum_requis?: number | null
           reconvocation?: boolean | null
+          secretaire_designation_mode?: string | null
           secretaire_seance_id?: string | null
           statut?: Database["public"]["Enums"]["seance_statut"] | null
           titre?: string
@@ -1320,6 +1335,63 @@ export type Database = {
             columns: ["seance_id"]
             isOneToOne: false
             referencedRelation: "seances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      televote_otps: {
+        Row: {
+          id: string
+          vote_id: string
+          member_id: string
+          otp_hash: string
+          expires_at: string
+          used: boolean | null
+          used_at: string | null
+          resend_count: number | null
+          choix: string | null
+          sms_sid: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          vote_id: string
+          member_id: string
+          otp_hash: string
+          expires_at: string
+          used?: boolean | null
+          used_at?: string | null
+          resend_count?: number | null
+          choix?: string | null
+          sms_sid?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          vote_id?: string
+          member_id?: string
+          otp_hash?: string
+          expires_at?: string
+          used?: boolean | null
+          used_at?: string | null
+          resend_count?: number | null
+          choix?: string | null
+          sms_sid?: string | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "televote_otps_vote_id_fkey"
+            columns: ["vote_id"]
+            isOneToOne: false
+            referencedRelation: "votes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "televote_otps_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]

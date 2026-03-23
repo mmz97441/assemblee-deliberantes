@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { SessionConductor } from '@/components/seance/session-conductor'
+import { getPreviousSeancePVForApproval } from '@/lib/actions/phase2-features'
 
 interface Props {
   params: { id: string }
@@ -40,6 +41,8 @@ export default async function SeanceEnCoursPage({ params }: Props) {
       heure_cloture,
       notes,
       reconvocation,
+      late_arrival_mode,
+      secretaire_designation_mode,
       instance_config (
         id,
         nom,
@@ -49,13 +52,14 @@ export default async function SeanceEnCoursPage({ params }: Props) {
         quorum_fraction_denominateur,
         composition_max,
         majorite_defaut,
-        voix_preponderante
+        voix_preponderante,
+        mode_arrivee_tardive
       ),
       odj_points (*),
       convocataires (
         id,
         member_id,
-        member:members (id, prenom, nom, email, qualite_officielle)
+        member:members (id, prenom, nom, email, qualite_officielle, telephone)
       ),
       presences (
         id,
@@ -63,7 +67,8 @@ export default async function SeanceEnCoursPage({ params }: Props) {
         statut,
         heure_arrivee,
         heure_depart,
-        mode_authentification
+        mode_authentification,
+        arrivee_tardive
       ),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
       secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
@@ -99,6 +104,24 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     .select('*', { count: 'exact', head: true })
     .eq('instance_id', seance.instance_id)
 
+  // Load recusations for the entire séance
+  const { data: recusations } = await supabase
+    .from('recusations')
+    .select(`
+      id,
+      seance_id,
+      odj_point_id,
+      member_id,
+      motif,
+      declare_par,
+      horodatage,
+      member:members (id, prenom, nom)
+    `)
+    .eq('seance_id', id)
+
+  // Load PV approval info for the previous séance
+  const pvApprovalInfo = await getPreviousSeancePVForApproval(seance.instance_id, id)
+
   // Enrich open secret votes with voted_count from votes_participation
   const openSecretVotes = (seance.votes || []).filter(
     (v: { type_vote: string | null; statut: string | null }) =>
@@ -116,6 +139,8 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     <SessionConductor
       seance={seance}
       instanceMemberCount={instanceMemberCount || 0}
+      recusations={(recusations || []) as unknown as { id: string; seance_id: string; odj_point_id: string; member_id: string; motif: string | null; declare_par: string; horodatage: string; member: { id: string; prenom: string; nom: string } | null }[]}
+      pvApprovalInfo={pvApprovalInfo}
     />
   )
 }

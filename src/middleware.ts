@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
     // Routes publiques
     // Note: ces routes sont dupliquees de lib/constants.ts car le middleware
     // Edge Runtime a des restrictions d'import. Garder synchronise avec PUBLIC_ROUTES.
-    const publicPaths = ['/login', '/register', '/invite', '/convocation', '/api/qr']
+    const publicPaths = ['/login', '/register', '/invite', '/convocation', '/api/qr', '/vote']
     const isPublicPath = publicPaths.some((path) =>
       pathname.startsWith(path)
     )

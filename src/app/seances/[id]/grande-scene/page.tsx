@@ -56,6 +56,12 @@ export default async function GrandeScenePage({ params }: Props) {
     ;(vote as Record<string, unknown>).voted_count = count || 0
   }
 
+  // Load recusations for the séance
+  const { data: recusations } = await supabase
+    .from('recusations')
+    .select('odj_point_id, member:members(prenom, nom)')
+    .eq('seance_id', id)
+
   // Get institution name for the logo area
   const { data: institution } = await supabase
     .from('institution_config')
@@ -67,6 +73,7 @@ export default async function GrandeScenePage({ params }: Props) {
     <GrandeScene
       seance={seance}
       institutionName={institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'}
+      recusations={(recusations || []) as unknown as { odj_point_id: string; member: { prenom: string; nom: string } | null }[]}
     />
   )
 }

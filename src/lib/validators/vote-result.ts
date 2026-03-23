@@ -87,8 +87,9 @@ export function generateFormulePV(params: {
   nomsContre: string[]
   nomsAbstention: string[]
   titrePoint: string
+  recuses?: string[]
 }): string {
-  const { pour, contre, abstention, totalVotants, resultat, nomsContre, nomsAbstention, titrePoint } = params
+  const { pour, contre, abstention, totalVotants, resultat, nomsContre, nomsAbstention, titrePoint, recuses = [] } = params
 
   const titre = titrePoint || 'la délibération'
   const contreStr = nomsContre.length > 0
@@ -98,34 +99,45 @@ export function generateFormulePV(params: {
     ? `(${nomsAbstention.join(', ')})`
     : ''
 
+  // Prepend recusation text if applicable (CGCT L2131-11)
+  const recusationPrefix = recuses.length > 0
+    ? recuses.map(nom =>
+        `${nom}, ayant déclaré un intérêt personnel dans ce dossier, s'est retiré(e) lors du débat et du vote.`
+      ).join(' ') + '\n\n'
+    : ''
+
+  let formula: string
+
   switch (resultat) {
     case 'ADOPTE_UNANIMITE':
-      return `Après en avoir délibéré, ADOPTE à l'unanimité des ${totalVotants} votant${totalVotants > 1 ? 's' : ''} la délibération relative à : ${titre}.`
+      formula = `Après en avoir délibéré, ADOPTE à l'unanimité des ${totalVotants} votant${totalVotants > 1 ? 's' : ''} la délibération relative à : ${titre}.`
+      break
 
     case 'ADOPTE':
     case 'ADOPTE_VOIX_PREPONDERANTE': {
       if (resultat === 'ADOPTE_VOIX_PREPONDERANTE') {
-        return `Les voix étant partagées (${pour} voix pour, ${contre} voix contre ${contreStr}), la voix du Président étant prépondérante, ADOPTE la délibération relative à : ${titre}.`
+        formula = `Les voix étant partagées (${pour} voix pour, ${contre} voix contre ${contreStr}), la voix du Président étant prépondérante, ADOPTE la délibération relative à : ${titre}.`
+      } else if (contre === 0 && abstention > 0) {
+        formula = `Après en avoir délibéré, ADOPTE à l'unanimité des suffrages exprimés (${pour} voix pour) la délibération relative à : ${titre}, ${abstention} membre${abstention > 1 ? 's' : ''} s'étant abstenu${abstention > 1 ? 's' : ''} ${abstStr}.`
+      } else if (contre > 0 && abstention === 0) {
+        formula = `Après en avoir délibéré, par ${pour} voix pour et ${contre} voix contre ${contreStr}, ADOPTE la délibération relative à : ${titre}.`
+      } else {
+        formula = `Après en avoir délibéré, par ${pour} voix pour, ${contre} voix contre ${contreStr} et ${abstention} abstention${abstention > 1 ? 's' : ''} ${abstStr}, ADOPTE la délibération relative à : ${titre}.`
       }
-
-      if (contre === 0 && abstention > 0) {
-        return `Après en avoir délibéré, ADOPTE à l'unanimité des suffrages exprimés (${pour} voix pour) la délibération relative à : ${titre}, ${abstention} membre${abstention > 1 ? 's' : ''} s'étant abstenu${abstention > 1 ? 's' : ''} ${abstStr}.`
-      }
-
-      if (contre > 0 && abstention === 0) {
-        return `Après en avoir délibéré, par ${pour} voix pour et ${contre} voix contre ${contreStr}, ADOPTE la délibération relative à : ${titre}.`
-      }
-
-      return `Après en avoir délibéré, par ${pour} voix pour, ${contre} voix contre ${contreStr} et ${abstention} abstention${abstention > 1 ? 's' : ''} ${abstStr}, ADOPTE la délibération relative à : ${titre}.`
+      break
     }
 
     case 'REJETE':
-      return `Après en avoir délibéré, par ${contre} voix contre ${contreStr} et ${pour} voix pour, REJETTE la délibération relative à : ${titre}.`
+      formula = `Après en avoir délibéré, par ${contre} voix contre ${contreStr} et ${pour} voix pour, REJETTE la délibération relative à : ${titre}.`
+      break
 
     case 'NUL':
-      return `Constate que le vote est nul, l'ensemble des ${totalVotants} membre${totalVotants > 1 ? 's' : ''} présent${totalVotants > 1 ? 's' : ''} s'étant abstenu${totalVotants > 1 ? 's' : ''}.`
+      formula = `Constate que le vote est nul, l'ensemble des ${totalVotants} membre${totalVotants > 1 ? 's' : ''} présent${totalVotants > 1 ? 's' : ''} s'étant abstenu${totalVotants > 1 ? 's' : ''}.`
+      break
 
     default:
-      return `Vote clos. Pour : ${pour}, Contre : ${contre}, Abstentions : ${abstention}.`
+      formula = `Vote clos. Pour : ${pour}, Contre : ${contre}, Abstentions : ${abstention}.`
   }
+
+  return recusationPrefix + formula
 }

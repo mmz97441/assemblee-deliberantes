@@ -50,6 +50,7 @@ interface TabletWrapperProps {
   votesParticipation: { vote_id: string; member_id: string }[]
   mandants: { id: string; prenom: string; nom: string }[]
   hasDeviceSession: boolean
+  memberRecusations?: { odj_point_id: string }[]
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export function TabletWrapper({
   votesParticipation,
   mandants,
   hasDeviceSession,
+  memberRecusations = [],
 }: TabletWrapperProps) {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -120,6 +122,7 @@ export function TabletWrapper({
       presenceData={presenceData}
       votesParticipation={votesParticipation}
       mandants={mandants}
+      memberRecusations={memberRecusations}
     />
   )
 }

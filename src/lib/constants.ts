@@ -25,6 +25,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.LOGIN,
   ROUTES.REGISTER,
   '/invite',
+  '/vote',
 ] as const
 
 // --- Validation ---

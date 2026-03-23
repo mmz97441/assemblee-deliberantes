@@ -30,16 +30,23 @@ interface SeanceData extends Record<string, any> {
   votes?: VoteInfo[]
 }
 
+interface RecusationInfo {
+  odj_point_id: string
+  member: { prenom: string; nom: string } | null
+}
+
 interface GrandeSceneProps {
   seance: SeanceData
   institutionName: string
+  recusations?: RecusationInfo[]
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 // Target: 1920×1080, text readable at 10m (60px minimum)
 // This is a FULLSCREEN display for a projector in the session room.
 
-export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function GrandeScene({ seance, institutionName, recusations = [] }: GrandeSceneProps) {
   const [fullscreenFailed, setFullscreenFailed] = useState(false)
 
   // Auto-refresh every 3 seconds to stay in sync
@@ -215,6 +222,34 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
     currentPoint.type_traitement === 'APPROBATION_PV'
   )
 
+  // Check if huis clos is active on current point
+  const isHuisClosActive = (currentPoint as Record<string, unknown> | null)?.huis_clos_active === true
+
+  // Get recusations for the current point (will be used in future display)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const currentPointRecusations = currentPoint
+    ? recusations.filter(r => r.odj_point_id === currentPoint.id)
+    : []
+
+  // ─── Render: Huis clos overlay — replaces entire content ──────────
+
+  if (isHuisClosActive) {
+    return (
+      <div
+        className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-12 cursor-pointer"
+        onClick={handleClickFullscreen}
+      >
+        <Lock className="h-32 w-32 text-red-400 mb-12" />
+        <h1 className="text-8xl font-bold tracking-tight mb-8 text-center">
+          SÉANCE À HUIS CLOS
+        </h1>
+        <p className="text-4xl text-white/70 text-center max-w-3xl">
+          La séance se poursuit à huis clos. Merci de patienter.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#0D2B55] flex flex-col text-white" onClick={handleClickFullscreen}>
 
@@ -336,6 +371,17 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
                    currentPoint.majorite_requise === 'UNANIMITE' ? 'Unanimité requise' :
                    currentPoint.majorite_requise}
                 </p>
+              </div>
+            )}
+
+            {/* Recusations display */}
+            {currentPointRecusations.length > 0 && (
+              <div className="mt-6 bg-amber-500/20 border border-amber-400/40 rounded-xl px-8 py-4">
+                {currentPointRecusations.map((rec, i) => (
+                  <p key={i} className="text-2xl text-amber-300">
+                    {rec.member ? `${rec.member.prenom} ${rec.member.nom}` : 'Un membre'} s&apos;est retiré(e) (conflit d&apos;intérêt)
+                  </p>
+                ))}
               </div>
             )}
 

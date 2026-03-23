@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import type { SeanceRow, ODJPointRow, InstanceConfigRow, MemberRow } from '@/lib/supabase/types'
+import { addPVApprovalODJPoint } from '@/lib/actions/phase2-features'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -205,6 +206,13 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
           console.error('Error adding convocataires:', convError)
         }
       }
+    }
+
+    // Auto-add PV approval ODJ point if previous séance has a signed PV
+    if (newSeance) {
+      await addPVApprovalODJPoint(newSeance.id, instanceId).catch(err => {
+        console.error('Error auto-adding PV approval point:', err)
+      })
     }
 
     revalidatePath(ROUTES.SEANCES)
@@ -702,6 +710,105 @@ export async function duplicateSeance(
   } catch (err) {
     console.error('duplicateSeance error:', err)
     return { error: 'Erreur inattendue lors de la duplication' }
+  }
+}
+
+// ─── Reconvocation (quorum non atteint) ─────────────────────────────────────
+
+/**
+ * Reconvoque une séance quand le quorum n'est pas atteint.
+ * Crée une nouvelle séance à J+3 (CGCT L2121-17 : pas de condition de quorum).
+ * L'ancienne séance est marquée comme "CLOTUREE" avec un PV de carence.
+ */
+export async function reconvoquerSeance(
+  seanceId: string
+): Promise<{ success: true; newSeanceId: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    // Fetch source séance
+    const { data: source } = await supabase
+      .from('seances')
+      .select('*, odj_points (*), convocataires (member_id)')
+      .eq('id', seanceId)
+      .single()
+
+    if (!source) return { error: 'Séance introuvable' }
+
+    // Calculate reconvocation date (J+3)
+    const sourceDate = new Date(source.date_seance)
+    const reconvocationDate = new Date(sourceDate)
+    reconvocationDate.setDate(reconvocationDate.getDate() + 3)
+    // Keep the same time
+    reconvocationDate.setHours(sourceDate.getHours(), sourceDate.getMinutes())
+
+    // Create new séance (reconvocation)
+    const { data: newSeance, error: createError } = await supabase
+      .from('seances')
+      .insert({
+        titre: source.titre,
+        date_seance: reconvocationDate.toISOString(),
+        instance_id: source.instance_id,
+        statut: 'BROUILLON' as const,
+        mode: source.mode,
+        lieu: source.lieu,
+        publique: source.publique,
+        reconvocation: true,
+        notes: `Reconvocation de la séance du ${sourceDate.toLocaleDateString('fr-FR')} — quorum non atteint. CGCT L2121-17 : cette séance se tient sans condition de quorum.`,
+      })
+      .select('id')
+      .single()
+
+    if (createError || !newSeance) {
+      return { error: `Erreur lors de la création : ${createError?.message || 'inconnue'}` }
+    }
+
+    // Copy ODJ points
+    const sortedPoints = (source.odj_points || []).sort(
+      (a: ODJPointRow, b: ODJPointRow) => a.position - b.position
+    )
+    for (const point of sortedPoints) {
+      await supabase.from('odj_points').insert({
+        seance_id: newSeance.id,
+        titre: point.titre,
+        description: point.description,
+        type_traitement: point.type_traitement,
+        majorite_requise: point.majorite_requise,
+        position: point.position,
+        rapporteur_id: point.rapporteur_id,
+        huis_clos: point.huis_clos,
+        votes_interdits: point.votes_interdits,
+        projet_deliberation: point.projet_deliberation,
+      })
+    }
+
+    // Copy convocataires
+    const memberIds = (source.convocataires || []).map((c: { member_id: string }) => c.member_id)
+    for (const memberId of memberIds) {
+      await supabase.from('convocataires').insert({
+        seance_id: newSeance.id,
+        member_id: memberId,
+        statut_convocation: 'NON_ENVOYE' as const,
+      })
+    }
+
+    // Close the original séance as "carence" (quorum not met)
+    await supabase
+      .from('seances')
+      .update({
+        statut: 'CLOTUREE' as const,
+        notes: (source.notes || '') + '\n\n⚠️ Séance close pour défaut de quorum. Reconvocation effectuée.',
+      })
+      .eq('id', seanceId)
+
+    revalidatePath(ROUTES.SEANCES)
+    revalidatePath(`/seances/${seanceId}`)
+    return { success: true, newSeanceId: newSeance.id }
+  } catch (err) {
+    console.error('reconvoquerSeance error:', err)
+    return { error: 'Erreur inattendue lors de la reconvocation' }
   }
 }
 

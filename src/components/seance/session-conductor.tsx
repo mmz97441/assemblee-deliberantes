@@ -18,6 +18,28 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   ChevronLeft,
   ChevronRight,
   Users,
@@ -41,13 +63,25 @@ import {
   RefreshCw,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Hand,
+  UserMinus,
+  X,
+  EyeOff,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Smartphone,
 } from 'lucide-react'
-import { updateSeanceStatut } from '@/lib/actions/seances'
+import { updateSeanceStatut, reconvoquerSeance } from '@/lib/actions/seances'
+import { recuseFromPoint, cancelRecusation } from '@/lib/actions/recusations'
+import { activateHuisClos, deactivateHuisClos } from '@/lib/actions/recusations'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
 import { VoteMainLevee } from '@/components/vote/vote-main-levee'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { VoteSecret } from '@/components/vote/vote-secret'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { VoteTelevote } from '@/components/vote/vote-televote'
+import { LateArrivalBanner } from '@/components/seance/late-arrival-banner'
+import { SecretaryDesignation } from '@/components/seance/secretary-designation'
+import { PVApprovalBanner } from '@/components/seance/pv-approval-banner'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +91,7 @@ interface MemberInfo {
   nom: string
   email: string
   qualite_officielle: string | null
+  telephone?: string | null
 }
 
 interface PresenceItem {
@@ -66,6 +101,7 @@ interface PresenceItem {
   heure_arrivee: string | null
   heure_depart: string | null
   mode_authentification: string | null
+  arrivee_tardive: boolean | null
 }
 
 interface InstanceConfig {
@@ -78,6 +114,7 @@ interface InstanceConfig {
   composition_max: number | null
   majorite_defaut: string | null
   voix_preponderante: boolean | null
+  mode_arrivee_tardive?: string | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,6 +131,8 @@ interface SeanceData extends Record<string, any> {
   heure_cloture: string | null
   notes: string | null
   reconvocation: boolean | null
+  late_arrival_mode: string | null
+  secretaire_designation_mode: string | null
   instance_config: InstanceConfig | null
   odj_points: ODJPointRow[]
   convocataires: { id: string; member_id: string; member: MemberInfo | null }[]
@@ -122,9 +161,31 @@ interface VoteItem {
   voted_count?: number
 }
 
+interface RecusationItem {
+  id: string
+  seance_id: string
+  odj_point_id: string
+  member_id: string
+  motif: string | null
+  declare_par: string
+  horodatage: string
+  member: { id: string; prenom: string; nom: string } | null
+}
+
+interface PVApprovalInfo {
+  pvId: string
+  seanceId: string
+  seanceTitre: string
+  seanceDate: string
+  pvStatut: string
+  pdfUrl: string | null
+}
+
 interface SessionConductorProps {
   seance: SeanceData
   instanceMemberCount: number
+  recusations?: RecusationItem[]
+  pvApprovalInfo?: PVApprovalInfo | null
 }
 
 const MAJORITE_LABELS: Record<string, string> = {
@@ -176,14 +237,23 @@ function calculateQuorum(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function SessionConductor({ seance, instanceMemberCount }: SessionConductorProps) {
+export function SessionConductor({ seance, instanceMemberCount, recusations = [], pvApprovalInfo = null }: SessionConductorProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [statusDialog, setStatusDialog] = useState<string | null>(null)
+  const [reconvocationDialog, setReconvocationDialog] = useState(false)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedVoteType, setSelectedVoteType] = useState<'MAIN_LEVEE' | 'SECRET' | null>(null)
+  const [selectedVoteType, setSelectedVoteType] = useState<'MAIN_LEVEE' | 'SECRET' | 'TELEVOTE' | null>(null)
+  // Recusation dialog state
+  const [showRecusationDialog, setShowRecusationDialog] = useState(false)
+  const [recusationMemberId, setRecusationMemberId] = useState<string>('')
+  const [recusationMotif, setRecusationMotif] = useState('')
+  const [isRecusing, setIsRecusing] = useState(false)
+  // Huis clos dialog state
+  const [showHuisClosDialog, setShowHuisClosDialog] = useState(false)
+  const [isTogglingHuisClos, setIsTogglingHuisClos] = useState(false)
 
   // Live clock (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -224,6 +294,20 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   // Votants count (presents + procurations, for vote calculations)
   const votantsCount = presenceStats.presents + presenceStats.procurations
 
+  // Late arrival mode (séance override or instance config)
+  const lateArrivalMode = (seance.late_arrival_mode || seance.instance_config?.mode_arrivee_tardive || 'SOUPLE') as 'STRICT' | 'SOUPLE' | 'SUSPENDU'
+
+  // Present members list (for secretary combobox and other member selections)
+  const presentMembersForDesignation = useMemo(() => {
+    return seance.presences
+      .filter(p => p.statut === 'PRESENT' || p.statut === 'PROCURATION')
+      .map(p => {
+        const conv = seance.convocataires.find(c => c.member_id === p.member_id)
+        return conv?.member ? { id: conv.member.id, prenom: conv.member.prenom, nom: conv.member.nom } : null
+      })
+      .filter((m): m is { id: string; prenom: string; nom: string } => m !== null)
+  }, [seance.presences, seance.convocataires])
+
   // Session duration
   const sessionDuration = useMemo(() => {
     if (!seance.heure_ouverture || !currentTime) return null
@@ -250,6 +334,78 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
       ? (currentPoint.documents as unknown as DocumentInfo[])
       : []
   }, [currentPoint])
+
+  // Recusations for current point
+  const currentRecusations = useMemo(() => {
+    if (!currentPoint) return []
+    return recusations.filter(r => r.odj_point_id === currentPoint.id)
+  }, [currentPoint, recusations])
+
+  // Is huis clos currently active on the current point?
+  const isHuisClosActive = currentPoint?.huis_clos_active === true
+
+  // Recusation handlers
+  const handleAddRecusation = async () => {
+    if (!currentPoint || !recusationMemberId) return
+    setIsRecusing(true)
+    try {
+      const result = await recuseFromPoint(
+        seance.id,
+        currentPoint.id,
+        recusationMemberId,
+        recusationMotif || undefined,
+        'GESTIONNAIRE'
+      )
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Récusation enregistrée')
+        setShowRecusationDialog(false)
+        setRecusationMemberId('')
+        setRecusationMotif('')
+        router.refresh()
+      }
+    } catch {
+      toast.error('Erreur inattendue')
+    } finally {
+      setIsRecusing(false)
+    }
+  }
+
+  const handleCancelRecusation = async (recusationId: string) => {
+    startTransition(async () => {
+      const result = await cancelRecusation(recusationId, seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Récusation annulée')
+        router.refresh()
+      }
+    })
+  }
+
+  // Huis clos handlers
+  const handleToggleHuisClos = async () => {
+    if (!currentPoint) return
+    setIsTogglingHuisClos(true)
+    try {
+      const result = isHuisClosActive
+        ? await deactivateHuisClos(seance.id, currentPoint.id)
+        : await activateHuisClos(seance.id, currentPoint.id)
+
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success(isHuisClosActive ? 'Huis clos levé — séance publique' : 'Huis clos activé')
+        setShowHuisClosDialog(false)
+        router.refresh()
+      }
+    } catch {
+      toast.error('Erreur inattendue')
+    } finally {
+      setIsTogglingHuisClos(false)
+    }
+  }
 
   // ─── Keyboard shortcuts ─────────────────────────────────────────────────
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -304,6 +460,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   // ─── Render ───────────────────────────────────────────────────────────
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-slate-50 flex flex-col">
 
       {/* ═══ Top bar ═══ */}
@@ -412,12 +569,27 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
 
       {/* ═══ Quorum alert banner — impossible to miss ═══ */}
       {!quorum.reached && seance.statut === 'EN_COURS' && (
-        <div className="bg-red-600 text-white px-6 py-3 flex items-center justify-center gap-3 animate-pulse">
-          <AlertTriangle className="h-5 w-5 shrink-0" />
-          <p className="text-sm font-bold">
-            QUORUM NON ATTEINT — {quorum.presents} présent{quorum.presents > 1 ? 's' : ''} sur {quorum.required} requis (manque {quorum.required - quorum.presents})
-          </p>
-          <AlertTriangle className="h-5 w-5 shrink-0" />
+        <div className="bg-red-600 text-white px-6 py-3">
+          <div className="flex items-center justify-center gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 animate-pulse" />
+            <p className="text-sm font-bold">
+              QUORUM NON ATTEINT — {quorum.presents} présent{quorum.presents > 1 ? 's' : ''} sur {quorum.required} requis
+            </p>
+            <AlertTriangle className="h-5 w-5 shrink-0 animate-pulse" />
+          </div>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <p className="text-xs text-white/80">
+              Les délibérations ne sont pas valides. Vous pouvez reconvoquer sous 3 jours (sans quorum).
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20 text-xs h-8"
+              onClick={() => setReconvocationDialog(true)}
+            >
+              Reconvoquer la séance
+            </Button>
+          </div>
         </div>
       )}
 
@@ -590,6 +762,140 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                   </div>
                 )}
 
+                {/* ═══ Huis clos banner ═══ */}
+                {isHuisClosActive && (
+                  <div className="rounded-lg bg-red-50 border-2 border-red-300 p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Lock className="h-5 w-5 text-red-600" />
+                      <div>
+                        <p className="text-sm font-bold text-red-800">HUIS CLOS en cours</p>
+                        <p className="text-xs text-red-600">Public exclu — Grande Scène neutralisée</p>
+                      </div>
+                    </div>
+                    {seance.statut === 'EN_COURS' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-red-300 text-red-700 hover:bg-red-100"
+                            onClick={() => setShowHuisClosDialog(true)}
+                            disabled={isTogglingHuisClos}
+                          >
+                            <EyeOff className="h-4 w-4 mr-1.5" />
+                            Lever le huis clos
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Reprendre la séance publique</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══ Huis clos activation button ═══ */}
+                {!isHuisClosActive && currentPoint.huis_clos && seance.statut === 'EN_COURS' && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-amber-600" />
+                      <p className="text-sm text-amber-800">Ce point est prévu en huis clos</p>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                          onClick={() => setShowHuisClosDialog(true)}
+                          disabled={isTogglingHuisClos}
+                        >
+                          <Lock className="h-4 w-4 mr-1.5" />
+                          Activer le huis clos
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Exclure le public et neutraliser la Grande Scène</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                {/* ═══ Récusations section ═══ */}
+                {isVotable && seance.statut === 'EN_COURS' && (
+                  <div className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                        <UserMinus className="h-4 w-4 text-amber-600" />
+                        Récusations (conflits d&apos;intérêt)
+                        {currentRecusations.length > 0 && (
+                          <Badge className="bg-amber-100 text-amber-700 border-0 text-xs ml-1">
+                            {currentRecusations.length}
+                          </Badge>
+                        )}
+                      </h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              setRecusationMemberId('')
+                              setRecusationMotif('')
+                              setShowRecusationDialog(true)
+                            }}
+                          >
+                            <UserMinus className="h-3 w-3 mr-1" />
+                            Ajouter
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Enregistrer un conflit d&apos;intérêt pour ce point (CGCT L2131-11)</TooltipContent>
+                      </Tooltip>
+                    </div>
+
+                    {currentRecusations.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Aucune récusation pour ce point</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {currentRecusations.map(rec => {
+                          const hasVoteOnPoint = (seance.votes || []).some(
+                            v => v.odj_point_id === currentPoint.id && (v.statut === 'OUVERT' || v.statut === 'CLOS')
+                          )
+                          return (
+                            <div key={rec.id} className="flex items-center justify-between rounded-md bg-amber-50 border border-amber-200 px-3 py-1.5">
+                              <div className="flex items-center gap-2">
+                                <UserMinus className="h-3.5 w-3.5 text-amber-600" />
+                                <span className="text-sm font-medium text-amber-800">
+                                  {rec.member ? `${rec.member.prenom} ${rec.member.nom}` : 'Membre inconnu'}
+                                </span>
+                                {rec.motif && (
+                                  <span className="text-xs text-amber-600">— {rec.motif}</span>
+                                )}
+                                <Badge className="bg-amber-100 text-amber-600 border-0 text-[10px]">
+                                  {rec.declare_par === 'ELU' ? 'Auto-déclaré' : 'Par gestionnaire'}
+                                </Badge>
+                              </div>
+                              {!hasVoteOnPoint && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-amber-600 hover:text-red-600 hover:bg-red-50"
+                                      onClick={() => handleCancelRecusation(rec.id)}
+                                      disabled={isPending}
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Annuler cette récusation</TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Separator className="my-4" />
 
                 {/* Vote action area */}
@@ -615,15 +921,28 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                   // Detect vote type from existing vote or from selection
                   const isElection = currentPoint.type_traitement === 'ELECTION'
                   const effectiveVoteType = existingVote
-                    ? (existingVote.type_vote === 'SECRET' ? 'SECRET' : 'MAIN_LEVEE')
+                    ? (existingVote.type_vote === 'TELEVOTE' ? 'TELEVOTE' : existingVote.type_vote === 'SECRET' ? 'SECRET' : 'MAIN_LEVEE')
                     : (selectedVoteType || (isElection ? 'SECRET' : null))
+
+                  // Build members list with phone for télévote
+                  const membersForTelevote = seance.convocataires
+                    .map(conv => {
+                      if (!conv.member) return null
+                      return {
+                        id: conv.member.id,
+                        prenom: conv.member.prenom,
+                        nom: conv.member.nom,
+                        telephone: conv.member.telephone ?? null,
+                      }
+                    })
+                    .filter((m): m is { id: string; prenom: string; nom: string; telephone: string | null } => m !== null)
 
                   // No existing vote and no type selected yet: show selector
                   if (!existingVote && !effectiveVoteType) {
                     return (
                       <div className="space-y-3">
                         <p className="text-sm font-medium text-muted-foreground">Type de vote :</p>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
                           <Button
                             variant="outline"
                             className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-blue-400 hover:bg-blue-50 transition-all"
@@ -640,6 +959,14 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                             <Lock className="h-6 w-6 text-purple-600" />
                             <span className="text-sm font-medium">Bulletin secret</span>
                           </Button>
+                          <Button
+                            variant="outline"
+                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-orange-400 hover:bg-orange-50 transition-all"
+                            onClick={() => setSelectedVoteType('TELEVOTE')}
+                          >
+                            <Smartphone className="h-6 w-6 text-orange-600" />
+                            <span className="text-sm font-medium">Télévote SMS</span>
+                          </Button>
                         </div>
                         <p className="text-xs text-muted-foreground text-center">
                           {presentMembersList.length} votant{presentMembersList.length > 1 ? 's' : ''} présent{presentMembersList.length > 1 ? 's' : ''}
@@ -648,7 +975,34 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                     )
                   }
 
-                  // Render the appropriate vote component
+                  // Render TELEVOTE component
+                  if (effectiveVoteType === 'TELEVOTE') {
+                    return (
+                      <div className="space-y-2">
+                        {!existingVote && (
+                          <button
+                            onClick={() => setSelectedVoteType(null)}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline flex items-center gap-1"
+                          >
+                            <Hand className="h-3 w-3" /> Changer de type de vote
+                          </button>
+                        )}
+                        <VoteTelevote
+                          seanceId={seance.id}
+                          odjPointId={currentPoint.id}
+                          odjPointTitre={currentPoint.titre}
+                          odjPointMajorite={currentPoint.majorite_requise || 'SIMPLE'}
+                          totalPresents={presentMembersList.length}
+                          voixPreponderante={seance.instance_config?.voix_preponderante ?? false}
+                          members={membersForTelevote}
+                          existingVote={existingVote}
+                          onVoteComplete={() => router.refresh()}
+                        />
+                      </div>
+                    )
+                  }
+
+                  // Render SECRET component
                   if (effectiveVoteType === 'SECRET') {
                     return (
                       <div className="space-y-2">
@@ -657,7 +1011,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                             onClick={() => setSelectedVoteType(null)}
                             className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline flex items-center gap-1"
                           >
-                            <Hand className="h-3 w-3" /> Changer pour main levée
+                            <Hand className="h-3 w-3" /> Changer de type de vote
                           </button>
                         )}
                         <VoteSecret
@@ -681,7 +1035,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                           onClick={() => setSelectedVoteType(null)}
                           className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline flex items-center gap-1"
                         >
-                          <Lock className="h-3 w-3" /> Changer pour bulletin secret
+                          <Lock className="h-3 w-3" /> Changer de type de vote
                         </button>
                       )}
                       <VoteMainLevee
@@ -819,14 +1173,14 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                     : '—'}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Secrétaire</span>
-                <span className={`font-medium ${!seance.secretaire_seance ? 'text-amber-600' : ''}`}>
-                  {seance.secretaire_seance
-                    ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
-                    : '⚠ Non désigné'}
-                </span>
-              </div>
+              <SecretaryDesignation
+                seanceId={seance.id}
+                seanceStatut={seance.statut}
+                secretaireSeance={seance.secretaire_seance}
+                designationMode={seance.secretaire_designation_mode ?? null}
+                presentMembers={presentMembersForDesignation}
+                onRefresh={() => router.refresh()}
+              />
               {seance.heure_ouverture && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Ouverture</span>
@@ -843,6 +1197,29 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
               )}
             </div>
           </div>
+
+          {/* Late arrival panel */}
+          <LateArrivalBanner
+            seanceId={seance.id}
+            lateArrivalMode={lateArrivalMode}
+            presences={seance.presences}
+            convocataires={seance.convocataires}
+            seanceStatut={seance.statut}
+            onRefresh={() => router.refresh()}
+          />
+
+          {/* PV approval info */}
+          <PVApprovalBanner
+            pvApprovalInfo={pvApprovalInfo}
+            seanceId={seance.id}
+            currentPoint={currentPoint ? {
+              id: currentPoint.id,
+              type_traitement: currentPoint.type_traitement || 'DELIBERATION',
+              pv_precedent_seance_id: (currentPoint as Record<string, unknown>).pv_precedent_seance_id as string | null | undefined,
+            } : null}
+            votes={seance.votes || []}
+            onRefresh={() => router.refresh()}
+          />
 
           {/* ODJ overview */}
           <div className="rounded-xl border p-4">
@@ -933,10 +1310,28 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                     <p className="flex items-center gap-1.5"><CheckCircle2 className="h-3 w-3" /> La Grande Scène affichera le point en cours</p>
                   </div>
                   {!quorum.reached && (
-                    <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                      <p className="text-xs text-red-700 flex items-center gap-1.5">
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-2">
+                      <p className="text-xs text-red-700 flex items-center gap-1.5 font-medium">
                         <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        Attention : le quorum n&apos;est pas encore atteint ({quorum.presents}/{quorum.required})
+                        Le quorum n&apos;est pas atteint ({quorum.presents}/{quorum.required} présents)
+                      </p>
+                      <p className="text-xs text-red-600">
+                        Sans quorum, les délibérations ne sont pas valides juridiquement (CGCT L2121-17).
+                      </p>
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        <p className="text-xs text-red-700 font-medium">Options :</p>
+                        <p className="text-xs text-red-600 flex items-start gap-1.5">
+                          <span className="font-bold">1.</span> Attendre d&apos;autres membres et réessayer
+                        </p>
+                        <p className="text-xs text-red-600 flex items-start gap-1.5">
+                          <span className="font-bold">2.</span> Ouvrir malgré tout (sera noté au PV — reconvocation nécessaire sous 3 jours)
+                        </p>
+                        <p className="text-xs text-red-600 flex items-start gap-1.5">
+                          <span className="font-bold">3.</span> Dresser un PV de carence et reconvoquer
+                        </p>
+                      </div>
+                      <p className="text-[10px] text-red-500 italic mt-1">
+                        CGCT L2121-17 : une séance reconvoquée à 3 jours d&apos;intervalle se tient sans condition de quorum.
                       </p>
                     </div>
                   )}
@@ -985,6 +1380,156 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Recusation dialog */}
+      <Dialog open={showRecusationDialog} onOpenChange={setShowRecusationDialog}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserMinus className="h-5 w-5 text-amber-600" />
+              Enregistrer une récusation
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Un(e) élu(e) ayant un intérêt personnel dans ce dossier doit se retirer du débat et du vote (CGCT L2131-11).
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="recusation-member">Membre à récuser</Label>
+              <Select value={recusationMemberId} onValueChange={setRecusationMemberId}>
+                <SelectTrigger id="recusation-member">
+                  <SelectValue placeholder="Sélectionner un membre..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {seance.convocataires
+                    .filter(c => {
+                      if (!c.member) return false
+                      return !currentRecusations.some(r => r.member_id === c.member_id)
+                    })
+                    .map(c => (
+                      <SelectItem key={c.member_id} value={c.member_id}>
+                        {c.member?.prenom} {c.member?.nom}
+                      </SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="recusation-motif">Motif (facultatif)</Label>
+              <Textarea id="recusation-motif" placeholder="Ex : intérêt personnel dans le dossier, lien familial..." value={recusationMotif} onChange={e => setRecusationMotif(e.target.value)} className="min-h-[60px]" />
+            </div>
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+              <p className="text-xs text-amber-700">Le membre récusé ne pourra pas voter sur ce point. Le quorum sera recalculé en conséquence.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecusationDialog(false)}>Annuler</Button>
+            <Button onClick={handleAddRecusation} disabled={!recusationMemberId || isRecusing} className="bg-amber-600 hover:bg-amber-700">
+              {isRecusing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Confirmer la récusation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Huis clos confirmation dialog */}
+      <AlertDialog open={showHuisClosDialog} onOpenChange={setShowHuisClosDialog}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5 text-red-600" />
+              {isHuisClosActive ? 'Lever le huis clos ?' : 'Activer le huis clos ?'}
+            </AlertDialogTitle>
+            <div className="space-y-2 mt-2">
+              {isHuisClosActive ? (
+                <p className="text-sm text-muted-foreground">La séance redeviendra publique. Le public pourra réintégrer la salle et la Grande Scène affichera à nouveau le contenu.</p>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Le huis clos exclut le public de la salle. La Grande Scène sera neutralisée.</p>
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-3 space-y-1 text-xs text-red-700">
+                    <p className="flex items-center gap-1.5"><AlertTriangle className="h-3 w-3" /> Le public devra quitter la salle</p>
+                    <p className="flex items-center gap-1.5"><AlertTriangle className="h-3 w-3" /> La Grande Scène n&apos;affichera plus le contenu</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Le conseil doit voter pour approuver le passage en huis clos avant de l&apos;activer.</p>
+                </>
+              )}
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isTogglingHuisClos}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleToggleHuisClos} disabled={isTogglingHuisClos} className={isHuisClosActive ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}>
+              {isTogglingHuisClos && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {isHuisClosActive ? 'Lever le huis clos' : 'Activer le huis clos'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* ═══ Reconvocation dialog ═══ */}
+      <AlertDialog open={reconvocationDialog} onOpenChange={setReconvocationDialog}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              Reconvoquer la séance ?
+            </AlertDialogTitle>
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Le quorum n&apos;est pas atteint ({quorum.presents}/{quorum.required}).
+                La séance actuelle sera clôturée avec un constat de carence.
+              </p>
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-2">
+                <p className="text-xs font-medium text-blue-800">Ce qui va se passer :</p>
+                <ul className="space-y-1 text-xs text-blue-700">
+                  <li className="flex items-start gap-1.5">
+                    <CheckCircle2 className="h-3 w-3 shrink-0 mt-0.5" />
+                    Une nouvelle séance sera créée dans 3 jours avec le même ODJ et les mêmes convocataires
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <CheckCircle2 className="h-3 w-3 shrink-0 mt-0.5" />
+                    La mention &quot;reconvocation&quot; sera inscrite — pas de condition de quorum
+                  </li>
+                  <li className="flex items-start gap-1.5">
+                    <CheckCircle2 className="h-3 w-3 shrink-0 mt-0.5" />
+                    La séance actuelle sera clôturée avec un PV de carence
+                  </li>
+                </ul>
+              </div>
+              <p className="text-[10px] text-muted-foreground italic">
+                CGCT L2121-17 : &quot;Si, après une première convocation [...], le conseil municipal ne se réunit pas en nombre suffisant,
+                le conseil est à nouveau convoqué à trois jours au moins d&apos;intervalle.
+                Il délibère alors sans condition de quorum.&quot;
+              </p>
+            </div>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending}
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => {
+                startTransition(async () => {
+                  const result = await reconvoquerSeance(seance.id)
+                  if ('error' in result) {
+                    toast.error(result.error)
+                  } else {
+                    toast.success('Séance reconvoquée avec succès')
+                    router.push(`/seances/${result.newSeanceId}`)
+                  }
+                  setReconvocationDialog(false)
+                })
+              }}
+            >
+              {isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Reconvocation...</>
+              ) : (
+                'Reconvoquer à J+3'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+    </TooltipProvider>
   )
 }

@@ -119,6 +119,17 @@ export default async function TablettePage({ params }: Props) {
     }
   }
 
+  // Load recusations for current member
+  let memberRecusations: { odj_point_id: string }[] = []
+  if (currentMember) {
+    const { data: recusationData } = await supabase
+      .from('recusations')
+      .select('odj_point_id')
+      .eq('seance_id', id)
+      .eq('member_id', currentMember.id)
+    memberRecusations = recusationData || []
+  }
+
   // Check for existing device_session
   let hasDeviceSession = false
   if (currentMember) {
@@ -141,6 +152,7 @@ export default async function TablettePage({ params }: Props) {
       votesParticipation={votesParticipation}
       mandants={mandants}
       hasDeviceSession={hasDeviceSession}
+      memberRecusations={memberRecusations}
     />
   )
 }
