@@ -270,6 +270,10 @@ Claude applique ces 10 règles AUTOMATIQUEMENT. L'utilisateur ne devrait JAMAIS 
 - ❌ Page vide sans explication → ✅ Empty state avec icône + texte + bouton d'action
 - ❌ Action destructive sans confirmation → ✅ AlertDialog avec contexte
 - ❌ Flèches haut/bas pour réordonner → ✅ Drag & drop (avec flèches en fallback mobile)
+- ❌ Action irréversible (cocher sans pouvoir décocher) → ✅ Toujours permettre d'annuler/modifier
+- ❌ "Scanner QR" sans caméra (juste un champ texte) → ✅ Vrai scanner caméra + champ texte en fallback
+- ❌ Fonctionnalité qui utilise le hardware sans l'utiliser vraiment (caméra, GPS, biométrie) → ✅ Utiliser l'API native du navigateur (getUserMedia, Geolocation, WebAuthn)
+- ❌ Champ "coller le code" quand la caméra peut lire directement → ✅ Scanner automatique d'abord, saisie manuelle en fallback
 
 ---
 
