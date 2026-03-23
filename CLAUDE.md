@@ -197,6 +197,10 @@ Une séance complète de bout en bout : convocation envoyée → présences enre
 
 ## RÈGLES UX OBLIGATOIRES — APPLIQUER SYSTÉMATIQUEMENT
 
+**⚠️ RÈGLE ABSOLUE : L'expérience utilisateur est la PRIORITÉ N°1 de ce projet.**
+**Ce n'est PAS "faire marcher techniquement". C'est livrer une UX top tier mondial : intuitive, instinctive, facile pour TOUT utilisateur — qu'il soit secrétaire de mairie de 60 ans ou élu qui découvre l'application.**
+**Chaque écran doit être pensé du point de vue de CHAQUE profil utilisateur (gestionnaire, élu, président). Si un utilisateur doit réfléchir à comment fonctionne quelque chose, c'est un échec.**
+
 Ces règles doivent être appliquées à CHAQUE composant, CHAQUE formulaire, CHAQUE liste.
 Ne pas attendre que l'utilisateur le demande. C'est le STANDARD MINIMUM.
 
