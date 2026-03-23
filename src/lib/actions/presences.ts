@@ -413,3 +413,75 @@ export async function getPresences(seanceId: string) {
     return { error: 'Erreur inattendue' }
   }
 }
+
+// ─── Tablet authentication (token_emargement → device_session) ──────────────
+
+type AuthenticateTabletResult =
+  | { success: true; memberId: string; memberName: string }
+  | { error: string }
+
+/**
+ * Authenticates a member on a tablet using their convocation token.
+ * Creates a device_session record to lock the tablet for this member.
+ */
+export async function authenticateTablet(
+  seanceId: string,
+  token: string,
+  deviceFingerprint: string
+): Promise<AuthenticateTabletResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    // Rate limiting: max 30 tentatives par minute
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: 'tablet_auth',
+      maxAttempts: 30,
+      windowMinutes: 1,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
+
+    // Find the convocataire by token
+    const { data: convocataire, error: findError } = await supabase
+      .from('convocataires')
+      .select(`
+        id,
+        member_id,
+        seance_id,
+        token_emargement,
+        member:members (id, prenom, nom)
+      `)
+      .eq('token_emargement', token)
+      .eq('seance_id', seanceId)
+      .maybeSingle()
+
+    if (findError || !convocataire) {
+      return { error: 'Code de convocation invalide ou non reconnu pour cette séance' }
+    }
+
+    const member = convocataire.member as { id: string; prenom: string; nom: string } | null
+    if (!member) return { error: 'Membre introuvable' }
+
+    // Create or update device_session
+    const { error: sessionError } = await supabase
+      .from('device_sessions')
+      .upsert({
+        seance_id: seanceId,
+        member_id: member.id,
+        device_fingerprint: deviceFingerprint,
+        auth_method: 'QR_ONLY',
+        authenticated_at: new Date().toISOString(),
+        active: true,
+      }, { onConflict: 'seance_id,member_id' })
+
+    if (sessionError) {
+      return { error: `Erreur de session : ${sessionError.message}` }
+    }
+
+    revalidatePath(`/seances/${seanceId}/tablette`)
+    return { success: true, memberId: member.id, memberName: `${member.prenom} ${member.nom}` }
+  } catch (err) {
+    console.error('authenticateTablet error:', err)
+    return { error: 'Erreur inattendue lors de l\'authentification' }
+  }
+}

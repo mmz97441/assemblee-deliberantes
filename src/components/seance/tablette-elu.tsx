@@ -32,8 +32,18 @@ import {
 } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
+import { VoteSecretBallot } from '@/components/vote/vote-secret-ballot'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface VoteInfo {
+  id: string
+  odj_point_id: string
+  type_vote: string | null
+  statut: string | null
+  total_votants: number | null
+  question: string | null
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface SeanceData extends Record<string, any> {
@@ -48,6 +58,7 @@ interface SeanceData extends Record<string, any> {
   odj_points: ODJPointRow[]
   president_effectif: { id: string; prenom: string; nom: string } | null
   secretaire_seance: { id: string; prenom: string; nom: string } | null
+  votes?: VoteInfo[]
 }
 
 interface MemberInfo {
@@ -68,6 +79,8 @@ interface TabletteEluProps {
   currentMember: MemberInfo | null
   isConvoque?: boolean
   presenceData?: PresenceInfo | null
+  votesParticipation?: { vote_id: string; member_id: string }[]
+  mandants?: { id: string; prenom: string; nom: string }[]
 }
 
 const MAJORITE_LABELS: Record<string, string> = {
@@ -81,7 +94,7 @@ const MAJORITE_LABELS: Record<string, string> = {
 // TABLET VIEW: Large text (22px base), big buttons (56px min), touch-friendly
 // Used by elected officials during the session on their individual tablet.
 
-export function TabletteElu({ seance, currentMember, isConvoque, presenceData }: TabletteEluProps) {
+export function TabletteElu({ seance, currentMember, isConvoque, presenceData, votesParticipation = [], mandants = [] }: TabletteEluProps) {
   const router = useRouter()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [wakeLockFailed, setWakeLockFailed] = useState(false)
@@ -177,6 +190,33 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData }:
   const isEnCours = seance.statut === 'EN_COURS'
   const isCloturee = seance.statut === 'CLOTUREE'
   const isSuspendue = seance.statut === 'SUSPENDUE'
+
+  // Detect open secret vote
+  const openSecretVote = (seance.votes || []).find(
+    v => v.type_vote === 'SECRET' && v.statut === 'OUVERT'
+  ) || null
+
+  // Check if current member has already voted
+  const hasVotedInSecretVote = openSecretVote && currentMember
+    ? votesParticipation.some(vp => vp.vote_id === openSecretVote.id && vp.member_id === currentMember.id)
+    : false
+
+  // ─── Render: Secret vote overlay ────────────────────────────────────────
+
+  if (openSecretVote && currentMember && isEnCours) {
+    return (
+      <div className="min-h-screen bg-purple-50 flex flex-col" style={{ fontSize: '22px' }}>
+        <VoteSecretBallot
+          voteId={openSecretVote.id}
+          voteQuestion={openSecretVote.question || 'Vote secret'}
+          memberId={currentMember.id}
+          hasVoted={hasVotedInSecretVote}
+          mandants={mandants}
+          onVoteSubmitted={() => router.refresh()}
+        />
+      </div>
+    )
+  }
 
   // ─── Render: Séance clôturée ──────────────────────────────────────────
 

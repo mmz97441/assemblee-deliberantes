@@ -82,7 +82,8 @@ export default async function SeanceEnCoursPage({ params }: Props) {
         noms_abstention,
         voix_preponderante_activee,
         ouvert_at,
-        clos_at
+        clos_at,
+        question
       )
     `)
     .eq('id', id)
@@ -97,6 +98,19 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     .from('instance_members')
     .select('*', { count: 'exact', head: true })
     .eq('instance_id', seance.instance_id)
+
+  // Enrich open secret votes with voted_count from votes_participation
+  const openSecretVotes = (seance.votes || []).filter(
+    (v: { type_vote: string | null; statut: string | null }) =>
+      v.type_vote === 'SECRET' && v.statut === 'OUVERT'
+  )
+  for (const vote of openSecretVotes) {
+    const { count } = await supabase
+      .from('votes_participation')
+      .select('*', { count: 'exact', head: true })
+      .eq('vote_id', vote.id)
+    ;(vote as Record<string, unknown>).voted_count = count || 0
+  }
 
   return (
     <SessionConductor

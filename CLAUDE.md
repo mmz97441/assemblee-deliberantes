@@ -286,14 +286,28 @@ Claude applique ces 10 règles AUTOMATIQUEMENT. L'utilisateur ne devrait JAMAIS 
 Ce sont des assemblées délibérantes officielles (communes, associations loi 1901, syndicats...).
 Toute fonctionnalité doit être pensée sous l'angle de la **validité juridique**.
 
-### Identification des membres
-- **QR code unique à usage unique** = méthode principale d'émargement
+### Identification des membres — Double authentification en 2 temps
+
+**ÉMARGEMENT (table d'entrée de la salle) :**
+- **QR code unique à usage unique** = preuve de présence physique
   - Généré par convocation (1 QR = 1 membre + 1 séance)
   - Expire après scan (non réutilisable)
   - Envoyé dans l'email de convocation + affichable dans l'app
+
+**TABLETTE DE SÉANCE (à la place de l'élu) :**
+- **QR code + WebAuthn/empreinte** = identification pour voter
+  - 1ère fois sur la tablette : enrollment empreinte avec assistance admin
+  - Fois suivantes : vérification empreinte instantanée
+  - Fallback si pas de capteur : QR code seul (mode QR_ONLY, tracé dans audit_log)
+- **Tablettes NON-NOMINATIVES** : n'importe quel élu sur n'importe quelle tablette
+- **Table `device_sessions`** trace : qui, quelle tablette, quel mode d'auth, quand
+- **Session verrouillée** pour toute la séance (re-auth empreinte au réveil, QR+empreinte pour changer d'élu)
+
+**INTERDIT :**
 - **PAS de code PIN** pour l'émargement — un PIN se partage, aucune valeur légale
-- **Fallback** = le gestionnaire identifie visuellement la personne et la coche manuellement
-- **WebAuthn/biométrie** = option future pour renforcer (Phase 2+)
+
+**FALLBACK :**
+- Le gestionnaire identifie visuellement la personne et valide manuellement (mode ASSISTE, loggé)
 
 ### Procurations
 - Le membre absent déclare sa procuration AVANT la séance

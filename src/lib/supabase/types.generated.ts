@@ -307,6 +307,57 @@ export type Database = {
           },
         ]
       }
+      device_sessions: {
+        Row: {
+          id: string
+          seance_id: string
+          member_id: string
+          device_fingerprint: string
+          auth_method: string
+          authenticated_at: string | null
+          webauthn_credential_id: string | null
+          active: boolean | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          seance_id: string
+          member_id: string
+          device_fingerprint: string
+          auth_method?: string
+          authenticated_at?: string | null
+          webauthn_credential_id?: string | null
+          active?: boolean | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          seance_id?: string
+          member_id?: string
+          device_fingerprint?: string
+          auth_method?: string
+          authenticated_at?: string | null
+          webauthn_credential_id?: string | null
+          active?: boolean | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_sessions_seance_id_fkey"
+            columns: ["seance_id"]
+            isOneToOne: false
+            referencedRelation: "seances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_sessions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instance_config: {
         Row: {
           actif: boolean | null
@@ -1183,6 +1234,7 @@ export type Database = {
           clos_at: string | null
           contre: number | null
           created_at: string | null
+          encrypted_session_key: string | null
           formule_pv: string | null
           hash_integrite: string | null
           id: string
@@ -1201,12 +1253,14 @@ export type Database = {
           type_vote: Database["public"]["Enums"]["vote_type"] | null
           updated_at: string | null
           voix_preponderante_activee: boolean | null
+          vote_secret_demand_count: number | null
         }
         Insert: {
           abstention?: number | null
           clos_at?: string | null
           contre?: number | null
           created_at?: string | null
+          encrypted_session_key?: string | null
           formule_pv?: string | null
           hash_integrite?: string | null
           id?: string
@@ -1225,12 +1279,14 @@ export type Database = {
           type_vote?: Database["public"]["Enums"]["vote_type"] | null
           updated_at?: string | null
           voix_preponderante_activee?: boolean | null
+          vote_secret_demand_count?: number | null
         }
         Update: {
           abstention?: number | null
           clos_at?: string | null
           contre?: number | null
           created_at?: string | null
+          encrypted_session_key?: string | null
           formule_pv?: string | null
           hash_integrite?: string | null
           id?: string
@@ -1249,6 +1305,7 @@ export type Database = {
           type_vote?: Database["public"]["Enums"]["vote_type"] | null
           updated_at?: string | null
           voix_preponderante_activee?: boolean | null
+          vote_secret_demand_count?: number | null
         }
         Relationships: [
           {

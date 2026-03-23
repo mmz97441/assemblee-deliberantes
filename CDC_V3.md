@@ -150,13 +150,20 @@ Le Gestionnaire choisit explicitement ce qui remonte. Aucun automatisme. Le Cons
 
 ---
 
-## 5. IDENTIFICATION SUR TABLETTE — WEBAUTHN / FIDO2
+## 5. IDENTIFICATION SUR TABLETTE — DOUBLE AUTHENTIFICATION QR + WEBAUTHN
 
-### Standard retenu : WebAuthn W3C — le seul juridiquement solide
+### Principe : tablettes NON-NOMINATIVES + double authentification
+
+**Les tablettes ne sont PAS pré-assignées.** N'importe quel élu peut s'asseoir devant n'importe quelle tablette. L'identification se fait en 2 temps :
+
+1. **QR code de convocation** = "quelque chose que j'AI" (identifie l'élu)
+2. **WebAuthn / empreinte digitale** = "quelque chose que je SUIS" (prouve l'identité)
+
+### Standard WebAuthn W3C — eIDAS art. 26
 
 **Pourquoi WebAuthn satisfait eIDAS art. 26 :**
 - Lié au signataire de manière univoque (biométrie non délégable)
-- Identifie le signataire (compte Supabase + device_id assigné)
+- Identifie le signataire (QR code de convocation + biométrie)
 - Sous contrôle exclusif (Secure Enclave — données biométriques jamais transmises)
 - Lié aux données signées (hash SHA-256 avant signature)
 
@@ -164,36 +171,98 @@ Le Gestionnaire choisit explicitement ce qui remonte. Aucun automatisme. Le Cons
 > La Secure Enclave retourne uniquement une assertion cryptographique signée.
 > Zéro donnée biométrique en base de données.
 
-### Flux d'identification
+### Flux d'identification en 2 temps
 
-1. Tablette pré-assignée à l'élu (association `member_id ↔ device_id` en base)
-2. L'élu arrive, l'écran affiche son prénom
-3. `navigator.credentials.get()` → Face ID ou Touch ID
-4. Secure Enclave signe le challenge avec la clé privée locale
-5. Serveur vérifie la signature avec la clé publique stockée
-6. ✅ Succès → session ouverte, élu marqué Présent, horodatage enregistré
+#### ÉTAPE 1 — Table d'émargement (entrée de la salle)
 
-### PIN de secours (si WebAuthn échoue 3 fois)
-- PIN à 6 chiffres, unique par séance, remis en main propre par le Gestionnaire
-- Expire à la fin de la séance
-- Loggé comme "auth PIN secours" dans audit_log
+Tablette commune avec caméra à l'entrée :
+1. L'élu scanne son QR code de convocation (unique, usage unique)
+2. Le système identifie l'élu et affiche "Bonjour [Prénom Nom]"
+3. L'élu est marqué PRÉSENT dans `presences` avec l'heure d'arrivée
+4. Le QR code est invalidé (ne peut pas être réutilisé)
+
+#### ÉTAPE 2 — Tablette de séance (à sa place)
+
+Tablette générique (non-nominative) à la place de l'élu :
+1. L'écran affiche "Identifiez-vous pour cette séance"
+2. L'élu scanne son QR code sur la caméra de la tablette
+3. La tablette identifie l'élu (association QR → member_id)
+
+**CAS A — Première fois sur CETTE tablette :**
+- Le système propose "Enregistrez votre empreinte pour les prochaines séances"
+- L'admin assiste l'élu pour le premier enrollment
+- `navigator.credentials.create()` → enrollment dans la Secure Enclave
+- La credential WebAuthn est stockée DANS le navigateur de cette tablette
+- Session verrouillée ✅
+
+**CAS B — Déjà enregistré sur CETTE tablette :**
+- Le système affiche "Vérifiez votre identité"
+- `navigator.credentials.get()` → Face ID ou Touch ID
+- Vérification instantanée
+- Session verrouillée ✅
+
+**CAS C — Pas de capteur biométrique / échec WebAuthn :**
+- Le QR code seul suffit comme fallback
+- Mode authentification enregistré : `QR_ONLY` dans `device_sessions`
+- Le gestionnaire peut aussi valider manuellement (mode `ASSISTE`)
+
+### Session verrouillée
+
+Une fois authentifié :
+- Badge permanent visible : "🔒 Session de [Prénom Nom]"
+- L'élu peut voter sur tous les points sans se ré-identifier
+- Si la tablette se met en veille → re-vérification empreinte au réveil (pas le QR)
+- Si quelqu'un veut changer d'élu → bouton "Changer de session" → QR + empreinte obligatoires
+- Impossible de modifier la session sans double authentification
+
+### Table `device_sessions` (traçabilité)
+
+```sql
+CREATE TABLE device_sessions (
+  id UUID PRIMARY KEY,
+  seance_id UUID NOT NULL REFERENCES seances(id),
+  member_id UUID NOT NULL REFERENCES members(id),
+  device_fingerprint TEXT NOT NULL,  -- identifiant unique du navigateur
+  auth_method TEXT NOT NULL,          -- QR_WEBAUTHN, QR_ONLY, ASSISTE
+  authenticated_at TIMESTAMPTZ,
+  webauthn_credential_id TEXT,        -- ID de la credential WebAuthn utilisée
+  active BOOLEAN DEFAULT TRUE,
+  UNIQUE(seance_id, member_id)        -- 1 élu = 1 tablette par séance
+);
+```
+
+### Fallback gestionnaire (mode assisté)
+
+Si un élu ne peut pas s'identifier (pas de QR, pas de biométrie, tablette défaillante) :
+- Le gestionnaire identifie visuellement la personne
+- Le gestionnaire valide manuellement depuis son interface
+- Mode authentification = `ASSISTE` (tracé dans `device_sessions` et `audit_log`)
+- Ce mode est exceptionnel et loggé
 
 ### Prérequis matériels
 - iOS 14+ / Android 9+, Safari 14+ / Chrome 76+
 - Batteries ≥ 10h (séances 2-8h)
-- Mode kiosque (Guided Access iOS / Kiosk mode Android)
+- Caméra fonctionnelle (pour le scan QR)
+- Mode kiosque recommandé (Guided Access iOS / Kiosk mode Android)
 
 ---
 
 ## 6. VÉRIFICATION DES PRÉSENCES
 
-### Présence physique
+### Double point de contrôle
 
-**Mécanisme principal** : Authentification WebAuthn → présent automatiquement + heure enregistrée
+| Point de contrôle | Lieu | Méthode | Ce qui est enregistré |
+|---|---|---|---|
+| **Émargement** | Table d'entrée | QR code unique | `presences` : PRESENT + heure |
+| **Identification tablette** | Place de l'élu | QR + WebAuthn | `device_sessions` : member ↔ tablette |
 
-**Mécanisme secondaire** : Appel manuel par le Gestionnaire (cas exceptionnels, loggé)
+**Mécanisme principal** : QR code émargement (entrée) + QR + WebAuthn (tablette à sa place)
 
-**Calcul quorum temps réel** : Présents WebAuthn + Présents manuels + Procurations valides
+**Mécanisme secondaire** : Appel manuel par le Gestionnaire (cas exceptionnels, loggé comme `ASSISTE`)
+
+**Mécanisme in-app** : L'élu connecté peut confirmer sa présence depuis l'app (bouton "Je suis présent")
+
+**Calcul quorum temps réel** : Présents (QR/WebAuthn/Manuel) + Procurations valides
 
 ### Arrivée en retard — 3 modes configurables par type de séance
 

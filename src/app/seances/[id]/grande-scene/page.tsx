@@ -33,13 +33,27 @@ export default async function GrandeScenePage({ params }: Props) {
         nom,
         type_legal
       ),
-      odj_points (*)
+      odj_points (*),
+      votes (id, odj_point_id, type_vote, statut, total_votants, question)
     `)
     .eq('id', id)
     .single()
 
   if (seanceError || !seance) {
     notFound()
+  }
+
+  // Enrich open secret votes with voted_count
+  const openSecretVotes = (seance.votes || []).filter(
+    (v: { type_vote: string | null; statut: string | null }) =>
+      v.type_vote === 'SECRET' && v.statut === 'OUVERT'
+  )
+  for (const vote of openSecretVotes) {
+    const { count } = await supabase
+      .from('votes_participation')
+      .select('*', { count: 'exact', head: true })
+      .eq('vote_id', vote.id)
+    ;(vote as Record<string, unknown>).voted_count = count || 0
   }
 
   // Get institution name for the logo area

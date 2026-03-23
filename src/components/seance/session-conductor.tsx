@@ -39,11 +39,15 @@ import {
   Play,
   Clock,
   RefreshCw,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Hand,
 } from 'lucide-react'
 import { updateSeanceStatut } from '@/lib/actions/seances'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
 import { VoteMainLevee } from '@/components/vote/vote-main-levee'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { VoteSecret } from '@/components/vote/vote-secret'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,6 +119,7 @@ interface VoteItem {
   voix_preponderante_activee: boolean | null
   ouvert_at: string | null
   clos_at: string | null
+  voted_count?: number
 }
 
 interface SessionConductorProps {
@@ -177,6 +182,8 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [statusDialog, setStatusDialog] = useState<string | null>(null)
   const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedVoteType, setSelectedVoteType] = useState<'MAIN_LEVEE' | 'SECRET' | null>(null)
 
   // Live clock (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -605,18 +612,90 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                     })
                     .filter((m): m is { id: string; prenom: string; nom: string } => m !== null)
 
+                  // Detect vote type from existing vote or from selection
+                  const isElection = currentPoint.type_traitement === 'ELECTION'
+                  const effectiveVoteType = existingVote
+                    ? (existingVote.type_vote === 'SECRET' ? 'SECRET' : 'MAIN_LEVEE')
+                    : (selectedVoteType || (isElection ? 'SECRET' : null))
+
+                  // No existing vote and no type selected yet: show selector
+                  if (!existingVote && !effectiveVoteType) {
+                    return (
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-muted-foreground">Type de vote :</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button
+                            variant="outline"
+                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-blue-400 hover:bg-blue-50 transition-all"
+                            onClick={() => setSelectedVoteType('MAIN_LEVEE')}
+                          >
+                            <Hand className="h-6 w-6 text-blue-600" />
+                            <span className="text-sm font-medium">Main levée</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                            onClick={() => setSelectedVoteType('SECRET')}
+                          >
+                            <Lock className="h-6 w-6 text-purple-600" />
+                            <span className="text-sm font-medium">Bulletin secret</span>
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {presentMembersList.length} votant{presentMembersList.length > 1 ? 's' : ''} présent{presentMembersList.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  // Render the appropriate vote component
+                  if (effectiveVoteType === 'SECRET') {
+                    return (
+                      <div className="space-y-2">
+                        {!existingVote && (
+                          <button
+                            onClick={() => setSelectedVoteType(null)}
+                            className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline flex items-center gap-1"
+                          >
+                            <Hand className="h-3 w-3" /> Changer pour main levée
+                          </button>
+                        )}
+                        <VoteSecret
+                          seanceId={seance.id}
+                          odjPointId={currentPoint.id}
+                          odjPointTitre={currentPoint.titre}
+                          odjPointMajorite={currentPoint.majorite_requise || 'SIMPLE'}
+                          totalPresents={presentMembersList.length}
+                          voixPreponderante={seance.instance_config?.voix_preponderante ?? false}
+                          existingVote={existingVote}
+                          onVoteComplete={() => router.refresh()}
+                        />
+                      </div>
+                    )
+                  }
+
                   return (
-                    <VoteMainLevee
-                      seanceId={seance.id}
-                      odjPointId={currentPoint.id}
-                      odjPointTitre={currentPoint.titre}
-                      odjPointMajorite={currentPoint.majorite_requise || 'SIMPLE'}
-                      totalPresents={presentMembersList.length}
-                      voixPreponderante={seance.instance_config?.voix_preponderante ?? false}
-                      presentMembers={presentMembersList}
-                      existingVote={existingVote}
-                      onVoteComplete={() => router.refresh()}
-                    />
+                    <div className="space-y-2">
+                      {!existingVote && (
+                        <button
+                          onClick={() => setSelectedVoteType(null)}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline flex items-center gap-1"
+                        >
+                          <Lock className="h-3 w-3" /> Changer pour bulletin secret
+                        </button>
+                      )}
+                      <VoteMainLevee
+                        seanceId={seance.id}
+                        odjPointId={currentPoint.id}
+                        odjPointTitre={currentPoint.titre}
+                        odjPointMajorite={currentPoint.majorite_requise || 'SIMPLE'}
+                        totalPresents={presentMembersList.length}
+                        voixPreponderante={seance.instance_config?.voix_preponderante ?? false}
+                        presentMembers={presentMembersList}
+                        existingVote={existingVote}
+                        onVoteComplete={() => router.refresh()}
+                      />
+                    </div>
                   )
                 })()}
 

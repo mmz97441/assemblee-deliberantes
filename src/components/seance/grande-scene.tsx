@@ -7,6 +7,16 @@ import type { ODJPointRow } from '@/lib/supabase/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface VoteInfo {
+  id: string
+  odj_point_id: string
+  type_vote: string | null
+  statut: string | null
+  total_votants: number | null
+  question: string | null
+  voted_count?: number
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface SeanceData extends Record<string, any> {
   id: string
@@ -17,6 +27,7 @@ interface SeanceData extends Record<string, any> {
   heure_ouverture: string | null
   instance_config: { id: string; nom: string; type_legal: string } | null
   odj_points: ODJPointRow[]
+  votes?: VoteInfo[]
 }
 
 interface GrandeSceneProps {
@@ -193,6 +204,11 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
 
   // ─── Render: Session in progress — show current point ───────────────
 
+  // Detect open secret vote
+  const openSecretVote = (seance.votes || []).find(
+    v => v.type_vote === 'SECRET' && v.statut === 'OUVERT'
+  ) || null
+
   const isVotable = currentPoint && !currentPoint.votes_interdits && (
     currentPoint.type_traitement === 'DELIBERATION' ||
     currentPoint.type_traitement === 'ELECTION' ||
@@ -230,6 +246,27 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
       {/* Main: current point */}
       <main className="flex-1 flex flex-col items-center justify-center px-16 py-12">
 
+        {/* Secret vote overlay */}
+        {openSecretVote ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-12">
+            <Lock className="h-24 w-24 text-purple-400 mb-8" />
+            <h1 className="text-7xl font-bold text-white tracking-tight mb-4">
+              VOTE SECRET EN COURS
+            </h1>
+            <p className="text-3xl text-white/80">
+              {openSecretVote.question}
+            </p>
+            {/* Show participation count ONLY — no choices */}
+            <div className="mt-12 text-4xl text-white/60">
+              <span className="text-6xl font-bold text-purple-300">
+                {openSecretVote.voted_count ?? 0}
+              </span>
+              <span className="text-3xl"> / {openSecretVote.total_votants ?? 0}</span>
+              <p className="text-2xl mt-2">ont voté</p>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Progress dots */}
         <div className="flex items-center gap-3 mb-10">
           {sortedPoints.map((p, idx) => (
@@ -318,6 +355,8 @@ export function GrandeScene({ seance, institutionName }: GrandeSceneProps) {
             <FileText className="h-20 w-20 text-white/30 mx-auto mb-6" />
             <p className="text-3xl text-white/60">Aucun point à l&apos;ordre du jour</p>
           </div>
+        )}
+        </>
         )}
       </main>
 
