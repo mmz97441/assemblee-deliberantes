@@ -102,7 +102,7 @@ export async function generateVuConsiderantArticles(
 ): Promise<GenerateVCAResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY non configuree')
+    throw new Error('ANTHROPIC_API_KEY non configurée')
   }
 
   const client = new Anthropic({ apiKey })
@@ -125,31 +125,31 @@ export async function generateVuConsiderantArticles(
 
   const [anonTitle, anonDescription, anonProjet, anonResultat] = anonymizedTexts.split('\n---\n')
 
-  const systemPrompt = `Tu es un redacteur juridique specialise dans les proces-verbaux d'assemblees deliberantes francaises.
-Tu rediges dans un style juridique formel en francais.
+  const systemPrompt = `Tu es un rédacteur juridique spécialisé dans les procès-verbaux d'assemblées délibérantes françaises.
+Tu rédiges dans un style juridique formel en français.
 Tu travailles pour une ${typeLabel}.
 
-Ton role est de generer trois sections pour un point de l'ordre du jour :
+Ton rôle est de générer trois sections pour un point de l'ordre du jour :
 
-1. **Vu** : references aux textes juridiques applicables (lois, codes, decrets, statuts, reglement interieur). Chaque reference commence par "Vu" suivi du texte de reference. Les references sont separees par des points-virgules.
+1. **Vu** : références aux textes juridiques applicables (lois, codes, décrets, statuts, règlement intérieur). Chaque référence commence par "Vu" suivi du texte de référence. Les références sont séparées par des points-virgules.
 
-2. **Considerant** : contexte, justification, raisons de la deliberation. Chaque consideration commence par "Considerant que". Les considerations sont separees par des points-virgules.
+2. **Considérant** : contexte, justification, raisons de la délibération. Chaque considération commence par "Considérant que". Les considérations sont séparées par des points-virgules.
 
-3. **Articles** : decisions concretes prises. Chaque article est numerote "Article 1 :", "Article 2 :", etc.
+3. **Articles** : décisions concrètes prises. Chaque article est numéroté "Article 1 :", "Article 2 :", etc.
 
-Reponds UNIQUEMENT avec un objet JSON valide au format suivant, sans aucun texte avant ou apres :
+Réponds UNIQUEMENT avec un objet JSON valide au format suivant, sans aucun texte avant ou après :
 {
-  "vu": "Vu le Code General des Collectivites Territoriales, notamment ses articles L.xxxx-x et suivants ; Vu ...",
-  "considerant": "Considerant que ... ; Considerant que ...",
+  "vu": "Vu le Code Général des Collectivités Territoriales, notamment ses articles L.xxxx-x et suivants ; Vu ...",
+  "considerant": "Considérant que ... ; Considérant que ...",
   "articles": ["Article 1 : ...", "Article 2 : ..."]
 }
 
-Regles :
-- Utilise des references juridiques plausibles et pertinentes pour le sujet
-- Les articles doivent etre des decisions concretes et actionables
+Règles :
+- Utilise des références juridiques plausibles et pertinentes pour le sujet
+- Les articles doivent être des décisions concrètes et actionnables
 - Adapte le vocabulaire au type d'institution (${typeLabel})
-- Ne mentionne aucun nom de personne dans les Vu ou Considerant
-- Le JSON doit etre valide et parsable`
+- Ne mentionne aucun nom de personne dans les Vu ou Considérant
+- Le JSON doit être valide et parsable`
 
   const userPrompt = `Genere les sections Vu, Considerant et Articles pour le point suivant :
 
@@ -168,7 +168,7 @@ ${anonResultat ? `Resultat du vote : ${anonResultat}` : ''}`
   // Extract text content from the response
   const textContent = response.content.find((block) => block.type === 'text')
   if (!textContent || textContent.type !== 'text') {
-    throw new Error("L'IA n'a pas retourne de reponse textuelle")
+    throw new Error("L'IA n'a pas retourné de réponse textuelle")
   }
 
   // Parse JSON from the response — handle possible markdown code blocks
@@ -182,7 +182,7 @@ ${anonResultat ? `Resultat du vote : ${anonResultat}` : ''}`
   try {
     parsed = JSON.parse(rawJson)
   } catch {
-    throw new Error("Impossible de parser la reponse de l'IA. Veuillez reessayer.")
+    throw new Error("Impossible de traiter la réponse de l'IA. Veuillez réessayer.")
   }
 
   // Validate structure
@@ -191,7 +191,7 @@ ${anonResultat ? `Resultat du vote : ${anonResultat}` : ''}`
     typeof parsed.considerant !== 'string' ||
     !Array.isArray(parsed.articles)
   ) {
-    throw new Error("La reponse de l'IA n'a pas le format attendu. Veuillez reessayer.")
+    throw new Error("Le contenu généré n'a pas le format attendu. Veuillez réessayer.")
   }
 
   // Deanonymize all outputs
@@ -227,7 +227,7 @@ export async function improveSection(
 ): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY non configuree')
+    throw new Error('ANTHROPIC_API_KEY non configurée')
   }
 
   const client = new Anthropic({ apiKey })
@@ -243,11 +243,11 @@ export async function improveSection(
 
   const sectionLabel = SECTION_TYPE_LABELS[params.sectionType] || params.sectionType
 
-  const systemPrompt = `Tu es un redacteur juridique specialise dans les proces-verbaux d'assemblees deliberantes francaises.
-Tu ameliores des textes existants en conservant strictement le meme sens et les memes informations.
-Tu corriges la grammaire, ameliores le style juridique formel, et rends le texte plus precis et professionnel.
-Tu ne dois PAS ajouter d'informations inventees ni modifier le fond du texte.
-Reponds UNIQUEMENT avec le texte ameliore, sans commentaire ni explication.`
+  const systemPrompt = `Tu es un rédacteur juridique spécialisé dans les procès-verbaux d'assemblées délibérantes françaises.
+Tu améliores des textes existants en conservant strictement le même sens et les mêmes informations.
+Tu corriges la grammaire, améliores le style juridique formel, et rends le texte plus précis et professionnel.
+Tu ne dois PAS ajouter d'informations inventées ni modifier le fond du texte.
+Réponds UNIQUEMENT avec le texte amélioré, sans commentaire ni explication.`
 
   const userPrompt = `Ameliore ce texte de type "${sectionLabel}" pour un proces-verbal d'assemblee deliberante.
 
@@ -265,7 +265,7 @@ ${anonText}`
 
   const textContent = response.content.find((block) => block.type === 'text')
   if (!textContent || textContent.type !== 'text') {
-    throw new Error("L'IA n'a pas retourne de reponse textuelle")
+    throw new Error("L'IA n'a pas retourné de réponse textuelle")
   }
 
   // Deanonymize and return

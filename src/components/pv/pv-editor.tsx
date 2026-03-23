@@ -532,7 +532,7 @@ export function PVEditor({
                     </TooltipTrigger>
                     <TooltipContent>Regénérer le brouillon depuis les données de la séance</TooltipContent>
                   </Tooltip>
-                  <AlertDialogContent>
+                  <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Regénérer le brouillon ?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -614,7 +614,7 @@ export function PVEditor({
                       <span className="sm:hidden">Relecture</span>
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Envoyer en relecture ?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -659,7 +659,7 @@ export function PVEditor({
                       Publier
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent>
+                  <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Publier le procès-verbal ?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -1074,7 +1074,7 @@ export function PVEditor({
                                         <Button
                                           variant="ghost"
                                           size="sm"
-                                          className="absolute top-2 right-2 h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
+                                          className="absolute top-2 right-2 h-11 w-11 p-0 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
                                           onClick={() => handleCopyFormula(idx, point.vote!.formulePV!)}
                                         >
                                           {copiedFormula === idx ? (
@@ -1159,7 +1159,7 @@ export function PVEditor({
                                             <Button
                                               variant="ghost"
                                               size="sm"
-                                              className="h-9 w-9 p-0 text-muted-foreground hover:text-red-600 shrink-0"
+                                              className="h-11 w-11 p-0 text-muted-foreground hover:text-red-600 shrink-0"
                                               onClick={() => removeArticle(idx, artIdx)}
                                             >
                                               <Trash2 className="h-3.5 w-3.5" />
@@ -1192,7 +1192,8 @@ export function PVEditor({
                                     size="sm"
                                     onClick={() => handleGeneratePointAI(idx)}
                                     disabled={aiLoadingPoint === idx}
-                                    className="gap-1.5 font-sans text-xs"
+                                    title={aiLoadingPoint === idx ? 'Génération en cours...' : undefined}
+                                    className="gap-1.5 font-sans text-xs min-h-[44px]"
                                   >
                                     {aiLoadingPoint === idx ? (
                                       <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération en cours...</>
@@ -1381,7 +1382,7 @@ export function PVEditor({
                         )}
                       </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent>
+                    <AlertDialogContent aria-describedby={undefined}>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
                         <AlertDialogDescription>
@@ -1520,7 +1521,8 @@ function EditableSection({
             size="sm"
             onClick={onImprove}
             disabled={isImproving}
-            className="gap-1.5 text-xs font-sans h-7 print:hidden"
+            title={isImproving ? 'Amélioration en cours...' : undefined}
+            className="gap-1.5 text-xs font-sans min-h-[44px] print:hidden"
           >
             {isImproving ? (
               <><Loader2 className="h-3 w-3 animate-spin" /> Amélioration en cours...</>

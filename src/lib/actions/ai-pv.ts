@@ -39,12 +39,12 @@ export async function generatePointContent(
     if (!process.env.ANTHROPIC_API_KEY) {
       return {
         error:
-          "La cle API Anthropic n'est pas configuree. Contactez l'administrateur.",
+          "La clé API Anthropic n'est pas configurée. Contactez l'administrateur.",
       }
     }
 
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
@@ -59,7 +59,7 @@ export async function generatePointContent(
     })
     if (!rateCheck.allowed) {
       return {
-        error: `Limite atteinte : vous avez utilise toutes vos generations IA pour cette heure. Reessayez dans quelques minutes.`,
+        error: `Limite atteinte : vous avez utilisé toutes vos générations IA pour cette heure. Réessayez dans quelques minutes.`,
       }
     }
 
@@ -72,7 +72,7 @@ export async function generatePointContent(
       .single()
 
     if (pointError || !point) {
-      return { error: 'Point introuvable dans cette seance' }
+      return { error: 'Point introuvable dans cette séance' }
     }
 
     // Load institution config
@@ -130,17 +130,17 @@ export async function generatePointContent(
     if (message.includes('ANTHROPIC_API_KEY')) {
       return {
         error:
-          "La cle API Anthropic n'est pas configuree. Contactez l'administrateur.",
+          "La clé API Anthropic n'est pas configurée. Contactez l'administrateur.",
       }
     }
     if (message.includes('rate_limit') || message.includes('429')) {
       return {
         error:
-          "L'API IA est temporairement surchargee. Veuillez reessayer dans quelques instants.",
+          "L'API IA est temporairement surchargée. Veuillez réessayer dans quelques instants.",
       }
     }
     return {
-      error: `Erreur lors de la generation IA : ${message}`,
+      error: `Erreur lors de la génération IA : ${message}`,
     }
   }
 }
@@ -166,12 +166,12 @@ export async function improvePVSection(
     if (!process.env.ANTHROPIC_API_KEY) {
       return {
         error:
-          "La cle API Anthropic n'est pas configuree. Contactez l'administrateur.",
+          "La clé API Anthropic n'est pas configurée. Contactez l'administrateur.",
       }
     }
 
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
@@ -186,7 +186,7 @@ export async function improvePVSection(
     })
     if (!rateCheck.allowed) {
       return {
-        error: `Limite atteinte : vous avez utilise toutes vos ameliorations IA pour cette heure. Reessayez dans quelques minutes.`,
+        error: `Limite atteinte : vous avez utilisé toutes vos améliorations IA pour cette heure. Réessayez dans quelques minutes.`,
       }
     }
 
@@ -199,7 +199,7 @@ export async function improvePVSection(
       .single()
 
     if (pointError || !point) {
-      return { error: 'Point introuvable dans cette seance' }
+      return { error: 'Point introuvable dans cette séance' }
     }
 
     // Load institution config
@@ -245,17 +245,17 @@ export async function improvePVSection(
     if (message.includes('ANTHROPIC_API_KEY')) {
       return {
         error:
-          "La cle API Anthropic n'est pas configuree. Contactez l'administrateur.",
+          "La clé API Anthropic n'est pas configurée. Contactez l'administrateur.",
       }
     }
     if (message.includes('rate_limit') || message.includes('429')) {
       return {
         error:
-          "L'API IA est temporairement surchargee. Veuillez reessayer dans quelques instants.",
+          "L'API IA est temporairement surchargée. Veuillez réessayer dans quelques instants.",
       }
     }
     return {
-      error: `Erreur lors de l'amelioration IA : ${message}`,
+      error: `Erreur lors de l'amélioration IA : ${message}`,
     }
   }
 }
