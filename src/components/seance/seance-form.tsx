@@ -31,7 +31,9 @@ import {
 } from '@/components/ui/tabs'
 import { createSeance, updateSeance } from '@/lib/actions/seances'
 import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
-import { CalendarDays, MapPin, Settings2, Loader2 } from 'lucide-react'
+import { CalendarDays, MapPin, Settings2, Loader2, Check, ChevronsUpDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 
 interface SeanceListItem extends SeanceRow {
   instance_config: Pick<InstanceConfigRow, 'id' | 'nom'> | null
@@ -189,8 +191,8 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
       formData.set('lieu', lieu.trim())
       formData.set('publique', publique ? 'true' : 'false')
       formData.set('notes', notes.trim())
-      if (presidentId) formData.set('president_effectif_seance_id', presidentId)
-      if (secretaireId) formData.set('secretaire_seance_id', secretaireId)
+      if (presidentId && presidentId !== '_none') formData.set('president_effectif_seance_id', presidentId)
+      if (secretaireId && secretaireId !== '_none') formData.set('secretaire_seance_id', secretaireId)
       formData.set('auto_convoque', autoConvoque ? 'true' : 'false')
 
       const result = isEditing
@@ -365,53 +367,26 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           {/* Tab: Options */}
           <TabsContent value="options" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="president_id">Président(e) de séance</Label>
-              <Select value={presidentId} onValueChange={setPresidentId}>
-                <SelectTrigger id="president_id">
-                  <SelectValue placeholder="Choisir..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Non désigné</SelectItem>
-                  {presidentOptions.length > 0 ? (
-                    presidentOptions.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.prenom} {m.nom} {m.qualite_officielle ? `(${m.qualite_officielle})` : ''}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    members.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.prenom} {m.nom}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Président(e) de séance</Label>
+              <MemberCombobox
+                members={presidentOptions.length > 0 ? presidentOptions : members}
+                value={presidentId}
+                onChange={setPresidentId}
+                placeholder="Rechercher le/la président(e)..."
+                emptyLabel="Non désigné"
+                showQualite
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="secretaire_id">Secrétaire de séance</Label>
-              <Select value={secretaireId} onValueChange={setSecretaireId}>
-                <SelectTrigger id="secretaire_id">
-                  <SelectValue placeholder="Choisir..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Non désigné</SelectItem>
-                  {secretaireOptions.length > 0 ? (
-                    secretaireOptions.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.prenom} {m.nom}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    members.map(m => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.prenom} {m.nom}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Secrétaire de séance</Label>
+              <MemberCombobox
+                members={secretaireOptions.length > 0 ? secretaireOptions : members}
+                value={secretaireId}
+                onChange={setSecretaireId}
+                placeholder="Rechercher le/la secrétaire..."
+                emptyLabel="Non désigné"
+              />
               <p className="text-xs text-muted-foreground">
                 Non bloquant — un avertissement s&apos;affichera si non désigné à l&apos;ouverture.
               </p>
@@ -452,5 +427,81 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Member Combobox (searchable) ────────────────────────────────────────────
+
+function MemberCombobox({
+  members,
+  value,
+  onChange,
+  placeholder = 'Rechercher un membre...',
+  emptyLabel = 'Aucun',
+  showQualite = false,
+}: {
+  members: MemberOption[]
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  emptyLabel?: string
+  showQualite?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = value && value !== '_none' ? members.find(m => m.id === value) : null
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          {selected ? (
+            <span>
+              {selected.prenom} {selected.nom}
+              {showQualite && selected.qualite_officielle && (
+                <span className="text-muted-foreground ml-1">({selected.qualite_officielle})</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">{emptyLabel}</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder} />
+          <CommandList>
+            <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="_none"
+                onSelect={() => { onChange('_none'); setOpen(false) }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${!value || value === '_none' ? 'opacity-100' : 'opacity-0'}`} />
+                {emptyLabel}
+              </CommandItem>
+              {members.map(m => (
+                <CommandItem
+                  key={m.id}
+                  value={`${m.prenom} ${m.nom} ${m.qualite_officielle || ''}`}
+                  onSelect={() => { onChange(m.id); setOpen(false) }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === m.id ? 'opacity-100' : 'opacity-0'}`} />
+                  <span>{m.prenom} {m.nom}</span>
+                  {showQualite && m.qualite_officielle && (
+                    <span className="text-xs text-muted-foreground ml-1">({m.qualite_officielle})</span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }

@@ -260,7 +260,7 @@ export async function confirmPresence(token: string): Promise<
         seance:seances (titre, date_seance, statut)
       `)
       .eq('token_confirmation', token)
-      .single()
+      .maybeSingle()
 
     if (error || !conv) {
       return { error: 'Lien de confirmation invalide ou expire' }
