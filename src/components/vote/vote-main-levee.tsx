@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -36,6 +37,7 @@ import {
   Scale,
   Sparkles,
   RotateCcw,
+  Search,
 } from 'lucide-react'
 import { openVote, closeVoteMainLevee, closeVoteUnanimite, cancelVote } from '@/lib/actions/votes'
 
@@ -120,6 +122,10 @@ export function VoteMainLevee({
   const [nomsContre, setNomsContre] = useState<string[]>([])
   const [nomsAbstention, setNomsAbstention] = useState<string[]>([])
   const [detailsOpen, setDetailsOpen] = useState(false)
+
+  // Search in name lists
+  const [searchContre, setSearchContre] = useState('')
+  const [searchAbstention, setSearchAbstention] = useState('')
 
   // Confirmation dialog
   const [confirmType, setConfirmType] = useState<'unanimite' | 'standard' | null>(null)
@@ -403,42 +409,58 @@ export function VoteMainLevee({
                 </Button>
               </div>
 
-              {/* Name selection for contre */}
+              {/* Name selection for contre — with search */}
               {contre > 0 && (
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Noms des opposants ({nomsContre.length}/{contre}) :
                   </p>
-                  <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                    {membersForContre.map(m => {
-                      const fullName = `${m.prenom} ${m.nom}`
-                      const selected = nomsContre.includes(fullName)
-                      const disabled = !selected && nomsContre.length >= contre
-                      return (
-                        <label
-                          key={m.id}
-                          className={`
-                            flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer transition-colors
-                            ${selected
-                              ? 'bg-red-50 border border-red-200'
-                              : disabled
-                                ? 'opacity-40 cursor-not-allowed'
-                                : 'hover:bg-muted/50'
-                            }
-                          `}
-                        >
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => !disabled && toggleNameContre(fullName)}
-                            disabled={disabled}
-                            className={selected ? 'border-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500' : ''}
-                          />
-                          <span className={`text-sm ${selected ? 'font-medium text-red-700' : ''}`}>
-                            {fullName}
-                          </span>
-                        </label>
-                      )
-                    })}
+                  {/* Search bar (shown when 10+ members) */}
+                  {membersForContre.length >= 10 && (
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher un nom..."
+                        value={searchContre}
+                        onChange={e => setSearchContre(e.target.value)}
+                        className="pl-8 h-9 text-sm"
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-0.5 max-h-56 overflow-y-auto">
+                    {/* Selected members always shown first */}
+                    {membersForContre
+                      .filter(m => nomsContre.includes(`${m.prenom} ${m.nom}`))
+                      .map(m => {
+                        const fullName = `${m.prenom} ${m.nom}`
+                        return (
+                          <label key={m.id} className="flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer bg-red-50 border border-red-200">
+                            <Checkbox checked onCheckedChange={() => toggleNameContre(fullName)} className="border-red-500 data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500" />
+                            <span className="text-sm font-medium text-red-700">{fullName}</span>
+                          </label>
+                        )
+                      })}
+                    {/* Unselected members, filtered by search */}
+                    {membersForContre
+                      .filter(m => !nomsContre.includes(`${m.prenom} ${m.nom}`))
+                      .filter(m => {
+                        if (!searchContre) return true
+                        const q = searchContre.toLowerCase()
+                        return `${m.prenom} ${m.nom}`.toLowerCase().includes(q)
+                      })
+                      .map(m => {
+                        const fullName = `${m.prenom} ${m.nom}`
+                        const maxReached = nomsContre.length >= contre
+                        return (
+                          <label
+                            key={m.id}
+                            className={`flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg transition-colors ${maxReached ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                          >
+                            <Checkbox checked={false} onCheckedChange={() => !maxReached && toggleNameContre(fullName)} disabled={maxReached} />
+                            <span className="text-sm">{fullName}</span>
+                          </label>
+                        )
+                      })}
                   </div>
                 </div>
               )}
@@ -478,42 +500,58 @@ export function VoteMainLevee({
                 </Button>
               </div>
 
-              {/* Name selection for abstention */}
+              {/* Name selection for abstention — with search */}
               {abstentions > 0 && (
-                <div className="mt-2 space-y-1">
+                <div className="mt-2 space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Noms des abstentionnistes ({nomsAbstention.length}/{abstentions}) :
                   </p>
-                  <div className="flex flex-col gap-0.5 max-h-48 overflow-y-auto">
-                    {membersForAbstention.map(m => {
-                      const fullName = `${m.prenom} ${m.nom}`
-                      const selected = nomsAbstention.includes(fullName)
-                      const disabled = !selected && nomsAbstention.length >= abstentions
-                      return (
-                        <label
-                          key={m.id}
-                          className={`
-                            flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer transition-colors
-                            ${selected
-                              ? 'bg-amber-50 border border-amber-200'
-                              : disabled
-                                ? 'opacity-40 cursor-not-allowed'
-                                : 'hover:bg-muted/50'
-                            }
-                          `}
-                        >
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => !disabled && toggleNameAbstention(fullName)}
-                            disabled={disabled}
-                            className={selected ? 'border-amber-500 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500' : ''}
-                          />
-                          <span className={`text-sm ${selected ? 'font-medium text-amber-700' : ''}`}>
-                            {fullName}
-                          </span>
-                        </label>
-                      )
-                    })}
+                  {/* Search bar (shown when 10+ members) */}
+                  {membersForAbstention.length >= 10 && (
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        placeholder="Rechercher un nom..."
+                        value={searchAbstention}
+                        onChange={e => setSearchAbstention(e.target.value)}
+                        className="pl-8 h-9 text-sm"
+                      />
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-0.5 max-h-56 overflow-y-auto">
+                    {/* Selected members always shown first */}
+                    {membersForAbstention
+                      .filter(m => nomsAbstention.includes(`${m.prenom} ${m.nom}`))
+                      .map(m => {
+                        const fullName = `${m.prenom} ${m.nom}`
+                        return (
+                          <label key={m.id} className="flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg cursor-pointer bg-amber-50 border border-amber-200">
+                            <Checkbox checked onCheckedChange={() => toggleNameAbstention(fullName)} className="border-amber-500 data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500" />
+                            <span className="text-sm font-medium text-amber-700">{fullName}</span>
+                          </label>
+                        )
+                      })}
+                    {/* Unselected members, filtered by search */}
+                    {membersForAbstention
+                      .filter(m => !nomsAbstention.includes(`${m.prenom} ${m.nom}`))
+                      .filter(m => {
+                        if (!searchAbstention) return true
+                        const q = searchAbstention.toLowerCase()
+                        return `${m.prenom} ${m.nom}`.toLowerCase().includes(q)
+                      })
+                      .map(m => {
+                        const fullName = `${m.prenom} ${m.nom}`
+                        const maxReached = nomsAbstention.length >= abstentions
+                        return (
+                          <label
+                            key={m.id}
+                            className={`flex items-center gap-3 min-h-[44px] px-3 py-2 rounded-lg transition-colors ${maxReached ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                          >
+                            <Checkbox checked={false} onCheckedChange={() => !maxReached && toggleNameAbstention(fullName)} disabled={maxReached} />
+                            <span className="text-sm">{fullName}</span>
+                          </label>
+                        )
+                      })}
                   </div>
                 </div>
               )}
