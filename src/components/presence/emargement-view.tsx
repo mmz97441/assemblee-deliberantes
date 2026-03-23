@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   CheckCircle2,
   Clock,
@@ -18,8 +24,13 @@ import {
   PenLine,
   Shield,
   AlertTriangle,
+  Camera,
+  CameraOff,
+  MoreVertical,
+  UserX,
+  Ban,
 } from 'lucide-react'
-import { markPresence, scanQREmargement } from '@/lib/actions/presences'
+import { markPresence, markPresenceManual, scanQREmargement } from '@/lib/actions/presences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -203,8 +214,8 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
   // ─── Manual presence (gestionnaire checks in a member) ────────────────
   function handleManualCheckIn(member: MemberInfo) {
     const existing = presenceMap.get(member.id)
+    // If already present, don't re-mark (use the dropdown for status changes)
     if (existing?.statut === 'PRESENT') {
-      toast.info(`${member.prenom} ${member.nom} est déjà enregistré(e) comme présent(e)`)
       return
     }
 
@@ -213,14 +224,98 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`${member.prenom} ${member.nom} — Présence enregistrée (manuellement)`, {
-          icon: '✅',
-          duration: 3000,
-        })
+        toast.success(`${member.prenom} ${member.nom} — Présent(e) ✓`, { duration: 2000 })
         router.refresh()
       }
     })
   }
+
+  // ─── Change presence status (undo / mark as absent or excused) ──────
+  function handleChangeStatus(memberId: string, newStatut: 'PRESENT' | 'ABSENT' | 'EXCUSE', memberName: string) {
+    startTransition(async () => {
+      const result = await markPresenceManual(seance.id, memberId, newStatut)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        const labels: Record<string, string> = { PRESENT: 'Présent(e)', ABSENT: 'Absent(e)', EXCUSE: 'Excusé(e)' }
+        toast.success(`${memberName} — ${labels[newStatut] || newStatut}`, { duration: 2000 })
+        router.refresh()
+      }
+    })
+  }
+
+  // ─── Camera QR scanner ──────────────────────────────────────────────
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [cameraActive, setCameraActive] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const startCamera = useCallback(async () => {
+    try {
+      setCameraError(null)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+        setCameraActive(true)
+
+        // Start scanning frames
+        scanIntervalRef.current = setInterval(() => {
+          scanFrame()
+        }, 300)
+      }
+    } catch {
+      setCameraError('Impossible d\'accéder à la caméra. Vérifiez les permissions.')
+      setCameraActive(false)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stopCamera = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current)
+      scanIntervalRef.current = null
+    }
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setCameraActive(false)
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { stopCamera() }
+  }, [stopCamera])
+
+  const scanFrame = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || isPending) return
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) return
+
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+
+    // Dynamic import jsQR (lighter bundle)
+    const jsQR = (await import('jsqr')).default
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert',
+    })
+
+    if (code?.data) {
+      // Found a QR code — process it
+      handleQRScan(code.data)
+    }
+  }, [isPending]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRefresh() {
     router.refresh()
@@ -380,16 +475,70 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
         {/* ─── Mode: QR Scan ─── */}
         {mode === 'scan' && (
-          <div className="max-w-lg mx-auto space-y-6 py-8">
-            <div className="text-center">
-              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-institutional-blue/10 mx-auto mb-4">
-                <Search className="h-10 w-10 text-institutional-blue" />
-              </div>
-              <h2 className="text-xl font-bold">Scanner un QR code</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Scannez le QR code de la convocation du membre avec un lecteur externe,
-                ou saisissez le code manuellement ci-dessous.
-              </p>
+          <div className="max-w-lg mx-auto space-y-6 py-4">
+
+            {/* Camera scanner */}
+            <div className="space-y-3">
+              {!cameraActive ? (
+                <div className="text-center">
+                  <Button
+                    onClick={startCamera}
+                    size="lg"
+                    className="h-16 px-8 text-lg gap-3"
+                  >
+                    <Camera className="h-6 w-6" />
+                    Activer la caméra pour scanner
+                  </Button>
+                  {cameraError && (
+                    <p className="text-sm text-red-600 mt-3 flex items-center justify-center gap-1.5">
+                      <CameraOff className="h-4 w-4" />
+                      {cameraError}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-3">
+                    Pointez la caméra vers le QR code de la convocation du membre.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative rounded-xl overflow-hidden border-2 border-blue-300 bg-black">
+                    <video
+                      ref={videoRef}
+                      className="w-full"
+                      playsInline
+                      muted
+                      style={{ maxHeight: '300px', objectFit: 'cover' }}
+                    />
+                    <canvas ref={canvasRef} className="hidden" />
+                    {/* Scanning overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-48 h-48 border-2 border-white/70 rounded-xl" />
+                    </div>
+                    <div className="absolute top-2 left-2">
+                      <Badge className="bg-red-500 text-white border-0 animate-pulse text-xs">
+                        <Camera className="h-3 w-3 mr-1" />
+                        Scan actif
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={stopCamera}
+                    className="w-full"
+                  >
+                    <CameraOff className="h-4 w-4 mr-2" />
+                    Désactiver la caméra
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-border" />
+              <span className="text-xs text-muted-foreground">ou saisir manuellement</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
 
             {/* Manual token input (for barcode scanner or paste) */}
@@ -404,15 +553,14 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                 <Input
                   value={scanInput}
                   onChange={(e) => setScanInput(e.target.value)}
-                  placeholder="Scannez ou collez le code ici..."
-                  className="h-14 text-lg font-mono"
-                  autoFocus
+                  placeholder="Collez le code ici..."
+                  className="h-12 text-base font-mono"
                   disabled={isPending}
                 />
                 <Button
                   type="submit"
                   disabled={!scanInput.trim() || isPending}
-                  className="h-14 px-6"
+                  className="h-12 px-6"
                 >
                   {isPending ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -421,10 +569,6 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                   )}
                 </Button>
               </form>
-
-              <p className="text-xs text-muted-foreground text-center">
-                Le champ reçoit automatiquement le contenu du QR code si vous utilisez un lecteur USB/Bluetooth.
-              </p>
             </div>
 
             {/* Last scan result */}
@@ -492,10 +636,8 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
               : null
 
             return (
-              <button
+              <div
                 key={member.id}
-                onClick={() => handleManualCheckIn(member)}
-                disabled={isPending}
                 className={`
                   relative flex flex-col items-center gap-2 rounded-2xl border-2 p-4 transition-all
                   min-h-[130px] touch-manipulation
@@ -505,73 +647,105 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                       ? 'border-slate-200 bg-slate-50 opacity-60'
                       : isProcuration
                         ? 'border-blue-200 bg-blue-50'
-                        : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md active:scale-95'
+                        : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50 hover:shadow-md'
                   }
                 `}
               >
-                {/* Avatar */}
-                <div className={`
-                  flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold
-                  ${isPresent
-                    ? 'bg-emerald-200 text-emerald-800'
-                    : isExcuse
-                      ? 'bg-slate-200 text-slate-500'
-                      : isProcuration
-                        ? 'bg-blue-200 text-blue-700'
-                        : 'bg-slate-100 text-slate-600'
-                  }
-                `}>
-                  {member.prenom[0]}{member.nom[0]}
-                </div>
+                {/* Click zone for check-in (only if not already present) */}
+                {!isPresent && !isExcuse && !isProcuration ? (
+                  <button
+                    onClick={() => handleManualCheckIn(member)}
+                    disabled={isPending}
+                    className="flex flex-col items-center gap-2 w-full active:scale-95 transition-transform"
+                  >
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold bg-slate-100 text-slate-600">
+                      {member.prenom[0]}{member.nom[0]}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold leading-tight">{member.prenom}</p>
+                      <p className="text-sm font-semibold leading-tight">{member.nom}</p>
+                      {member.qualite_officielle && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{member.qualite_officielle}</p>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Appuyez pour pointer</p>
+                  </button>
+                ) : (
+                  <>
+                    {/* Avatar */}
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold ${
+                      isPresent ? 'bg-emerald-200 text-emerald-800'
+                      : isExcuse ? 'bg-slate-200 text-slate-500'
+                      : 'bg-blue-200 text-blue-700'
+                    }`}>
+                      {member.prenom[0]}{member.nom[0]}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold leading-tight">{member.prenom}</p>
+                      <p className="text-sm font-semibold leading-tight">{member.nom}</p>
+                      {member.qualite_officielle && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{member.qualite_officielle}</p>
+                      )}
+                    </div>
+                    {isPresent && arrivalTime && (
+                      <p className="text-[10px] text-emerald-600 flex items-center gap-1" suppressHydrationWarning>
+                        <Clock className="h-2.5 w-2.5" />
+                        {arrivalTime}
+                        {hasSigned && <PenLine className="h-2.5 w-2.5 ml-1" />}
+                      </p>
+                    )}
+                  </>
+                )}
 
-                {/* Name */}
-                <div className="text-center">
-                  <p className="text-sm font-semibold leading-tight">
-                    {member.prenom}
-                  </p>
-                  <p className="text-sm font-semibold leading-tight">
-                    {member.nom}
-                  </p>
-                  {member.qualite_officielle && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
-                      {member.qualite_officielle}
-                    </p>
-                  )}
-                </div>
-
-                {/* Status badge */}
-                {isPresent && (
-                  <div className="absolute top-2 right-2">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                {/* Status badge + dropdown to change */}
+                {(isPresent || isExcuse || isProcuration) && (
+                  <div className="absolute top-1.5 right-1.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium transition-colors ${
+                            isPresent ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                            : isExcuse ? 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                            : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
+                          title="Modifier le statut"
+                        >
+                          {isPresent && <><CheckCircle2 className="h-3 w-3" /> Présent</>}
+                          {isExcuse && <>Excusé</>}
+                          {isProcuration && <>Procuration</>}
+                          <MoreVertical className="h-3 w-3 ml-0.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {!isPresent && (
+                          <DropdownMenuItem
+                            onClick={() => handleChangeStatus(member.id, 'PRESENT', `${member.prenom} ${member.nom}`)}
+                          >
+                            <UserCheck className="h-4 w-4 mr-2 text-emerald-600" />
+                            Marquer présent(e)
+                          </DropdownMenuItem>
+                        )}
+                        {isPresent && (
+                          <DropdownMenuItem
+                            onClick={() => handleChangeStatus(member.id, 'ABSENT', `${member.prenom} ${member.nom}`)}
+                          >
+                            <UserX className="h-4 w-4 mr-2 text-red-500" />
+                            Marquer absent(e)
+                          </DropdownMenuItem>
+                        )}
+                        {!isExcuse && (
+                          <DropdownMenuItem
+                            onClick={() => handleChangeStatus(member.id, 'EXCUSE', `${member.prenom} ${member.nom}`)}
+                          >
+                            <Ban className="h-4 w-4 mr-2 text-amber-500" />
+                            Marquer excusé(e)
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 )}
-                {isExcuse && (
-                  <Badge className="bg-slate-200 text-slate-600 border-0 text-[10px] absolute top-2 right-2">
-                    Excusé
-                  </Badge>
-                )}
-                {isProcuration && (
-                  <Badge className="bg-blue-200 text-blue-700 border-0 text-[10px] absolute top-2 right-2">
-                    Procuration
-                  </Badge>
-                )}
-
-                {/* Time + signature info */}
-                {isPresent && arrivalTime && (
-                  <p className="text-[10px] text-emerald-600 flex items-center gap-1">
-                    <Clock className="h-2.5 w-2.5" />
-                    {arrivalTime}
-                    {hasSigned && <PenLine className="h-2.5 w-2.5 ml-1" />}
-                  </p>
-                )}
-
-                {/* Tap hint */}
-                {!isPresent && !isExcuse && !isProcuration && (
-                  <p className="text-[10px] text-muted-foreground">
-                    Appuyez pour pointer
-                  </p>
-                )}
-              </button>
+              </div>
             )
           })}
         </div>
