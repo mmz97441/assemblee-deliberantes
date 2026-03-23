@@ -365,7 +365,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
 
           {/* Session controls */}
           {seance.statut === 'CONVOQUEE' && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')} title="Ouvrir officiellement la séance">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 btn-press" onClick={() => setStatusDialog('EN_COURS')} title="Ouvrir officiellement la séance">
               <Play className="h-4 w-4 mr-1.5" />
               Ouvrir la séance
             </Button>
@@ -376,7 +376,7 @@ export function SessionConductor({ seance, instanceMemberCount }: SessionConduct
                 <Pause className="h-4 w-4 mr-1.5" />
                 Suspendre
               </Button>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700" onClick={() => setStatusDialog('CLOTUREE')} title="Clôturer définitivement la séance">
+              <Button size="sm" className="bg-purple-600 hover:bg-purple-700 btn-press" onClick={() => setStatusDialog('CLOTUREE')} title="Clôturer définitivement la séance">
                 <Square className="h-4 w-4 mr-1.5" />
                 Clôturer
               </Button>

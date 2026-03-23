@@ -69,7 +69,7 @@ const STATUT_LABELS: Record<MemberStatut, string> = {
   ACTIF: 'Actif',
   SUSPENDU: 'Suspendu',
   FIN_DE_MANDAT: 'Fin de mandat',
-  DECEDE: 'Decede',
+  DECEDE: 'Décédé',
 }
 
 const STATUT_COLORS: Record<MemberStatut, string> = {
@@ -138,7 +138,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`Statut mis a jour : ${STATUT_LABELS[newStatut]}`)
+        toast.success(`Statut mis à jour : ${STATUT_LABELS[newStatut]}`)
         router.refresh()
       }
     })
@@ -176,10 +176,10 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
         <Select value={roleFilter} onValueChange={setRoleFilter}>
           <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Tous les roles" />
+            <SelectValue placeholder="Tous les rôles" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les roles</SelectItem>
+            <SelectItem value="all">Tous les rôles</SelectItem>
             {ALL_ROLES.map(role => (
               <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
             ))}
@@ -269,7 +269,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                 return (
                   <TableRow
                     key={member.id}
-                    className={canManage ? 'cursor-pointer hover:bg-muted/50' : ''}
+                    className={canManage ? 'cursor-pointer hover:bg-muted/50 row-hover' : 'row-hover'}
                     onClick={canManage ? () => handleEdit(member) : undefined}
                   >
                     <TableCell>
@@ -338,7 +338,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                             ) : statut === 'SUSPENDU' ? (
                               <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'ACTIF')}>
                                 <UserCheck className="h-4 w-4 mr-2" />
-                                Reactiver
+                                Réactiver
                               </DropdownMenuItem>
                             ) : null}
                             <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'FIN_DE_MANDAT')}>

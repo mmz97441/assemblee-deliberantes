@@ -12,6 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { toast } from 'sonner'
+import { confirmSelfPresence } from '@/lib/actions/presences'
 import {
   ArrowLeft,
   ChevronLeft,
@@ -25,6 +27,8 @@ import {
   Landmark,
   MonitorOff,
   RefreshCw,
+  CheckCircle2,
+  UserCheck,
 } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
@@ -54,9 +58,16 @@ interface MemberInfo {
   qualite_officielle: string | null
 }
 
+interface PresenceInfo {
+  statut: string | null
+  heure_arrivee: string | null
+}
+
 interface TabletteEluProps {
   seance: SeanceData
   currentMember: MemberInfo | null
+  isConvoque?: boolean
+  presenceData?: PresenceInfo | null
 }
 
 const MAJORITE_LABELS: Record<string, string> = {
@@ -70,10 +81,47 @@ const MAJORITE_LABELS: Record<string, string> = {
 // TABLET VIEW: Large text (22px base), big buttons (56px min), touch-friendly
 // Used by elected officials during the session on their individual tablet.
 
-export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
+export function TabletteElu({ seance, currentMember, isConvoque, presenceData }: TabletteEluProps) {
   const router = useRouter()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
   const [wakeLockFailed, setWakeLockFailed] = useState(false)
+  const [isPresent, setIsPresent] = useState(presenceData?.statut === 'PRESENT')
+  const [presenceTime, setPresenceTime] = useState<string | null>(
+    presenceData?.heure_arrivee || null
+  )
+  const [isConfirming, setIsConfirming] = useState(false)
+
+  // Sync from server data on re-render (auto-refresh)
+  useEffect(() => {
+    if (presenceData?.statut === 'PRESENT') {
+      setIsPresent(true)
+      setPresenceTime(presenceData.heure_arrivee)
+    }
+  }, [presenceData])
+
+  const handleConfirmPresence = async () => {
+    if (!currentMember) return
+    setIsConfirming(true)
+    try {
+      const result = await confirmSelfPresence(seance.id, currentMember.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        setIsPresent(true)
+        setPresenceTime(new Date().toISOString())
+        toast.success('Presence confirmee !')
+      }
+    } catch {
+      toast.error('Erreur lors de la confirmation')
+    } finally {
+      setIsConfirming(false)
+    }
+  }
+
+  const formatTime = (iso: string | null) => {
+    if (!iso) return ''
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
 
   // Auto-refresh every 3 seconds
   const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 3000 })
@@ -248,6 +296,42 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
           </span>
         </div>
       </header>
+
+      {/* Presence confirmation */}
+      {isConvoque && currentMember && (
+        <div className="px-6 pt-4">
+          <div className="max-w-2xl landscape:max-w-5xl mx-auto">
+            {isPresent ? (
+              <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-5 py-3">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
+                <span className="text-base font-medium text-emerald-800">
+                  Present(e) depuis {formatTime(presenceTime)}
+                </span>
+              </div>
+            ) : (seance.statut === 'EN_COURS' || seance.statut === 'CONVOQUEE') && (
+              <div className="rounded-xl bg-blue-50 border-2 border-blue-300 p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <UserCheck className="h-7 w-7 text-blue-600 shrink-0" />
+                  <h3 className="text-xl font-bold text-blue-800">Confirmez votre presence</h3>
+                </div>
+                <Button
+                  onClick={handleConfirmPresence}
+                  disabled={isConfirming}
+                  className="w-full h-16 text-xl font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl"
+                  style={{ minHeight: '64px' }}
+                >
+                  {isConfirming ? (
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                  ) : (
+                    <CheckCircle2 className="h-6 w-6 mr-2" />
+                  )}
+                  {isConfirming ? 'Confirmation...' : 'Je suis present(e)'}
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Main content: current point */}
       <main className="flex-1 p-6 overflow-y-auto">

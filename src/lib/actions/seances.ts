@@ -596,6 +596,115 @@ export async function addStandardODJPoints(seanceId: string): Promise<ActionResu
   }
 }
 
+// ─── Duplication de séance ───────────────────────────────────────────────────
+
+export async function duplicateSeance(
+  sourceSeanceId: string
+): Promise<{ success: true; newSeanceId: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    // Fetch source séance with ODJ and convocataires
+    const { data: source, error: fetchError } = await supabase
+      .from('seances')
+      .select(`
+        *,
+        odj_points (*),
+        convocataires (member_id)
+      `)
+      .eq('id', sourceSeanceId)
+      .single()
+
+    if (fetchError || !source) return { error: 'Seance source introuvable' }
+
+    // Compute new date: today + 7 days, same time as original
+    const originalDate = new Date(source.date_seance)
+    const newDate = new Date()
+    newDate.setDate(newDate.getDate() + 7)
+    newDate.setHours(originalDate.getHours(), originalDate.getMinutes(), originalDate.getSeconds(), 0)
+
+    // Create new séance
+    const { data: newSeance, error: insertError } = await supabase
+      .from('seances')
+      .insert({
+        titre: `${source.titre} (copie)`,
+        instance_id: source.instance_id,
+        date_seance: newDate.toISOString(),
+        mode: source.mode,
+        lieu: source.lieu,
+        publique: source.publique,
+        voix_preponderante: source.voix_preponderante,
+        late_arrival_mode: source.late_arrival_mode,
+        notes: source.notes,
+        president_effectif_seance_id: null,
+        secretaire_seance_id: null,
+        statut: 'BROUILLON' as const,
+        created_by: user?.id ?? null,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !newSeance) {
+      return { error: `Erreur de duplication : ${insertError?.message || 'Erreur inconnue'}` }
+    }
+
+    // Copy ODJ points
+    const odjPoints = source.odj_points as ODJPointRow[]
+    if (odjPoints && odjPoints.length > 0) {
+      const sortedPoints = [...odjPoints].sort((a, b) => a.position - b.position)
+      const odjPayloads = sortedPoints.map((p) => ({
+        seance_id: newSeance.id,
+        titre: p.titre,
+        description: p.description,
+        type_traitement: p.type_traitement,
+        majorite_requise: p.majorite_requise,
+        rapporteur_id: p.rapporteur_id,
+        huis_clos: p.huis_clos,
+        votes_interdits: p.votes_interdits,
+        projet_deliberation: p.projet_deliberation,
+        position: p.position,
+        statut: 'A_TRAITER',
+        notes_seance: null,
+        documents: null,
+      }))
+
+      const { error: odjError } = await supabase
+        .from('odj_points')
+        .insert(odjPayloads)
+
+      if (odjError) {
+        console.error('Error copying ODJ points:', odjError)
+      }
+    }
+
+    // Copy convocataires
+    const convocataires = source.convocataires as { member_id: string }[]
+    if (convocataires && convocataires.length > 0) {
+      const convPayloads = convocataires.map((c) => ({
+        seance_id: newSeance.id,
+        member_id: c.member_id,
+        statut_convocation: 'NON_ENVOYE' as const,
+      }))
+
+      const { error: convError } = await supabase
+        .from('convocataires')
+        .insert(convPayloads)
+
+      if (convError) {
+        console.error('Error copying convocataires:', convError)
+      }
+    }
+
+    revalidatePath(ROUTES.SEANCES)
+    return { success: true, newSeanceId: newSeance.id }
+  } catch (err) {
+    console.error('duplicateSeance error:', err)
+    return { error: 'Erreur inattendue lors de la duplication' }
+  }
+}
+
 // ─── Convocataires ───────────────────────────────────────────────────────────
 
 export async function addConvocataire(seanceId: string, memberId: string): Promise<ActionResult> {

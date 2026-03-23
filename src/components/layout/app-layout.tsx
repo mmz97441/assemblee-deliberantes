@@ -63,7 +63,9 @@ export function AppLayout({ children, userFullName, userRole, userEmail }: AppLa
           <span className="text-sm font-semibold text-foreground">Assemblées Délibérantes</span>
         </div>
 
-        {children}
+        <div className="animate-in fade-in duration-300">
+          {children}
+        </div>
       </div>
     </div>
   )

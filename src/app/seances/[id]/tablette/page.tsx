@@ -53,10 +53,38 @@ export default async function TablettePage({ params }: Props) {
     .eq('user_id', userData.user.id)
     .maybeSingle()
 
+  // Check if current member is convoqué for this séance
+  let isConvoque = false
+  if (currentMember) {
+    const { data: convocataire } = await supabase
+      .from('convocataires')
+      .select('id')
+      .eq('seance_id', id)
+      .eq('member_id', currentMember.id)
+      .maybeSingle()
+    isConvoque = !!convocataire
+  }
+
+  // Get current member's presence status
+  let presenceData: { statut: string | null; heure_arrivee: string | null } | null = null
+  if (currentMember) {
+    const { data: presence } = await supabase
+      .from('presences')
+      .select('statut, heure_arrivee')
+      .eq('seance_id', id)
+      .eq('member_id', currentMember.id)
+      .maybeSingle()
+    if (presence) {
+      presenceData = { statut: presence.statut, heure_arrivee: presence.heure_arrivee }
+    }
+  }
+
   return (
     <TabletteElu
       seance={seance}
       currentMember={currentMember}
+      isConvoque={isConvoque}
+      presenceData={presenceData}
     />
   )
 }

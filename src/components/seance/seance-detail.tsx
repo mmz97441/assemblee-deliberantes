@@ -110,6 +110,8 @@ import {
   PenLine,
   Handshake,
   XCircle,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Copy,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -120,6 +122,7 @@ import {
   addConvocataire,
   removeConvocataire,
   addStandardODJPoints,
+  duplicateSeance,
 } from '@/lib/actions/seances'
 import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
@@ -264,6 +267,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   // Confirmation dialogs
   const [sendConvocationsDialog, setSendConvocationsDialog] = useState(false)
   const [removeConvocataireDialog, setRemoveConvocataireDialog] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
 
   const ModeIcon = seance.mode === 'VISIO' ? Video : seance.mode === 'HYBRIDE' ? Monitor : Building2
 
@@ -448,7 +453,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`Statut mis a jour: ${STATUT_CONFIG[newStatut]?.label || newStatut}`)
+        toast.success(`Statut mis à jour : ${STATUT_CONFIG[newStatut]?.label || newStatut}`)
         router.refresh()
       }
       setStatusChangeDialog(null)
@@ -525,6 +530,25 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function handleDuplicate() {
+    setDuplicateDialogOpen(false)
+    startTransition(async () => {
+      const result = await duplicateSeance(seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Séance dupliquée', {
+          action: {
+            label: 'Voir la copie',
+            onClick: () => router.push(`/seances/${result.newSeanceId}`),
+          },
+        })
+        router.push(`/seances/${result.newSeanceId}`)
+      }
+    })
+  }
+
   function handleAddStandardPointsConfirmed() {
     setStandardPointsDialog(false)
     startTransition(async () => {
@@ -578,7 +602,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* TAB: Resume                                                    */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            <TabsContent value="resume" className="space-y-4 mt-0">
+            <TabsContent value="resume" className="space-y-4 mt-0 tab-content-enter">
               {/* Session info card */}
               <div className="rounded-xl border bg-card p-5">
                 <div className="flex items-center gap-3 mb-4">
@@ -774,7 +798,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       {nextIncompleteStep.id === 'ouverture' && (
                         <Button
                           size="sm"
-                          className="w-full bg-emerald-600 hover:bg-emerald-700"
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 btn-press"
                           onClick={() => setStatusChangeDialog('EN_COURS')}
                           disabled={isPending}
                         >
@@ -932,7 +956,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* TAB: Ordre du jour                                             */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            <TabsContent value="odj" className="mt-0">
+            <TabsContent value="odj" className="mt-0 tab-content-enter">
               <div className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between p-5 pb-3">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1042,7 +1066,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* TAB: Convocations                                              */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            <TabsContent value="convocations" className="mt-0">
+            <TabsContent value="convocations" className="mt-0 tab-content-enter">
               <div className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between p-5 pb-3">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1123,7 +1147,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             {/* ═══════════════════════════════════════════════════════════════ */}
             {/* TAB: Procurations                                              */}
             {/* ═══════════════════════════════════════════════════════════════ */}
-            <TabsContent value="procurations" className="mt-0">
+            <TabsContent value="procurations" className="mt-0 tab-content-enter">
               <div className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between p-5 pb-3">
                   <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -1255,7 +1279,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
               {isBrouillon && (
                 <Button
-                  className="w-full"
+                  className="w-full btn-press"
                   onClick={() => setStatusChangeDialog('CONVOQUEE')}
                   disabled={isPending || seance.odj_points.length === 0 || seance.convocataires.length === 0}
                   title={
@@ -1273,7 +1297,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
               {(isBrouillon || seance.statut === 'CONVOQUEE') && (
                 <Button
-                  className="w-full"
+                  className="w-full btn-press"
                   variant={isBrouillon ? 'outline' : 'default'}
                   onClick={() => setSendConvocationsDialog(true)}
                   disabled={isPending || seance.convocataires.length === 0}
@@ -1290,7 +1314,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
               {seance.statut === 'CONVOQUEE' && (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 btn-press"
                   onClick={() => setStatusChangeDialog('EN_COURS')}
                   disabled={isPending}
                 >
@@ -1302,7 +1326,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
               {/* Conduct session — EN_COURS */}
               {seance.statut === 'EN_COURS' && (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 btn-press"
                   onClick={() => router.push(`/seances/${seance.id}/en-cours`)}
                 >
                   <Monitor className="h-4 w-4 mr-2" />
@@ -1345,7 +1369,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
               {seance.statut === 'SUSPENDUE' && (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 btn-press"
                   onClick={() => setStatusChangeDialog('EN_COURS')}
                   disabled={isPending}
                 >
@@ -1375,6 +1399,17 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 )}
               </div>
 
+              <Button
+                className="w-full"
+                variant="outline"
+                onClick={() => setDuplicateDialogOpen(true)}
+                disabled={isPending}
+                title="Créer une copie de cette séance avec le même ordre du jour et les mêmes convocataires"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Dupliquer
+              </Button>
+
               {/* Contextual tips */}
               {isBrouillon && seance.odj_points.length === 0 && seance.convocataires.length === 0 && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
@@ -1400,6 +1435,28 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* Dialogs                                                            */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
+
+      {/* Duplicate confirmation */}
+      <AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dupliquer cette séance ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L&apos;ordre du jour ({seance.odj_points.length} point{seance.odj_points.length !== 1 ? 's' : ''}) et les convocataires ({seance.convocataires.length} membre{seance.convocataires.length !== 1 ? 's' : ''}) seront copiés.
+              La date sera fixée à 7 jours après aujourd&apos;hui.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDuplicate}
+              disabled={isPending}
+            >
+              {isPending ? 'Duplication...' : 'Dupliquer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ODJ Form Dialog */}
       <ODJPointFormDialog
@@ -2029,7 +2086,7 @@ function ODJPointFormDialog({
         return
       }
 
-      toast.success(isEditing ? 'Point mis a jour' : 'Point ajoute')
+      toast.success(isEditing ? 'Point mis à jour' : 'Point ajouté')
       router.refresh()
       onClose()
     })

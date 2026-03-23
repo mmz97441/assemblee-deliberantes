@@ -5,6 +5,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  ::selection {
+    background-color: hsl(217 73% 19% / 0.15);
+    color: hsl(217 73% 19%);
+  }
+
   :root {
     /* Design tokens institutionnels — CDC section 22.2 */
     --color-primary: 13 43 85;
@@ -154,5 +163,44 @@
 
   .stat-card:hover::after {
     transform: scaleX(1);
+  }
+
+  /* Tab content fade-in */
+  .tab-content-enter {
+    animation: tabFadeIn 0.2s ease-out;
+  }
+
+  @keyframes tabFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Interactive card hover — reusable */
+  .card-interactive {
+    @apply transition-all duration-200;
+  }
+
+  .card-interactive:hover {
+    @apply shadow-md -translate-y-0.5;
+  }
+
+  /* Primary action button press feedback */
+  .btn-press {
+    @apply transition-transform duration-100;
+  }
+
+  .btn-press:active {
+    transform: scale(0.98);
+  }
+
+  /* Table row hover transition */
+  .row-hover {
+    @apply transition-colors duration-150;
   }
 }

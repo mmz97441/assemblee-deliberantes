@@ -67,6 +67,77 @@ export async function markPresence(
   }
 }
 
+// ─── Self-confirm presence (élu connecté) ────────────────────────────────────
+
+export async function confirmSelfPresence(
+  seanceId: string,
+  memberId: string
+): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    // Verify the member belongs to this user
+    const { data: member, error: memberError } = await supabase
+      .from('members')
+      .select('id, user_id')
+      .eq('id', memberId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (memberError || !member) {
+      return { error: 'Vous ne pouvez confirmer que votre propre présence' }
+    }
+
+    // Verify the member is convoqué for this séance
+    const { data: convocataire } = await supabase
+      .from('convocataires')
+      .select('id')
+      .eq('seance_id', seanceId)
+      .eq('member_id', memberId)
+      .maybeSingle()
+
+    if (!convocataire) {
+      return { error: 'Vous n\'êtes pas convoqué(e) pour cette séance' }
+    }
+
+    // Verify séance is in a valid state
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seance || !['CONVOQUEE', 'EN_COURS'].includes(seance.statut || '')) {
+      return { error: 'La séance n\'est pas ouverte aux confirmations de présence' }
+    }
+
+    // Upsert presence
+    const { error } = await supabase
+      .from('presences')
+      .upsert(
+        {
+          seance_id: seanceId,
+          member_id: memberId,
+          statut: 'PRESENT' as const,
+          heure_arrivee: new Date().toISOString(),
+          mode_authentification: 'ASSISTE' as const,
+        },
+        { onConflict: 'seance_id,member_id' }
+      )
+
+    if (error) return { error: `Erreur : ${error.message}` }
+
+    revalidatePath(`/seances/${seanceId}`)
+    revalidatePath(`/seances/${seanceId}/emargement`)
+    revalidatePath(`/seances/${seanceId}/tablette`)
+    return { success: true }
+  } catch (err) {
+    console.error('confirmSelfPresence error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
 // ─── Mark presence manually (gestionnaire) ───────────────────────────────────
 
 export async function markPresenceManual(

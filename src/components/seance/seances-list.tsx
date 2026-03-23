@@ -46,9 +46,12 @@ import {
   Video,
   Monitor,
   Building2,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Copy,
 } from 'lucide-react'
 import { SeanceFormDialog } from './seance-form'
-import { deleteSeance } from '@/lib/actions/seances'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { deleteSeance, duplicateSeance } from '@/lib/actions/seances'
 import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
 
 interface SeanceListItem extends SeanceRow {
@@ -123,6 +126,8 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
   const [editingSeance, setEditingSeance] = useState<SeanceListItem | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletingSeance, setDeletingSeance] = useState<SeanceListItem | null>(null)
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
+  const [duplicatingSeance, setDuplicatingSeance] = useState<SeanceListItem | null>(null)
 
   // Filters
   const filtered = seances.filter(s => {
@@ -152,6 +157,26 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
     })
   }
 
+  function handleDuplicate() {
+    if (!duplicatingSeance) return
+    startTransition(async () => {
+      const result = await duplicateSeance(duplicatingSeance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Séance dupliquée', {
+          action: {
+            label: 'Voir la copie',
+            onClick: () => router.push(`/seances/${result.newSeanceId}`),
+          },
+        })
+        router.push(`/seances/${result.newSeanceId}`)
+      }
+      setDuplicateDialogOpen(false)
+      setDuplicatingSeance(null)
+    })
+  }
+
   // Group by upcoming vs past
   const now = new Date()
   const upcoming = filtered.filter(s => new Date(s.date_seance) >= now || s.statut === 'EN_COURS')
@@ -164,7 +189,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Rechercher une seance..."
+            placeholder="Rechercher une séance..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-9"
@@ -195,7 +220,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
         {canManage && (
           <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" />
-            Nouvelle seance
+            Nouvelle séance
           </Button>
         )}
       </div>
@@ -240,6 +265,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
                 canManage={canManage}
                 onEdit={() => { setEditingSeance(seance); setFormOpen(true) }}
                 onDelete={() => { setDeletingSeance(seance); setDeleteDialogOpen(true) }}
+                onDuplicate={() => { setDuplicatingSeance(seance); setDuplicateDialogOpen(true) }}
               />
             ))}
           </div>
@@ -250,7 +276,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
       {past.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Passees ({past.length})
+            Passées ({past.length})
           </h2>
           <div className="space-y-3">
             {past.map(seance => (
@@ -260,6 +286,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
                 canManage={canManage}
                 onEdit={() => { setEditingSeance(seance); setFormOpen(true) }}
                 onDelete={() => { setDeletingSeance(seance); setDeleteDialogOpen(true) }}
+                onDuplicate={() => { setDuplicatingSeance(seance); setDuplicateDialogOpen(true) }}
               />
             ))}
           </div>
@@ -277,12 +304,12 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
 
       {/* Delete confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer cette seance ?</AlertDialogTitle>
+            <AlertDialogTitle>Supprimer cette séance ?</AlertDialogTitle>
             <AlertDialogDescription>
-              La seance &quot;{deletingSeance?.titre}&quot; et tous ses points d&apos;ordre du jour seront supprimes.
-              Cette action est irreversible.
+              La séance &quot;{deletingSeance?.titre}&quot; et tous ses points d&apos;ordre du jour seront supprimés.
+              Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -297,28 +324,53 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Duplicate confirmation */}
+      <AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dupliquer cette séance ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L&apos;ordre du jour ({duplicatingSeance?._count_odj} point{(duplicatingSeance?._count_odj ?? 0) !== 1 ? 's' : ''}) et les convocataires ({duplicatingSeance?._count_convocataires} membre{(duplicatingSeance?._count_convocataires ?? 0) !== 1 ? 's' : ''}) seront copiés.
+              La date sera fixée à 7 jours après aujourd&apos;hui.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDuplicate}
+              disabled={isPending}
+            >
+              {isPending ? 'Duplication...' : 'Dupliquer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }
 
 // ─── Seance Card ─────────────────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SeanceCard({
   seance,
   canManage,
   onEdit,
   onDelete,
+  onDuplicate,
 }: {
   seance: SeanceListItem
   canManage: boolean
   onEdit: () => void
   onDelete: () => void
+  onDuplicate: () => void
 }) {
   const statutConfig = STATUT_CONFIG[seance.statut || 'BROUILLON']
   const ModeIcon = MODE_ICONS[seance.mode || 'PRESENTIEL'] || Building2
 
   return (
-    <div className="group relative rounded-xl border bg-card hover:shadow-md transition-all duration-200">
+    <div className="group relative rounded-xl border bg-card card-interactive">
       <Link href={`/seances/${seance.id}`} className="block p-5">
         <div className="flex items-start justify-between gap-4">
           {/* Left: info */}
@@ -396,6 +448,10 @@ function SeanceCard({
                       <Eye className="h-4 w-4 mr-2" />
                       Voir le detail
                     </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onDuplicate}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Dupliquer
                   </DropdownMenuItem>
                   {seance.statut === 'BROUILLON' && (
                     <>

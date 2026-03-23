@@ -256,7 +256,7 @@ export function VoteMainLevee({
         <Button
           onClick={handleOpenVote}
           disabled={isPending}
-          className="w-full h-14 text-base gap-3"
+          className="w-full h-14 text-base gap-3 btn-press"
           size="lg"
         >
           {isPending ? (
