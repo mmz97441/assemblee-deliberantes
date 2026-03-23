@@ -74,11 +74,11 @@ interface SeancesListProps {
 
 const STATUT_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
   BROUILLON: { label: 'Brouillon', variant: 'secondary', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquee', variant: 'default', color: 'bg-blue-100 text-blue-700' },
+  CONVOQUEE: { label: 'Convoquée', variant: 'default', color: 'bg-blue-100 text-blue-700' },
   EN_COURS: { label: 'En cours', variant: 'default', color: 'bg-emerald-100 text-emerald-700' },
   SUSPENDUE: { label: 'Suspendue', variant: 'outline', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Cloturee', variant: 'secondary', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivee', variant: 'secondary', color: 'bg-gray-100 text-gray-500' },
+  CLOTUREE: { label: 'Clôturée', variant: 'secondary', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivée', variant: 'secondary', color: 'bg-gray-100 text-gray-500' },
 }
 
 const MODE_ICONS: Record<string, React.ElementType> = {
@@ -144,7 +144,7 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Seance supprimee')
+        toast.success('Séance supprimée')
         router.refresh()
       }
       setDeleteDialogOpen(false)
@@ -202,18 +202,25 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-1">Aucune seance</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+            <CalendarDays className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-1">Aucune séance</h3>
+          <p className="text-sm text-muted-foreground max-w-sm mb-4">
             {seances.length === 0
-              ? "Creez votre premiere seance pour commencer."
-              : "Aucune seance ne correspond aux filtres."}
+              ? "Créez votre première séance pour commencer à gérer vos assemblées délibérantes."
+              : "Aucune séance ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
           </p>
           {canManage && seances.length === 0 && (
             <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }}>
               <Plus className="h-4 w-4 mr-2" />
-              Creer une seance
+              Nouvelle séance
+            </Button>
+          )}
+          {seances.length > 0 && (
+            <Button variant="outline" onClick={() => { setSearch(''); setStatutFilter('all'); setInstanceFilter('all') }}>
+              Réinitialiser les filtres
             </Button>
           )}
         </div>
@@ -352,7 +359,7 @@ function SeanceCard({
               )}
               <span className="flex items-center gap-1.5">
                 <ModeIcon className="h-3.5 w-3.5" />
-                {seance.mode === 'PRESENTIEL' ? 'Presentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
+                {seance.mode === 'PRESENTIEL' ? 'Présentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
               </span>
             </div>
 

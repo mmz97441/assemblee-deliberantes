@@ -6,6 +6,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -15,6 +22,7 @@ import {
   Lock,
   User,
   Landmark,
+  MonitorOff,
 } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 import type { DocumentInfo } from '@/lib/actions/documents'
@@ -63,6 +71,7 @@ const MAJORITE_LABELS: Record<string, string> = {
 export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
   const router = useRouter()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
+  const [wakeLockFailed, setWakeLockFailed] = useState(false)
 
   // Auto-refresh every 3 seconds
   useEffect(() => {
@@ -78,9 +87,12 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
       try {
         if ('wakeLock' in navigator) {
           wakeLock = await navigator.wakeLock.request('screen')
+          setWakeLockFailed(false)
+        } else {
+          setWakeLockFailed(true)
         }
       } catch {
-        // Wake Lock API not supported or failed
+        setWakeLockFailed(true)
       }
     }
 
@@ -148,12 +160,26 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
   // ─── Render: Active ───────────────────────────────────────────────────
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-slate-50 flex flex-col" style={{ fontSize: '22px' }}>
 
       {/* Header */}
       <header className="bg-white border-b px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => router.push(`/seances/${seance.id}`)}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Retour à la séance</TooltipContent>
+            </Tooltip>
             <Landmark className="h-7 w-7 text-institutional-blue" />
             <div>
               <h1 className="text-lg font-bold leading-tight">{seance.titre}</h1>
@@ -161,6 +187,19 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {wakeLockFailed && isEnCours && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-xs px-2 py-1 gap-1">
+                    <MonitorOff className="h-3.5 w-3.5" />
+                    Veille non bloquée
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[250px]">
+                  L&apos;écran peut se mettre en veille automatiquement. Vérifiez les réglages de votre tablette.
+                </TooltipContent>
+              </Tooltip>
+            )}
             {currentMember && (
               <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
                 <User className="h-4 w-4" />
@@ -205,111 +244,117 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
       {/* Main content: current point */}
       <main className="flex-1 p-6 overflow-y-auto">
         {currentPoint ? (
-          <div className="max-w-2xl mx-auto space-y-6">
+          <div className="max-w-2xl landscape:max-w-5xl mx-auto space-y-6 landscape:grid landscape:grid-cols-2 landscape:gap-8 landscape:space-y-0">
 
-            {/* Point header */}
-            <div className="flex items-start gap-4">
-              <span className={`flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold shrink-0 ${
-                isVotable ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {currentPoint.position}
-              </span>
-              <div>
-                <h2 className="text-2xl font-bold leading-tight">{currentPoint.titre}</h2>
-                <div className="flex items-center gap-2 mt-2">
-                  {isVotable ? (
-                    <Badge className="bg-blue-50 text-blue-700 border-0 text-base px-3 py-1">
-                      <Vote className="h-4 w-4 mr-1" /> Soumis au vote
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-slate-50 text-slate-500 border-0 text-base px-3 py-1">
-                      <Eye className="h-4 w-4 mr-1" /> Information
-                    </Badge>
-                  )}
-                  {currentPoint.huis_clos && (
-                    <Badge variant="outline" className="border-red-200 text-red-600 text-base px-3 py-1">
-                      <Lock className="h-4 w-4 mr-1" /> Huis clos
-                    </Badge>
-                  )}
+            {/* Left column in landscape / full width in portrait */}
+            <div className="space-y-6 landscape:space-y-4">
+              {/* Point header */}
+              <div className="flex items-start gap-4">
+                <span className={`flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-bold shrink-0 ${
+                  isVotable ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {currentPoint.position}
+                </span>
+                <div>
+                  <h2 className="text-2xl font-bold leading-tight">{currentPoint.titre}</h2>
+                  <div className="flex items-center gap-2 mt-2">
+                    {isVotable ? (
+                      <Badge className="bg-blue-50 text-blue-700 border-0 text-base px-3 py-1">
+                        <Vote className="h-4 w-4 mr-1" /> Soumis au vote
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-slate-50 text-slate-500 border-0 text-base px-3 py-1">
+                        <Eye className="h-4 w-4 mr-1" /> Information
+                      </Badge>
+                    )}
+                    {currentPoint.huis_clos && (
+                      <Badge variant="outline" className="border-red-200 text-red-600 text-base px-3 py-1">
+                        <Lock className="h-4 w-4 mr-1" /> Huis clos
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Majority warning */}
+              {isVotable && currentPoint.majorite_requise && currentPoint.majorite_requise !== 'SIMPLE' && (
+                <div className="rounded-xl bg-amber-50 border-2 border-amber-200 p-4 flex items-center gap-3">
+                  <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+                  <p className="text-base font-medium text-amber-800">
+                    {MAJORITE_LABELS[currentPoint.majorite_requise] || currentPoint.majorite_requise}
+                  </p>
+                </div>
+              )}
+
+              {/* Description */}
+              {currentPoint.description && (
+                <p className="text-base text-muted-foreground leading-relaxed">
+                  {currentPoint.description}
+                </p>
+              )}
             </div>
 
-            {/* Majority warning */}
-            {isVotable && currentPoint.majorite_requise && currentPoint.majorite_requise !== 'SIMPLE' && (
-              <div className="rounded-xl bg-amber-50 border-2 border-amber-200 p-4 flex items-center gap-3">
-                <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
-                <p className="text-base font-medium text-amber-800">
-                  {MAJORITE_LABELS[currentPoint.majorite_requise] || currentPoint.majorite_requise}
-                </p>
-              </div>
-            )}
+            {/* Right column in landscape / continues below in portrait */}
+            <div className="space-y-6 landscape:space-y-4">
+              <Separator className="landscape:hidden" />
 
-            {/* Description */}
-            {currentPoint.description && (
-              <p className="text-base text-muted-foreground leading-relaxed">
-                {currentPoint.description}
-              </p>
-            )}
-
-            <Separator />
-
-            {/* Projet de délibération */}
-            {currentPoint.projet_deliberation && (
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-5">
-                <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Projet de délibération
-                </h3>
-                <div className="text-base text-blue-900 whitespace-pre-line leading-relaxed">
-                  {currentPoint.projet_deliberation}
+              {/* Projet de délibération */}
+              {currentPoint.projet_deliberation && (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-5">
+                  <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Projet de délibération
+                  </h3>
+                  <div className="text-base text-blue-900 whitespace-pre-line leading-relaxed">
+                    {currentPoint.projet_deliberation}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Documents */}
-            {documents.length > 0 && (
-              <div>
-                <h3 className="text-base font-semibold mb-3">Documents</h3>
-                <div className="grid gap-2">
-                  {documents.map((doc, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-3 rounded-xl border p-4 bg-white"
-                    >
-                      <FileText className="h-6 w-6 text-red-500 shrink-0" />
-                      <div>
-                        <p className="text-base font-medium">{doc.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {doc.size < 1024 * 1024
-                            ? `${Math.round(doc.size / 1024)} Ko`
-                            : `${(doc.size / (1024 * 1024)).toFixed(1)} Mo`}
-                        </p>
+              {/* Documents */}
+              {documents.length > 0 && (
+                <div>
+                  <h3 className="text-base font-semibold mb-3">Documents</h3>
+                  <div className="grid gap-2">
+                    {documents.map((doc, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-xl border p-4 bg-white"
+                      >
+                        <FileText className="h-6 w-6 text-red-500 shrink-0" />
+                        <div>
+                          <p className="text-base font-medium">{doc.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {doc.size < 1024 * 1024
+                              ? `${Math.round(doc.size / 1024)} Ko`
+                              : `${(doc.size / (1024 * 1024)).toFixed(1)} Mo`}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Notes */}
-            {currentPoint.notes_seance && (
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-                <p className="text-base text-amber-800">
-                  <strong>Note :</strong> {currentPoint.notes_seance}
-                </p>
-              </div>
-            )}
+              {/* Notes */}
+              {currentPoint.notes_seance && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                  <p className="text-base text-amber-800">
+                    <strong>Note :</strong> {currentPoint.notes_seance}
+                  </p>
+                </div>
+              )}
 
-            {/* Question diverse warning */}
-            {currentPoint.type_traitement === 'QUESTION_DIVERSE' && (
-              <div className="rounded-xl bg-amber-50 border-2 border-amber-200 p-4 flex items-center gap-3">
-                <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
-                <p className="text-base text-amber-800">
-                  Questions diverses — aucun vote autorisé
-                </p>
-              </div>
-            )}
+              {/* Question diverse warning */}
+              {currentPoint.type_traitement === 'QUESTION_DIVERSE' && (
+                <div className="rounded-xl bg-amber-50 border-2 border-amber-200 p-4 flex items-center gap-3">
+                  <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+                  <p className="text-base text-amber-800">
+                    Questions diverses — aucun vote autorisé
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-20 text-muted-foreground">
@@ -356,5 +401,6 @@ export function TabletteElu({ seance, currentMember }: TabletteEluProps) {
         )}
       </footer>
     </div>
+    </TooltipProvider>
   )
 }

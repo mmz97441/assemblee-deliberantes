@@ -67,18 +67,18 @@ export function ConfirmationContent() {
               <div className="bg-emerald-50 p-6 text-center border-b border-emerald-100">
                 <CheckCircle2 className="h-12 w-12 text-emerald-600 mx-auto mb-3" />
                 <h2 className="text-lg font-semibold text-emerald-900">
-                  Presence confirmee !
+                  Présence confirmée !
                 </h2>
               </div>
               <div className="p-6">
                 <p className="text-sm text-slate-600 mb-4">
-                  Merci <strong>{memberNom}</strong>, votre presence a ete confirmee pour :
+                  Merci <strong>{memberNom}</strong>, votre présence a été confirmée pour :
                 </p>
                 <div className="rounded-lg bg-slate-50 border p-4 mb-4">
                   <p className="font-semibold text-slate-800">{seanceTitre}</p>
                 </div>
                 <p className="text-xs text-slate-400 text-center">
-                  Vous pouvez fermer cette page. Un rappel vous sera envoye avant la seance.
+                  Vous pouvez fermer cette page. Un rappel vous sera envoyé avant la séance.
                 </p>
               </div>
             </>

@@ -31,13 +31,14 @@ interface NavItem {
   icon: React.ElementType
   roles?: UserRole[]
   disabled?: boolean
+  disabledLabel?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Tableau de bord', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
   { label: 'Séances', href: ROUTES.SEANCES, icon: CalendarDays },
   { label: 'Membres', href: ROUTES.MEMBRES, icon: Users },
-  { label: 'Délibérations', href: '/deliberations', icon: FileText, disabled: true },
+  { label: 'Délibérations', href: '/deliberations', icon: FileText, disabled: true, disabledLabel: 'Bientôt disponible' },
   { label: 'Configuration', href: ROUTES.CONFIGURATION, icon: Settings, roles: ['super_admin'] },
 ]
 
@@ -45,11 +46,18 @@ interface AppSidebarProps {
   userFullName: string
   userRole: UserRole
   userEmail: string
+  /** When true, sidebar renders in mobile mode (no collapse toggle, full width) */
+  mobile?: boolean
+  /** Called when user navigates, so mobile sheet can close */
+  onNavigate?: () => void
 }
 
-export function AppSidebar({ userFullName, userRole }: AppSidebarProps) {
+export function AppSidebar({ userFullName, userRole, mobile, onNavigate }: AppSidebarProps) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+
+  // In mobile mode, never collapse
+  const isCollapsed = mobile ? false : collapsed
 
   const visibleItems = NAV_ITEMS.filter(item =>
     !item.roles || item.roles.includes(userRole)
@@ -62,19 +70,25 @@ export function AppSidebar({ userFullName, userRole }: AppSidebarProps) {
     .toUpperCase()
     .slice(0, 2)
 
+  function handleNavClick() {
+    if (onNavigate) onNavigate()
+  }
+
   return (
     <aside
-      className={`sidebar flex flex-col fixed left-0 top-0 z-40 h-screen ${
-        collapsed ? 'w-[72px]' : 'w-[260px]'
+      className={`sidebar flex flex-col ${
+        mobile
+          ? 'w-full h-full'
+          : `fixed left-0 top-0 z-40 h-screen ${isCollapsed ? 'w-[72px]' : 'w-[260px]'}`
       }`}
-      style={{ transition: 'width 0.2s ease' }}
+      style={mobile ? undefined : { transition: 'width 0.2s ease' }}
     >
       {/* Logo / Brand */}
       <div className="flex items-center gap-3 px-4 py-5 border-b" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-white font-bold text-sm">
           <Building2 className="h-5 w-5" />
         </div>
-        {!collapsed && (
+        {!isCollapsed && (
           <div className="overflow-hidden">
             <p className="text-sm font-semibold text-white truncate">Assemblées</p>
             <p className="text-xs opacity-60 truncate">Délibérantes</p>
@@ -93,13 +107,13 @@ export function AppSidebar({ userFullName, userRole }: AppSidebarProps) {
             <span
               className={`sidebar-link ${isActive ? 'active' : ''} ${
                 isDisabled ? 'opacity-40 pointer-events-none' : ''
-              } ${collapsed ? 'justify-center px-0' : ''}`}
+              } ${isCollapsed ? 'justify-center px-0' : ''}`}
             >
               <Icon className="h-[18px] w-[18px] shrink-0" />
-              {!collapsed && (
+              {!isCollapsed && (
                 <span className="truncate">{item.label}</span>
               )}
-              {!collapsed && isDisabled && (
+              {!isCollapsed && isDisabled && (
                 <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4 bg-white/10 text-white/50 border-0">
                   Bientôt
                 </Badge>
@@ -107,56 +121,74 @@ export function AppSidebar({ userFullName, userRole }: AppSidebarProps) {
             </span>
           )
 
-          if (collapsed) {
+          // Always wrap in Tooltip for collapsed mode or disabled items
+          if (isCollapsed) {
             return (
               <Tooltip key={item.href} delayDuration={0}>
                 <TooltipTrigger asChild>
                   {isDisabled ? (
-                    <div>{linkContent}</div>
+                    <div title={item.disabledLabel || 'Bientôt disponible'}>{linkContent}</div>
                   ) : (
-                    <Link href={item.href}>{linkContent}</Link>
+                    <Link href={item.href} onClick={handleNavClick}>{linkContent}</Link>
                   )}
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={8}>
-                  <p>{item.label}{isDisabled ? ' (bientôt)' : ''}</p>
+                  <p>{item.label}{isDisabled ? ' (bientôt disponible)' : ''}</p>
                 </TooltipContent>
               </Tooltip>
             )
           }
 
-          return isDisabled ? (
-            <div key={item.href}>{linkContent}</div>
-          ) : (
-            <Link key={item.href} href={item.href}>{linkContent}</Link>
+          // Expanded mode
+          if (isDisabled) {
+            return (
+              <Tooltip key={item.href} delayDuration={300}>
+                <TooltipTrigger asChild>
+                  <div title={item.disabledLabel || 'Bientôt disponible'}>{linkContent}</div>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  <p>{item.disabledLabel || 'Bientôt disponible'}</p>
+                </TooltipContent>
+              </Tooltip>
+            )
+          }
+
+          return (
+            <Link key={item.href} href={item.href} title={item.label} onClick={handleNavClick}>
+              {linkContent}
+            </Link>
           )
         })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="px-3 py-2">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="sidebar-link w-full justify-center"
-          aria-label={collapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronLeft className="h-4 w-4" />
-              <span className="text-xs">Réduire</span>
-            </>
-          )}
-        </button>
-      </div>
+      {/* Collapse toggle — desktop only */}
+      {!mobile && (
+        <div className="px-3 py-2">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="sidebar-link w-full justify-center"
+            aria-label={isCollapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+            title={isCollapsed ? 'Agrandir la barre latérale' : 'Réduire la barre latérale'}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="text-xs">Réduire</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* User section */}
       <div className="border-t px-3 py-3" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white text-xs font-bold">
             {initials}
           </div>
-          {!collapsed && (
+          {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{userFullName}</p>
               <p className="text-xs opacity-50 truncate">{ROLE_LABELS[userRole]}</p>
@@ -170,14 +202,15 @@ export function AppSidebar({ userFullName, userRole }: AppSidebarProps) {
               <button
                 type="submit"
                 className={`sidebar-link w-full text-red-300 hover:text-red-200 hover:bg-red-500/15 ${
-                  collapsed ? 'justify-center px-0' : ''
+                  isCollapsed ? 'justify-center px-0' : ''
                 }`}
+                title="Déconnexion"
               >
                 <LogOut className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span>Déconnexion</span>}
+                {!isCollapsed && <span>Déconnexion</span>}
               </button>
             </TooltipTrigger>
-            {collapsed && (
+            {isCollapsed && (
               <TooltipContent side="right" sideOffset={8}>
                 <p>Déconnexion</p>
               </TooltipContent>

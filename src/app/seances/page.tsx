@@ -72,11 +72,11 @@ export default async function SeancesPage() {
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title="Seances"
-        description="Planification et suivi des seances deliberantes"
+        title="Séances"
+        description="Planification et suivi des séances délibérantes"
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: 'Seances' },
+          { label: 'Séances' },
         ]}
       />
 

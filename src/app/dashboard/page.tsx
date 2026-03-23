@@ -16,7 +16,10 @@ import {
   ArrowRight,
   CalendarCheck,
   UserCheck,
+  Sparkles,
+  Plus,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { UserRole } from '@/lib/supabase/types'
 
 export default async function DashboardPage() {
@@ -44,6 +47,35 @@ export default async function DashboardPage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
+  // Fetch institution config to check if configured
+  let isConfigured = false
+  let seancesCount = 0
+  let membersCount = 0
+
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: configData } = await supabase
+      .from('institution_config')
+      .select('id')
+      .limit(1)
+      .maybeSingle()
+    isConfigured = !!configData
+
+    const { count: sCount } = await supabase
+      .from('seances')
+      .select('id', { count: 'exact', head: true })
+    seancesCount = sCount || 0
+
+    const { count: mCount } = await supabase
+      .from('members')
+      .select('id', { count: 'exact', head: true })
+      .eq('statut', 'ACTIF')
+    membersCount = mCount || 0
+  } catch {
+    // Continue with defaults
+  }
+
   return (
     <AuthenticatedLayout>
       <PageHeader
@@ -51,7 +83,27 @@ export default async function DashboardPage() {
         description={`${ROLE_LABELS[role]} — Voici un résumé de votre espace`}
       />
 
-      <main className="px-8 py-8 page-enter">
+      <main className="px-4 sm:px-8 py-8 page-enter">
+        {/* Welcome card — institution not configured */}
+        {!isConfigured && role === 'super_admin' && (
+          <div className="mb-8 rounded-xl border-2 border-dashed border-institutional-blue/30 bg-blue-50/50 p-8 text-center">
+            <div className="flex h-14 w-14 mx-auto items-center justify-center rounded-full bg-institutional-blue/10 mb-4">
+              <Sparkles className="h-7 w-7 text-institutional-blue" />
+            </div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Bienvenue !</h2>
+            <p className="text-muted-foreground max-w-md mx-auto mb-6">
+              Commencez par configurer votre institution pour utiliser l&apos;application.
+              Cette étape permet de personnaliser les paramètres légaux et administratifs.
+            </p>
+            <Button asChild size="lg">
+              <Link href={ROUTES.CONFIGURATION}>
+                <Settings className="h-4 w-4 mr-2" />
+                Configurer mon institution
+              </Link>
+            </Button>
+          </div>
+        )}
+
         {/* Quick stats */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 stagger-in mb-10">
           <div className="stat-card">
@@ -61,7 +113,7 @@ export default async function DashboardPage() {
               </div>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </div>
-            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-2xl font-bold text-foreground font-sans">{seancesCount}</p>
             <p className="text-sm text-muted-foreground mt-0.5">Séances à venir</p>
           </div>
 
@@ -81,7 +133,7 @@ export default async function DashboardPage() {
                 <UserCheck className="h-5 w-5" />
               </div>
             </div>
-            <p className="text-2xl font-bold text-foreground font-sans">0</p>
+            <p className="text-2xl font-bold text-foreground font-sans">{membersCount}</p>
             <p className="text-sm text-muted-foreground mt-0.5">Membres actifs</p>
           </div>
 
@@ -95,6 +147,25 @@ export default async function DashboardPage() {
             <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
           </div>
         </div>
+
+        {/* Empty state for seances */}
+        {seancesCount === 0 && (
+          <div className="mb-10 rounded-xl border bg-card p-8 text-center">
+            <div className="flex h-12 w-12 mx-auto items-center justify-center rounded-full bg-muted mb-3">
+              <CalendarDays className="h-6 w-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-base font-semibold text-foreground mb-1">Aucune séance prévue</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
+              Planifiez votre première séance pour commencer à gérer vos assemblées délibérantes.
+            </p>
+            <Button asChild>
+              <Link href={ROUTES.SEANCES}>
+                <Plus className="h-4 w-4 mr-2" />
+                Créer une séance
+              </Link>
+            </Button>
+          </div>
+        )}
 
         {/* Action cards */}
         <h2 className="text-lg font-semibold text-foreground mb-4" style={{ fontFamily: "'DM Sans', sans-serif" }}>

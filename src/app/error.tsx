@@ -45,7 +45,7 @@ export default function ErrorPage({
               onClick={reset}
               className="bg-institutional-blue hover:bg-institutional-navy"
             >
-              Reessayer
+              Réessayer
             </Button>
             <Button
               variant="outline"

@@ -198,18 +198,18 @@ interface SeanceDetailProps {
 
 const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
   BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquee', color: 'bg-blue-100 text-blue-700' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
   EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
   SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Cloturee', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivee', color: 'bg-gray-100 text-gray-500' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  DELIBERATION: { label: 'Deliberation', color: 'bg-blue-50 text-blue-700' },
+  DELIBERATION: { label: 'Délibération', color: 'bg-blue-50 text-blue-700' },
   INFORMATION: { label: 'Information', color: 'bg-slate-50 text-slate-600' },
   QUESTION_DIVERSE: { label: 'Question diverse', color: 'bg-amber-50 text-amber-700' },
-  ELECTION: { label: 'Election', color: 'bg-purple-50 text-purple-700' },
+  ELECTION: { label: 'Élection', color: 'bg-purple-50 text-purple-700' },
   APPROBATION_PV: { label: 'Approbation PV', color: 'bg-emerald-50 text-emerald-700' },
 }
 
@@ -269,8 +269,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
   // Warnings
   const warnings: string[] = []
-  if (!seance.secretaire_seance) warnings.push('Aucun secretaire de seance designe')
-  if (seance.odj_points.length === 0) warnings.push("Aucun point a l'ordre du jour")
+  if (!seance.secretaire_seance) warnings.push('Aucun secrétaire de séance désigné')
+  if (seance.odj_points.length === 0) warnings.push("Aucun point à l'ordre du jour")
   if (seance.convocataires.length === 0) warnings.push('Aucun convocataire')
 
   // ─── Convocation stats ───────────────────────────────────────────────────
@@ -369,19 +369,19 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       },
       {
         id: 'secretaire',
-        label: 'Secretaire de seance',
+        label: 'Secrétaire de séance',
         description: hasSecretaire
           ? `${seance.secretaire_seance!.prenom} ${seance.secretaire_seance!.nom}`
-          : 'Recommande (non bloquant)',
+          : 'Recommandé (non bloquant)',
         done: hasSecretaire,
-        warning: !hasSecretaire ? 'Non designe — un avertissement sera affiche' : null,
+        warning: !hasSecretaire ? 'Non désigné — un avertissement sera affiché' : null,
         tab: null,
       },
       {
         id: 'convocations',
         label: 'Envoi des convocations',
         description: convocationsSent
-          ? `${convocationStats.envoyes + convocationStats.confirmes} envoyee${(convocationStats.envoyes + convocationStats.confirmes) > 1 ? 's' : ''}`
+          ? `${convocationStats.envoyes + convocationStats.confirmes} envoyée${(convocationStats.envoyes + convocationStats.confirmes) > 1 ? 's' : ''}`
           : 'Envoyez les convocations par email',
         done: convocationsSent,
         warning: null,
@@ -389,8 +389,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       },
       {
         id: 'ouverture',
-        label: 'Ouverture de la seance',
-        description: isEnCours ? 'Seance en cours' : isCloturee ? 'Seance cloturee' : 'Ouvrez la seance le jour J',
+        label: 'Ouverture de la séance',
+        description: isEnCours ? 'Séance en cours' : isCloturee ? 'Séance clôturée' : 'Ouvrez la séance le jour J',
         done: isEnCours || isCloturee || seance.statut === 'ARCHIVEE',
         warning: null,
         tab: null,
@@ -417,7 +417,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         toast.error(result.error)
       } else {
         if (result.sent > 0) {
-          toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyee${result.sent > 1 ? 's' : ''} avec succes !`)
+          toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyée${result.sent > 1 ? 's' : ''} avec succès !`)
         }
         if (result.errors.length > 0) {
           toast.error(`${result.errors.length} erreur${result.errors.length > 1 ? 's' : ''} d'envoi`)
@@ -433,7 +433,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Convocation renvoyee')
+        toast.success('Convocation renvoyée')
         router.refresh()
       }
     })
@@ -548,7 +548,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         <div className="flex-1 min-w-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-4">
-              <TabsTrigger value="resume">Resume</TabsTrigger>
+              <TabsTrigger value="resume">Résumé</TabsTrigger>
               <TabsTrigger value="odj">
                 Ordre du jour
                 {seance.odj_points.length > 0 && (
@@ -612,7 +612,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     <p className="text-muted-foreground text-xs mb-0.5">Mode</p>
                     <p className="font-medium flex items-center gap-1.5">
                       <ModeIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      {seance.mode === 'PRESENTIEL' ? 'Presentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
+                      {seance.mode === 'PRESENTIEL' ? 'Présentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
                     </p>
                   </div>
                   {seance.lieu && (
@@ -630,19 +630,19 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">President(e)</p>
+                    <p className="text-muted-foreground text-xs mb-0.5">Président(e)</p>
                     <p className="font-medium">
                       {seance.president_effectif
                         ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
-                        : 'Non designe'}
+                        : 'Non désigné'}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">Secretaire</p>
+                    <p className="text-muted-foreground text-xs mb-0.5">Secrétaire</p>
                     <p className="font-medium">
                       {seance.secretaire_seance
                         ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
-                        : 'Non designe'}
+                        : 'Non désigné'}
                     </p>
                   </div>
                   <div>
@@ -672,10 +672,10 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-institutional-blue" />
-                      Preparation de la seance
+                      Préparation de la séance
                     </h3>
                     <span className="text-xs text-muted-foreground font-medium">
-                      {completedSteps}/{totalSteps} etapes
+                      {completedSteps}/{totalSteps} étapes
                     </span>
                   </div>
 
@@ -756,7 +756,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       {nextIncompleteStep.id === 'secretaire' && (
                         <p className="text-xs text-amber-600 flex items-center gap-1.5 bg-amber-50 rounded-lg p-2.5">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          Modifiez la seance pour designer un secretaire (non bloquant)
+                          Modifiez la séance pour désigner un secrétaire (non bloquant)
                         </p>
                       )}
                       {nextIncompleteStep.id === 'convocations' && (
@@ -792,8 +792,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-lg p-3">
                         <CheckCircle2 className="h-5 w-5 shrink-0" />
                         <div>
-                          <p className="text-sm font-medium">Preparation terminee !</p>
-                          <p className="text-xs text-emerald-600/80">La seance est prete. Bonne deliberation !</p>
+                          <p className="text-sm font-medium">Préparation terminée !</p>
+                          <p className="text-xs text-emerald-600/80">La séance est prête. Bonne délibération !</p>
                         </div>
                       </div>
                     </div>
@@ -823,21 +823,21 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
               {legalDelayWarning && (
                 <Alert variant="destructive">
                   <AlertOctagon className="h-4 w-4" />
-                  <AlertTitle>Delai legal de convocation non respecte</AlertTitle>
+                  <AlertTitle>Délai légal de convocation non respecté</AlertTitle>
                   <AlertDescription>
                     {legalDelayWarning.critical ? (
                       <>
-                        La seance est prevue aujourd&apos;hui ou est deja passee et les convocations
-                        n&apos;ont pas ete envoyees. Le delai legal est de{' '}
+                        La séance est prévue aujourd&apos;hui ou est déjà passée et les convocations
+                        n&apos;ont pas été envoyées. Le délai légal est de{' '}
                         <strong>{legalDelayWarning.delai} jours</strong>.
                       </>
                     ) : (
                       <>
                         Il reste <strong>{legalDelayWarning.daysUntil} jour{legalDelayWarning.daysUntil > 1 ? 's' : ''}</strong>{' '}
-                        avant la seance mais les convocations n&apos;ont pas ete envoyees.
-                        Le delai legal de convocation est de{' '}
+                        avant la séance mais les convocations n&apos;ont pas été envoyées.
+                        Le délai légal de convocation est de{' '}
                         <strong>{legalDelayWarning.delai} jours</strong>.
-                        Envoyez les convocations immediatement ou reportez la seance.
+                        Envoyez les convocations immédiatement ou reportez la séance.
                       </>
                     )}
                   </AlertDescription>
@@ -1338,7 +1338,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     onClick={() => setStatusChangeDialog('CLOTUREE')}
                     disabled={isPending}
                   >
-                    Cloturer la seance
+                    Clôturer la séance
                   </Button>
                 </>
               )}
@@ -1388,7 +1388,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
                   <p className="text-xs text-amber-700 flex items-start gap-1.5">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    Pensez a designer un secretaire de seance avant l&apos;ouverture.
+                    Pensez à désigner un secrétaire de séance avant l&apos;ouverture.
                   </p>
                 </div>
               )}
@@ -1417,7 +1417,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce point ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le point &quot;{deletePointDialog?.titre}&quot; sera supprime de l&apos;ordre du jour.
+              Le point &quot;{deletePointDialog?.titre}&quot; sera supprimé de l&apos;ordre du jour.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1439,23 +1439,23 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {statusChangeDialog === 'CONVOQUEE' && (
-                <><CheckCircle2 className="h-5 w-5 text-blue-500" /> Passer la seance en &quot;Convoquee&quot; ?</>
+                <><CheckCircle2 className="h-5 w-5 text-blue-500" /> Passer la séance en &quot;Convoquée&quot; ?</>
               )}
               {statusChangeDialog === 'EN_COURS' && (
-                <><Clock className="h-5 w-5 text-emerald-500" /> Ouvrir la seance ?</>
+                <><Clock className="h-5 w-5 text-emerald-500" /> Ouvrir la séance ?</>
               )}
               {statusChangeDialog === 'SUSPENDUE' && (
-                <><AlertTriangle className="h-5 w-5 text-amber-500" /> Suspendre la seance ?</>
+                <><AlertTriangle className="h-5 w-5 text-amber-500" /> Suspendre la séance ?</>
               )}
               {statusChangeDialog === 'CLOTUREE' && (
-                <><Shield className="h-5 w-5 text-purple-500" /> Cloturer la seance ?</>
+                <><Shield className="h-5 w-5 text-purple-500" /> Clôturer la séance ?</>
               )}
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               {statusChangeDialog === 'CONVOQUEE' && (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    Les convocations pourront etre envoyees aux {seance.convocataires.length} membre{seance.convocataires.length > 1 ? 's' : ''} convoques.
+                    Les convocations pourront être envoyées aux {seance.convocataires.length} membre{seance.convocataires.length > 1 ? 's' : ''} convoqués.
                   </p>
                   {warnings.length > 0 && (
                     <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
@@ -1480,10 +1480,10 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     <p className="text-xs font-medium text-blue-800">Ce qui va se passer :</p>
                     <ul className="space-y-1">
                       <li className="text-xs text-blue-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" /> L&apos;appel des presences sera possible
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> L&apos;appel des présences sera possible
                       </li>
                       <li className="text-xs text-blue-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le quorum sera verifie
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le quorum sera vérifié
                       </li>
                       <li className="text-xs text-blue-700 flex items-center gap-1.5">
                         <CheckCircle2 className="h-3 w-3 shrink-0" /> Les votes pourront commencer
@@ -1494,7 +1494,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
                       <p className="text-xs text-amber-700 flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
-                        Aucun secretaire de seance designe — pensez a en nommer un.
+                        Aucun secrétaire de séance désigné — pensez à en nommer un.
                       </p>
                     </div>
                   )}
@@ -1509,16 +1509,16 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
               {statusChangeDialog === 'CLOTUREE' && (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    La seance sera definitivement cloturee. L&apos;heure de cloture sera enregistree.
+                    La séance sera définitivement clôturée. L&apos;heure de clôture sera enregistrée.
                   </p>
                   <div className="rounded-lg bg-purple-50 border border-purple-200 p-3 space-y-1.5">
-                    <p className="text-xs font-medium text-purple-800">Apres la cloture :</p>
+                    <p className="text-xs font-medium text-purple-800">Après la clôture :</p>
                     <ul className="space-y-1">
                       <li className="text-xs text-purple-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le proces-verbal pourra etre redige
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Le procès-verbal pourra être rédigé
                       </li>
                       <li className="text-xs text-purple-700 flex items-center gap-1.5">
-                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Les deliberations seront numerotees
+                        <CheckCircle2 className="h-3 w-3 shrink-0" /> Les délibérations seront numérotées
                       </li>
                       <li className="text-xs text-purple-700 flex items-center gap-1.5">
                         <AlertTriangle className="h-3 w-3 shrink-0" /> Plus aucun vote ne sera possible
@@ -1545,9 +1545,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
               ) : (
                 <>
                   {statusChangeDialog === 'CONVOQUEE' && 'Confirmer'}
-                  {statusChangeDialog === 'EN_COURS' && 'Ouvrir la seance'}
+                  {statusChangeDialog === 'EN_COURS' && 'Ouvrir la séance'}
                   {statusChangeDialog === 'SUSPENDUE' && 'Suspendre'}
-                  {statusChangeDialog === 'CLOTUREE' && 'Cloturer definitivement'}
+                  {statusChangeDialog === 'CLOTUREE' && 'Clôturer définitivement'}
                 </>
               )}
             </AlertDialogAction>
@@ -1615,17 +1615,17 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             </AlertDialogTitle>
             <div className="space-y-3 mt-2">
               <p className="text-sm text-muted-foreground">
-                Un email de convocation sera envoye a chaque membre qui n&apos;a pas encore ete convoque.
+                Un email de convocation sera envoyé à chaque membre qui n&apos;a pas encore été convoqué.
               </p>
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
                 <div className="grid grid-cols-2 gap-3 text-center">
                   <div>
                     <p className="text-lg font-bold text-blue-700">{convocationStats.nonEnvoyes}</p>
-                    <p className="text-xs text-blue-600">A envoyer</p>
+                    <p className="text-xs text-blue-600">À envoyer</p>
                   </div>
                   <div>
                     <p className="text-lg font-bold text-emerald-600">{convocationStats.envoyes + convocationStats.confirmes}</p>
-                    <p className="text-xs text-emerald-600">Deja envoyees</p>
+                    <p className="text-xs text-emerald-600">Déjà envoyées</p>
                   </div>
                 </div>
               </div>
@@ -1633,7 +1633,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <div className="rounded-lg bg-red-50 border border-red-200 p-3">
                   <p className="text-xs text-red-700 flex items-center gap-1.5">
                     <MailX className="h-3 w-3 shrink-0" />
-                    {convocationStats.erreurs} convocation{convocationStats.erreurs > 1 ? 's' : ''} en erreur — elles seront renvoyees.
+                    {convocationStats.erreurs} convocation{convocationStats.erreurs > 1 ? 's' : ''} en erreur — elles seront renvoyées.
                   </p>
                 </div>
               )}
@@ -2041,7 +2041,7 @@ function ODJPointFormDialog({
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Modifier le point' : 'Nouveau point ODJ'}</DialogTitle>
           <DialogDescription>
-            {isEditing ? 'Modifiez ce point de l\'ordre du jour.' : 'Ajoutez un point a l\'ordre du jour.'}
+            {isEditing ? 'Modifiez ce point de l\'ordre du jour.' : 'Ajoutez un point à l\'ordre du jour.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -2095,10 +2095,10 @@ function ODJPointFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DELIBERATION">Deliberation</SelectItem>
+                  <SelectItem value="DELIBERATION">Délibération</SelectItem>
                   <SelectItem value="INFORMATION">Information</SelectItem>
                   <SelectItem value="QUESTION_DIVERSE">Question diverse</SelectItem>
-                  <SelectItem value="ELECTION">Election</SelectItem>
+                  <SelectItem value="ELECTION">Élection</SelectItem>
                   <SelectItem value="APPROBATION_PV">Approbation PV</SelectItem>
                 </SelectContent>
               </Select>
@@ -2253,7 +2253,7 @@ function AddConvocataireDialog({
         <DialogHeader>
           <DialogTitle>Ajouter des convocataires</DialogTitle>
           <DialogDescription>
-            Selectionnez les membres a convoquer pour cette seance.
+            Sélectionnez les membres à convoquer pour cette séance.
           </DialogDescription>
         </DialogHeader>
 
@@ -2299,8 +2299,8 @@ function AddConvocataireDialog({
           {sorted.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               {availableMembers.length === 0
-                ? 'Tous les membres sont deja convoques'
-                : 'Aucun resultat'}
+                ? 'Tous les membres sont déjà convoqués'
+                : 'Aucun résultat'}
             </p>
           ) : (
             sorted.map(m => {

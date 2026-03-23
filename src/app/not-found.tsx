@@ -11,7 +11,7 @@ export default function NotFoundPage() {
             Page introuvable
           </CardTitle>
           <CardDescription>
-            Cette page n&apos;existe pas ou a ete deplacee.
+            Cette page n&apos;existe pas ou a été déplacée.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">

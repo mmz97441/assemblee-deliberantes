@@ -81,11 +81,11 @@ export default async function SeanceDetailPage({ params }: PageProps) {
 
   const statutLabel: Record<string, string> = {
     BROUILLON: 'Brouillon',
-    CONVOQUEE: 'Convoquee',
+    CONVOQUEE: 'Convoquée',
     EN_COURS: 'En cours',
     SUSPENDUE: 'Suspendue',
-    CLOTUREE: 'Cloturee',
-    ARCHIVEE: 'Archivee',
+    CLOTUREE: 'Clôturée',
+    ARCHIVEE: 'Archivée',
   }
 
   return (
@@ -95,7 +95,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         description={`${seance.instance_config?.nom || 'Instance'} — ${statutLabel[seance.statut || 'BROUILLON']}`}
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: 'Seances', href: ROUTES.SEANCES },
+          { label: 'Séances', href: ROUTES.SEANCES },
           { label: seance.titre },
         ]}
       />

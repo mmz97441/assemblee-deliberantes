@@ -36,11 +36,11 @@ import { User, Briefcase, CalendarDays, Building2, Loader2 } from 'lucide-react'
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super-administrateur' },
-  { value: 'president', label: 'President(e)' },
+  { value: 'president', label: 'Président(e)' },
   { value: 'gestionnaire', label: 'Gestionnaire' },
-  { value: 'secretaire_seance', label: 'Secretaire de seance' },
-  { value: 'elu', label: 'Elu(e)' },
-  { value: 'preparateur', label: 'Preparateur' },
+  { value: 'secretaire_seance', label: 'Secrétaire de séance' },
+  { value: 'elu', label: 'Élu(e)' },
+  { value: 'preparateur', label: 'Préparateur' },
 ]
 
 interface InstanceAssignment {
@@ -282,7 +282,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                 id="qualite_officielle"
                 value={qualiteOfficielle}
                 onChange={e => setQualiteOfficielle(e.target.value)}
-                placeholder="Adjoint au maire, Vice-president..."
+                placeholder="Adjoint au maire, Vice-président..."
               />
             </div>
             <div className="space-y-2">
@@ -332,7 +332,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Selectionnez les instances dont ce membre fait partie.
+                  Sélectionnez les instances dont ce membre fait partie.
                 </p>
                 {instanceAssignments.map((assignment) => {
                   const instance = instances.find(i => i.id === assignment.instanceId)
@@ -369,7 +369,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                               id={`fonction-${assignment.instanceId}`}
                               value={assignment.fonction}
                               onChange={e => updateInstanceFonction(assignment.instanceId, e.target.value)}
-                              placeholder="Membre, President, Rapporteur..."
+                              placeholder="Membre, Président, Rapporteur..."
                               className="h-8 text-sm"
                             />
                           </div>

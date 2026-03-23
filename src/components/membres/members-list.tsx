@@ -49,11 +49,11 @@ import {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super-administrateur',
-  president: 'President(e)',
+  president: 'Président(e)',
   gestionnaire: 'Gestionnaire',
-  secretaire_seance: 'Secretaire de seance',
-  elu: 'Elu(e)',
-  preparateur: 'Preparateur',
+  secretaire_seance: 'Secrétaire de séance',
+  elu: 'Élu(e)',
+  preparateur: 'Préparateur',
 }
 
 const ROLE_COLORS: Record<UserRole, string> = {
@@ -150,7 +150,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Invitation creee avec succes')
+        toast.success('Invitation créée avec succès')
         router.refresh()
       }
     })
@@ -227,13 +227,24 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
           <h3 className="text-lg font-semibold">Aucun membre</h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm">
             {members.length === 0
-              ? "Commencez par ajouter les elus et agents de votre institution."
-              : "Aucun membre ne correspond aux filtres selectionnes."}
+              ? "Ajoutez vos premiers membres ou importez-les depuis un fichier CSV pour commencer."
+              : "Aucun membre ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
           </p>
           {canManage && members.length === 0 && (
-            <Button onClick={handleCreate} className="mt-4 gap-2">
-              <Plus className="h-4 w-4" />
-              Ajouter le premier membre
+            <div className="flex items-center gap-3 mt-4">
+              <Button onClick={handleCreate} className="gap-2">
+                <Plus className="h-4 w-4" />
+                Ajouter un membre
+              </Button>
+              <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                Importer CSV
+              </Button>
+            </div>
+          )}
+          {members.length > 0 && (
+            <Button variant="outline" className="mt-4" onClick={() => { setSearch(''); setRoleFilter('all'); setStatutFilter('all') }}>
+              Réinitialiser les filtres
             </Button>
           )}
         </div>

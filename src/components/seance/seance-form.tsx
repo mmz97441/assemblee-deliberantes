@@ -55,19 +55,29 @@ interface SeanceFormDialogProps {
   members: MemberOption[]
 }
 
+// Inline validation error component
+function FieldError({ message }: { message: string | null }) {
+  if (!message) return null
+  return <p className="text-xs text-red-600 mt-1">{message}</p>
+}
+
 export function SeanceFormDialog({ open, onClose, seance, instances, members }: SeanceFormDialogProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const isEditing = !!seance
 
+  // Smart defaults for new séance
+  const defaultDate = new Date().toISOString().split('T')[0]
+  const defaultTime = '14:00'
+
   // Form state
   const [titre, setTitre] = useState(seance?.titre || '')
   const [instanceId, setInstanceId] = useState(seance?.instance_id || '')
-  const [dateSeance, setDateSeance] = useState(seance?.date_seance?.split('T')[0] || '')
+  const [dateSeance, setDateSeance] = useState(seance?.date_seance?.split('T')[0] || (!seance ? defaultDate : ''))
   const [heureSeance, setHeureSeance] = useState(
     seance?.date_seance?.includes('T')
       ? seance.date_seance.split('T')[1]?.substring(0, 5) || ''
-      : ''
+      : (!seance ? defaultTime : '')
   )
   const [mode, setMode] = useState<string>(seance?.mode || 'PRESENTIEL')
   const [lieu, setLieu] = useState(seance?.lieu || '')
@@ -77,6 +87,27 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
   const [secretaireId, setSecretaireId] = useState(seance?.secretaire_seance_id || '')
   const [autoConvoque, setAutoConvoque] = useState(true)
 
+  // Inline validation errors (shown on blur)
+  const [errors, setErrors] = useState<Record<string, string | null>>({})
+
+  function setFieldError(field: string, message: string | null) {
+    setErrors(prev => ({ ...prev, [field]: message }))
+  }
+
+  function validateField(field: string, value: string) {
+    switch (field) {
+      case 'titre':
+        setFieldError('titre', value.trim() ? null : 'Le titre est requis')
+        break
+      case 'instanceId':
+        setFieldError('instanceId', value ? null : "L'instance délibérante est requise")
+        break
+      case 'dateSeance':
+        setFieldError('dateSeance', value ? null : 'La date est requise')
+        break
+    }
+  }
+
   // Reset form when seance changes or dialog re-opens
   const resetKey = `${seance?.id || 'new'}-${open}`
   const [lastResetKey, setLastResetKey] = useState(resetKey)
@@ -84,11 +115,11 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
     setLastResetKey(resetKey)
     setTitre(seance?.titre || '')
     setInstanceId(seance?.instance_id || '')
-    setDateSeance(seance?.date_seance?.split('T')[0] || '')
+    setDateSeance(seance?.date_seance?.split('T')[0] || (!seance ? defaultDate : ''))
     setHeureSeance(
       seance?.date_seance?.includes('T')
         ? seance.date_seance.split('T')[1]?.substring(0, 5) || ''
-        : ''
+        : (!seance ? defaultTime : '')
     )
     setMode(seance?.mode || 'PRESENTIEL')
     setLieu(seance?.lieu || '')
@@ -97,6 +128,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
     setPresidentId(seance?.president_effectif_seance_id || '')
     setSecretaireId(seance?.secretaire_seance_id || '')
     setAutoConvoque(true)
+    setErrors({})
   }
 
   // Auto-generate title from instance
@@ -129,9 +161,17 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
   }
 
   function handleSubmit() {
-    if (!titre.trim()) { toast.error('Le titre est requis'); return }
-    if (!instanceId) { toast.error("L'instance est requise"); return }
-    if (!dateSeance) { toast.error('La date est requise'); return }
+    // Validate all required fields
+    const newErrors: Record<string, string | null> = {}
+    if (!titre.trim()) newErrors.titre = 'Le titre est requis'
+    if (!instanceId) newErrors.instanceId = "L'instance délibérante est requise"
+    if (!dateSeance) newErrors.dateSeance = 'La date est requise'
+
+    const hasErrors = Object.values(newErrors).some(Boolean)
+    if (hasErrors) {
+      setErrors(prev => ({ ...prev, ...newErrors }))
+      return
+    }
 
     startTransition(async () => {
       const formData = new FormData()
@@ -162,7 +202,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
         return
       }
 
-      toast.success(isEditing ? 'Seance mise a jour' : 'Seance creee avec succes')
+      toast.success(isEditing ? 'Séance mise à jour' : 'Séance créée avec succès')
 
       // If created, redirect to detail
       if (!isEditing && 'id' in result) {
@@ -186,11 +226,11 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Modifier la seance' : 'Nouvelle seance'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Modifier la séance' : 'Nouvelle séance'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Modifiez les informations de la seance.'
-              : 'Planifiez une nouvelle seance deliberante.'}
+              ? 'Modifiez les informations de la séance.'
+              : 'Planifiez une nouvelle séance délibérante.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -198,7 +238,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           <TabsList className="grid w-full grid-cols-3 h-10">
             <TabsTrigger value="general" className="gap-1.5 text-xs">
               <CalendarDays className="h-3.5 w-3.5" />
-              General
+              Général
             </TabsTrigger>
             <TabsTrigger value="lieu" className="gap-1.5 text-xs">
               <MapPin className="h-3.5 w-3.5" />
@@ -213,9 +253,15 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           {/* Tab: General */}
           <TabsContent value="general" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="instance_id">Instance deliberante *</Label>
-              <Select value={instanceId} onValueChange={handleInstanceChange}>
-                <SelectTrigger id="instance_id">
+              <Label htmlFor="instance_id">Instance délibérante *</Label>
+              <Select
+                value={instanceId}
+                onValueChange={(v) => {
+                  handleInstanceChange(v)
+                  setFieldError('instanceId', v ? null : "L'instance délibérante est requise")
+                }}
+              >
+                <SelectTrigger id="instance_id" className={errors.instanceId ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Choisir une instance..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,9 +272,10 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   ))}
                 </SelectContent>
               </Select>
+              <FieldError message={errors.instanceId ?? null} />
               {instances.length === 0 && (
                 <p className="text-xs text-amber-600">
-                  Aucune instance configuree. Allez dans Configuration pour en creer.
+                  Aucune instance configurée. Allez dans Configuration pour en créer.
                 </p>
               )}
             </div>
@@ -241,7 +288,10 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   type="date"
                   value={dateSeance}
                   onChange={e => handleDateChange(e.target.value)}
+                  onBlur={() => validateField('dateSeance', dateSeance)}
+                  className={errors.dateSeance ? 'border-red-500' : ''}
                 />
+                <FieldError message={errors.dateSeance ?? null} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="heure_seance">Heure</Label>
@@ -255,15 +305,21 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="titre">Titre de la seance *</Label>
+              <Label htmlFor="titre">Titre de la séance *</Label>
               <Input
                 id="titre"
                 value={titre}
-                onChange={e => setTitre(e.target.value)}
+                onChange={e => {
+                  setTitre(e.target.value)
+                  if (errors.titre && e.target.value.trim()) setFieldError('titre', null)
+                }}
+                onBlur={() => validateField('titre', titre)}
                 placeholder="Conseil municipal du 15 avril 2026"
+                className={errors.titre ? 'border-red-500' : ''}
               />
+              <FieldError message={errors.titre ?? null} />
               <p className="text-xs text-muted-foreground">
-                Le titre est genere automatiquement a partir de l&apos;instance et de la date.
+                Le titre est généré automatiquement à partir de l&apos;instance et de la date.
               </p>
             </div>
           </TabsContent>
@@ -271,15 +327,15 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           {/* Tab: Lieu & Mode */}
           <TabsContent value="lieu" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="mode">Mode de la seance</Label>
+              <Label htmlFor="mode">Mode de la séance</Label>
               <Select value={mode} onValueChange={setMode}>
                 <SelectTrigger id="mode">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PRESENTIEL">Presentiel</SelectItem>
-                  <SelectItem value="HYBRIDE">Hybride (presentiel + visio)</SelectItem>
-                  <SelectItem value="VISIO">Visioconference</SelectItem>
+                  <SelectItem value="PRESENTIEL">Présentiel</SelectItem>
+                  <SelectItem value="HYBRIDE">Hybride (présentiel + visio)</SelectItem>
+                  <SelectItem value="VISIO">Visioconférence</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -290,7 +346,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                 id="lieu"
                 value={lieu}
                 onChange={e => setLieu(e.target.value)}
-                placeholder="Salle du conseil, Hotel de ville"
+                placeholder="Salle du conseil, Hôtel de ville"
               />
             </div>
 
@@ -300,7 +356,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                 id="notes"
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Informations complementaires..."
+                placeholder="Informations complémentaires..."
                 rows={3}
               />
             </div>
@@ -309,13 +365,13 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           {/* Tab: Options */}
           <TabsContent value="options" className="space-y-4 mt-4">
             <div className="space-y-2">
-              <Label htmlFor="president_id">President(e) de seance</Label>
+              <Label htmlFor="president_id">Président(e) de séance</Label>
               <Select value={presidentId} onValueChange={setPresidentId}>
                 <SelectTrigger id="president_id">
                   <SelectValue placeholder="Choisir..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Non designe</SelectItem>
+                  <SelectItem value="">Non désigné</SelectItem>
                   {presidentOptions.length > 0 ? (
                     presidentOptions.map(m => (
                       <SelectItem key={m.id} value={m.id}>
@@ -334,13 +390,13 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="secretaire_id">Secretaire de seance</Label>
+              <Label htmlFor="secretaire_id">Secrétaire de séance</Label>
               <Select value={secretaireId} onValueChange={setSecretaireId}>
                 <SelectTrigger id="secretaire_id">
                   <SelectValue placeholder="Choisir..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Non designe</SelectItem>
+                  <SelectItem value="">Non désigné</SelectItem>
                   {secretaireOptions.length > 0 ? (
                     secretaireOptions.map(m => (
                       <SelectItem key={m.id} value={m.id}>
@@ -357,15 +413,15 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Non bloquant — un avertissement s&apos;affichera si non designe a l&apos;ouverture.
+                Non bloquant — un avertissement s&apos;affichera si non désigné à l&apos;ouverture.
               </p>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
-                <Label className="font-medium">Seance publique</Label>
+                <Label className="font-medium">Séance publique</Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Le public peut assister a la seance
+                  Le public peut assister à la séance
                 </p>
               </div>
               <Switch checked={publique} onCheckedChange={setPublique} />
@@ -391,7 +447,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           </Button>
           <Button onClick={handleSubmit} disabled={isPending}>
             {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {isEditing ? 'Enregistrer' : 'Creer la seance'}
+            {isEditing ? 'Enregistrer' : 'Créer la séance'}
           </Button>
         </DialogFooter>
       </DialogContent>
