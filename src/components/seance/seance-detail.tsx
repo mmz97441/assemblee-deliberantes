@@ -1413,7 +1413,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
       {/* Delete point confirmation */}
       <AlertDialog open={!!deletePointDialog} onOpenChange={() => setDeletePointDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce point ?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1435,7 +1435,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
       {/* ─── Status change confirmation (enriched) ─── */}
       <AlertDialog open={!!statusChangeDialog} onOpenChange={() => setStatusChangeDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {statusChangeDialog === 'CONVOQUEE' && (
@@ -1557,7 +1557,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
       {/* ─── Standard points confirmation ─── */}
       <AlertDialog open={standardPointsDialog} onOpenChange={setStandardPointsDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <ListPlus className="h-5 w-5 text-blue-500" />
@@ -1607,7 +1607,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
       {/* ─── Send convocations confirmation ─── */}
       <AlertDialog open={sendConvocationsDialog} onOpenChange={setSendConvocationsDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Send className="h-5 w-5 text-blue-500" />
@@ -1668,7 +1668,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
 
       {/* ─── Remove convocataire confirmation ─── */}
       <AlertDialog open={!!removeConvocataireDialog} onOpenChange={() => setRemoveConvocataireDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <UserMinus className="h-5 w-5 text-red-500" />
