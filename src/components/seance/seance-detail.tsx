@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRealtime } from '@/lib/hooks/use-realtime'
 import { toast } from 'sonner'
 import {
   DndContext,
@@ -274,6 +275,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   const [isPending, startTransition] = useTransition()
   const statutConfig = STATUT_CONFIG[seance.statut || 'BROUILLON']
   const isBrouillon = seance.statut === 'BROUILLON'
+
+  // Realtime : mise à jour automatique quand les convocataires, présences ou ODJ changent
+  useRealtime({
+    channel: `seance-detail-${seance.id}`,
+    tables: ['convocataires', 'presences', 'odj_points', 'procurations', 'votes'],
+    filter: `seance_id=eq.${seance.id}`,
+    enabled: true,
+  })
 
   // ODJ state
   const [odjFormOpen, setOdjFormOpen] = useState(false)
