@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
 import { MembersList } from '@/components/membres/members-list'
@@ -60,7 +61,8 @@ export default async function MembresPage() {
     console.error('Erreur chargement membres:', err)
   }
 
-  const userRole = (userData.user.user_metadata?.role as string) || 'elu'
+  const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
+  const userRole = await getEffectiveRole(realUserRole)
   const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
 
   return (

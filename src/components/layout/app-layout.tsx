@@ -9,16 +9,19 @@ import {
   SheetContent,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { RoleSwitcher } from '@/components/dev/role-switcher'
 import type { UserRole } from '@/lib/supabase/types'
 
 interface AppLayoutProps {
   children: React.ReactNode
   userFullName: string
   userRole: UserRole
+  /** The real (non-overridden) role, used by the RoleSwitcher */
+  userRealRole?: UserRole
   userEmail: string
 }
 
-export function AppLayout({ children, userFullName, userRole, userEmail }: AppLayoutProps) {
+export function AppLayout({ children, userFullName, userRole, userRealRole, userEmail }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -70,6 +73,9 @@ export function AppLayout({ children, userFullName, userRole, userEmail }: AppLa
           {children}
         </div>
       </div>
+
+      {/* Dev role switcher — only visible for super_admin */}
+      <RoleSwitcher realRole={userRealRole || userRole} />
     </div>
   )
 }

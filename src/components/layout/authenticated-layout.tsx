@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { AppLayout } from './app-layout'
 import type { UserRole } from '@/lib/supabase/types'
 
@@ -25,14 +26,16 @@ export async function AuthenticatedLayout({ children }: AuthenticatedLayoutProps
     redirect(ROUTES.LOGIN)
   }
 
-  const role = (user.user_metadata?.role as UserRole) || 'elu'
+  const realRole = (user.user_metadata?.role as UserRole) || 'elu'
+  const effectiveRole = await getEffectiveRole(realRole) as UserRole
   const fullName = user.user_metadata?.full_name || user.email || ''
   const email = user.email || ''
 
   return (
     <AppLayout
       userFullName={fullName}
-      userRole={role}
+      userRole={effectiveRole}
+      userRealRole={realRole}
       userEmail={email}
     >
       {children}

@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect, notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { EmargementView } from '@/components/presence/emargement-view'
 
 interface Props {
@@ -19,7 +20,8 @@ export default async function EmargementPage({ params }: Props) {
   }
 
   // Emargement is gestionnaire/super_admin only
-  const role = (userData.user.user_metadata?.role as string) || ''
+  const realRole = (userData.user.user_metadata?.role as string) || ''
+  const role = await getEffectiveRole(realRole)
   if (!['super_admin', 'gestionnaire'].includes(role)) {
     redirect(`/seances/${id}`)
   }

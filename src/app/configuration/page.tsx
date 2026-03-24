@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
@@ -21,7 +22,8 @@ export default async function ConfigurationPage() {
   }
 
   // Configuration is super_admin only
-  const role = (userData.user.user_metadata?.role as string) || ''
+  const realRole = (userData.user.user_metadata?.role as string) || ''
+  const role = await getEffectiveRole(realRole)
   if (role !== 'super_admin') {
     redirect(ROUTES.DASHBOARD)
   }

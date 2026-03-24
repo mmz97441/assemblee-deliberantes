@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect, notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { SessionConductor } from '@/components/seance/session-conductor'
 import { getPreviousSeancePVForApproval } from '@/lib/actions/phase2-features'
 
@@ -20,7 +21,8 @@ export default async function SeanceEnCoursPage({ params }: Props) {
   }
 
   // Check role — president can observe the session too
-  const role = (userData.user.user_metadata?.role as string) || ''
+  const realRole = (userData.user.user_metadata?.role as string) || ''
+  const role = await getEffectiveRole(realRole)
   if (!['super_admin', 'gestionnaire', 'president'].includes(role)) {
     redirect(`/seances/${id}`)
   }

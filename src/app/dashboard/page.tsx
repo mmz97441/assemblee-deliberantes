@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { ROLE_LABELS } from '@/lib/auth/helpers'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
 import { EluDashboard } from '@/components/dashboard/elu-dashboard'
@@ -43,7 +44,8 @@ export default async function DashboardPage() {
     redirect(ROUTES.LOGIN)
   }
 
-  const role = (user.user_metadata?.role as UserRole) || 'elu'
+  const realRole = (user.user_metadata?.role as UserRole) || 'elu'
+  const role = await getEffectiveRole(realRole) as UserRole
   const fullName = user.user_metadata?.full_name || user.email
   const firstName = fullName?.split(' ')[0] || ''
 
