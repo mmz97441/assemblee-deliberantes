@@ -3,6 +3,8 @@
 import { useState, useTransition, useMemo, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
+import { useRealtime } from '@/lib/hooks/use-realtime'
+import { RealtimeIndicator } from '@/components/ui/realtime-indicator'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -60,7 +62,6 @@ import {
   Tablet,
   Play,
   Clock,
-  RefreshCw,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Hand,
   UserMinus,
@@ -433,8 +434,19 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  // ─── Auto-refresh every 5 seconds ───────────────────────────────────────
-  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 5000, enabled: !isPending })
+  // ─── Realtime subscription (primary) ─────────────────────────────────────
+  const isSessionLive = seance.statut === 'EN_COURS' || seance.statut === 'SUSPENDUE'
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    channel: `seance-${seance.id}`,
+    tables: ['presences', 'votes', 'votes_participation', 'bulletins_vote', 'odj_points', 'procurations', 'recusations'],
+    filter: `seance_id=eq.${seance.id}`,
+    enabled: isSessionLive && !isPending,
+  })
+
+  // ─── Polling fallback (when Realtime not connected) ─────────────────────
+  const pollingEnabled = !isRealtimeConnected && !isPending
+  useAutoRefresh({ intervalMs: 5000, enabled: pollingEnabled })
+  const isPolling = pollingEnabled
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   function handleStatusChange(newStatut: string) {
@@ -491,13 +503,8 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
             )}
           </div>
 
-          {/* Auto-refresh indicator */}
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title="Les données se rafraîchissent automatiquement toutes les 5 secondes">
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
-            <span className="tabular-nums hidden sm:inline">
-              {isRefreshing ? 'Mise à jour...' : `il y a ${secondsSinceRefresh}s`}
-            </span>
-          </div>
+          {/* Connection status indicator */}
+          <RealtimeIndicator isConnected={isRealtimeConnected} isPolling={isPolling} />
 
           <Separator orientation="vertical" className="h-6" />
 

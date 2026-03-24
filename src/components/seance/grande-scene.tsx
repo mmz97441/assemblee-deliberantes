@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
+import { useRealtime } from '@/lib/hooks/use-realtime'
 import { Landmark, Clock, FileText, Vote, Shield, Eye, Lock, Maximize, X } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
@@ -49,8 +50,18 @@ interface GrandeSceneProps {
 export function GrandeScene({ seance, institutionName, recusations = [] }: GrandeSceneProps) {
   const [fullscreenFailed, setFullscreenFailed] = useState(false)
 
-  // Auto-refresh every 3 seconds to stay in sync
-  const { isRefreshing } = useAutoRefresh({ intervalMs: 3000 })
+  // ─── Realtime subscription (primary) ─────────────────────────────────────
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    channel: `scene-${seance.id}`,
+    tables: ['votes', 'odj_points', 'presences', 'votes_participation', 'bulletins_vote'],
+    filter: `seance_id=eq.${seance.id}`,
+    enabled: true,
+  })
+
+  // ─── Polling fallback (when Realtime not connected) ─────────────────────
+  const pollingEnabled = !isRealtimeConnected
+  useAutoRefresh({ intervalMs: 3000, enabled: pollingEnabled })
+  const isPolling = pollingEnabled
 
   // Track fullscreen state changes
   useEffect(() => {
@@ -457,10 +468,22 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
       <footer className="px-12 py-4 border-t border-white/10 flex items-center justify-between text-white/50 text-xl">
         <span>Point {currentIndex + 1} / {sortedPoints.length}</span>
         <span>{seance.titre}</span>
-        {/* Subtle refresh dot — blinks during refresh */}
+        {/* Connection status dot */}
         <span
-          className={`h-2.5 w-2.5 rounded-full transition-all ${isRefreshing ? 'bg-blue-400 animate-ping' : 'bg-white/20'}`}
-          title="Rafraîchissement automatique"
+          className={`h-2.5 w-2.5 rounded-full transition-all ${
+            isRealtimeConnected
+              ? 'bg-emerald-400'
+              : isPolling
+                ? 'bg-amber-400 animate-ping'
+                : 'bg-white/20'
+          }`}
+          title={
+            isRealtimeConnected
+              ? 'Temps réel — mises à jour instantanées'
+              : isPolling
+                ? 'Rafraîchissement automatique'
+                : 'Pas de mise à jour automatique'
+          }
         />
       </footer>
     </div>

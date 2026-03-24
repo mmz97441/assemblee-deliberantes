@@ -3,6 +3,8 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
+import { useRealtime } from '@/lib/hooks/use-realtime'
+import { RealtimeIndicator } from '@/components/ui/realtime-indicator'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -137,8 +139,18 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
     return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Auto-refresh every 3 seconds — pause during presence confirmation
-  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 3000, enabled: !isConfirming })
+  // ─── Realtime subscription (primary) ─────────────────────────────────────
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    channel: `tablette-${seance.id}`,
+    tables: ['votes', 'odj_points', 'presences', 'votes_participation', 'bulletins_vote'],
+    filter: `seance_id=eq.${seance.id}`,
+    enabled: !isConfirming,
+  })
+
+  // ─── Polling fallback (when Realtime not connected) ─────────────────────
+  const pollingEnabled = !isRealtimeConnected && !isConfirming
+  useAutoRefresh({ intervalMs: 3000, enabled: pollingEnabled })
+  const isPolling = pollingEnabled
 
   // Screen Wake Lock — keep tablet awake during session
   useEffect(() => {
@@ -389,12 +401,7 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
           <p className="text-xs text-muted-foreground">
             Point {currentPointIndex + 1} / {totalPoints}
           </p>
-          <span className="flex items-center gap-1 text-[10px] text-muted-foreground" title="Mise à jour automatique toutes les 3 secondes">
-            <RefreshCw className={`h-2.5 w-2.5 ${isRefreshing ? 'animate-spin text-blue-500' : ''}`} />
-            <span className="tabular-nums">
-              {isRefreshing ? 'Mise à jour...' : `il y a ${secondsSinceRefresh}s`}
-            </span>
-          </span>
+          <RealtimeIndicator isConnected={isRealtimeConnected} isPolling={isPolling} />
         </div>
       </header>
 

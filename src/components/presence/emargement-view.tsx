@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRealtime } from '@/lib/hooks/use-realtime'
+import { RealtimeIndicator } from '@/components/ui/realtime-indicator'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -138,6 +140,14 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
   const [mode, setMode] = useState<'list' | 'scan'>('list')
   const [scanInput, setScanInput] = useState('')
   const [lastScanResult, setLastScanResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // ─── Realtime subscription for live émargement updates ──────────────────
+  const { isConnected: isRealtimeConnected } = useRealtime({
+    channel: `emargement-${seance.id}`,
+    tables: ['presences'],
+    filter: `seance_id=eq.${seance.id}`,
+    enabled: true,
+  })
 
   // Build presence map: member_id -> presence
   const presenceMap = useMemo(() => {
@@ -374,11 +384,12 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                   Liste
                 </button>
               </div>
+              <RealtimeIndicator isConnected={isRealtimeConnected} isPolling={false} />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRefresh}
-                title="Rafraîchir la liste"
+                title="Rafraîchir la liste manuellement"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
