@@ -59,6 +59,12 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -97,6 +103,7 @@ import {
   Mail,
   MailCheck,
   MailX,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   MailWarning,
   ListPlus,
   AlertOctagon,
@@ -217,10 +224,10 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 const CONVOCATION_LABELS: Record<string, { label: string; color: string }> = {
-  NON_ENVOYE: { label: 'Non envoye', color: 'bg-slate-100 text-slate-600' },
-  ENVOYE: { label: 'Envoye', color: 'bg-blue-100 text-blue-700' },
+  NON_ENVOYE: { label: 'Non envoyé', color: 'bg-slate-100 text-slate-600' },
+  ENVOYE: { label: 'Envoyé', color: 'bg-blue-100 text-blue-700' },
   LU: { label: 'Lu', color: 'bg-cyan-100 text-cyan-700' },
-  CONFIRME_PRESENT: { label: 'Confirme', color: 'bg-emerald-100 text-emerald-700' },
+  CONFIRME_PRESENT: { label: 'Confirmé', color: 'bg-emerald-100 text-emerald-700' },
   ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700' },
   ERREUR_EMAIL: { label: 'Erreur', color: 'bg-red-100 text-red-700' },
   ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700' },
@@ -239,6 +246,24 @@ function formatTime(dateStr: string): string {
     return new Date(dateStr).toLocaleTimeString('fr-FR', {
       hour: '2-digit', minute: '2-digit',
     })
+  } catch { return '' }
+}
+
+function formatRelativeDate(dateStr: string | null): string {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMinutes = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMinutes < 1) return "à l'instant"
+    if (diffMinutes < 60) return `il y a ${diffMinutes} min`
+    if (diffHours < 24) return `il y a ${diffHours}h`
+    if (diffDays < 7) return `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`
+    return `le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
   } catch { return '' }
 }
 
@@ -281,21 +306,29 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   // ─── Convocation stats ───────────────────────────────────────────────────
   const convocationStats = useMemo(() => {
     const total = seance.convocataires.length
-    let envoyes = 0
-    let confirmes = 0
-    let erreurs = 0
-    let nonEnvoyes = 0
+    let totalEnvoyes = 0  // Everyone who received an email (all except NON_ENVOYE)
+    let confirmes = 0     // Confirmed presence
+    let erreurs = 0       // Email errors
+    let enAttente = 0     // Sent but no response yet (ENVOYE, LU, ENVOYE_COURRIER)
+    let nonEnvoyes = 0    // Not sent yet
 
     for (const conv of seance.convocataires) {
       const statut = conv.statut_convocation || 'NON_ENVOYE'
-      if (statut === 'NON_ENVOYE') nonEnvoyes++
-      else if (statut === 'ERREUR_EMAIL') erreurs++
-      else if (statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION') confirmes++
-      else envoyes++ // ENVOYE, LU, ENVOYE_COURRIER
+      if (statut === 'NON_ENVOYE') {
+        nonEnvoyes++
+      } else {
+        totalEnvoyes++
+        if (statut === 'ERREUR_EMAIL') erreurs++
+        else if (statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION') confirmes++
+        else enAttente++ // ENVOYE, LU, ENVOYE_COURRIER
+      }
     }
 
-    return { total, envoyes, confirmes, erreurs, nonEnvoyes }
+    return { total, totalEnvoyes, confirmes, erreurs, enAttente, nonEnvoyes }
   }, [seance.convocataires])
+
+  // ─── Convocation filter (for clicking stat cards) ───────────────────────
+  const [convocationFilter, setConvocationFilter] = useState<string | null>(null)
 
   // ─── Legal delay warning (client-only to avoid hydration mismatch) ────────
   const [legalDelayWarning, setLegalDelayWarning] = useState<{
@@ -386,7 +419,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         id: 'convocations',
         label: 'Envoi des convocations',
         description: convocationsSent
-          ? `${convocationStats.envoyes + convocationStats.confirmes} envoyée${(convocationStats.envoyes + convocationStats.confirmes) > 1 ? 's' : ''}`
+          ? `${convocationStats.totalEnvoyes} envoyée${convocationStats.totalEnvoyes > 1 ? 's' : ''}`
           : 'Envoyez les convocations par email',
         done: convocationsSent,
         warning: null,
@@ -868,59 +901,145 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Alert>
               )}
 
-              {/* Convocation summary dashboard */}
+              {/* Convocation summary dashboard — clickable cards */}
               {seance.convocataires.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
                     Convocations
+                    {convocationStats.nonEnvoyes > 0 && (
+                      <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-medium">
+                        {convocationStats.nonEnvoyes} non envoyée{convocationStats.nonEnvoyes > 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <Card>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-                          <Send className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{convocationStats.envoyes}</p>
-                          <p className="text-xs text-muted-foreground">Envoyes</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-                          <MailCheck className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{convocationStats.confirmes}</p>
-                          <p className="text-xs text-muted-foreground">Confirmes</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                          <MailX className="h-5 w-5 text-red-600" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{convocationStats.erreurs}</p>
-                          <p className="text-xs text-muted-foreground">Erreurs</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4 flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-                          <MailWarning className="h-5 w-5 text-slate-500" />
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold">{convocationStats.nonEnvoyes}</p>
-                          <p className="text-xs text-muted-foreground">Non envoyes</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                  <TooltipProvider delayDuration={200}>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {/* Card: Total envoyés */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConvocationFilter(convocationFilter === 'envoyes' ? null : 'envoyes')
+                              setActiveTab('convocations')
+                            }}
+                            className={`rounded-xl border bg-card text-left transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-h-[56px] ${
+                              convocationFilter === 'envoyes'
+                                ? 'ring-2 ring-blue-500 border-blue-300 bg-blue-50/50'
+                                : 'hover:border-blue-300'
+                            }`}
+                          >
+                            <div className="p-4 flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 shrink-0">
+                                <Send className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="text-2xl font-bold">{convocationStats.totalEnvoyes}</p>
+                                <p className="text-xs text-muted-foreground">Envoyées</p>
+                              </div>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Total des convocations envoyées (confirmées + en attente + erreurs)</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Card: Confirmés */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConvocationFilter(convocationFilter === 'confirmes' ? null : 'confirmes')
+                              setActiveTab('convocations')
+                            }}
+                            className={`rounded-xl border bg-card text-left transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-h-[56px] ${
+                              convocationFilter === 'confirmes'
+                                ? 'ring-2 ring-emerald-500 border-emerald-300 bg-emerald-50/50'
+                                : 'hover:border-emerald-300'
+                            }`}
+                          >
+                            <div className="p-4 flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 shrink-0">
+                                <MailCheck className="h-5 w-5 text-emerald-600" />
+                              </div>
+                              <div>
+                                <p className="text-2xl font-bold">{convocationStats.confirmes}</p>
+                                <p className="text-xs text-muted-foreground">Confirmées</p>
+                              </div>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Membres ayant confirmé leur présence ou déclaré une procuration</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Card: En attente */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConvocationFilter(convocationFilter === 'en_attente' ? null : 'en_attente')
+                              setActiveTab('convocations')
+                            }}
+                            className={`rounded-xl border bg-card text-left transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-h-[56px] ${
+                              convocationFilter === 'en_attente'
+                                ? 'ring-2 ring-amber-500 border-amber-300 bg-amber-50/50'
+                                : 'hover:border-amber-300'
+                            }`}
+                          >
+                            <div className="p-4 flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 shrink-0">
+                                <Clock className="h-5 w-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <p className="text-2xl font-bold">{convocationStats.enAttente}</p>
+                                <p className="text-xs text-muted-foreground">En attente</p>
+                              </div>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Convocations envoyées mais sans réponse du membre</p>
+                        </TooltipContent>
+                      </Tooltip>
+
+                      {/* Card: Erreurs */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConvocationFilter(convocationFilter === 'erreurs' ? null : 'erreurs')
+                              setActiveTab('convocations')
+                            }}
+                            className={`rounded-xl border bg-card text-left transition-all duration-200 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] cursor-pointer min-h-[56px] ${
+                              convocationFilter === 'erreurs'
+                                ? 'ring-2 ring-red-500 border-red-300 bg-red-50/50'
+                                : 'hover:border-red-300'
+                            }`}
+                          >
+                            <div className="p-4 flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 shrink-0">
+                                <MailX className="h-5 w-5 text-red-600" />
+                              </div>
+                              <div>
+                                <p className="text-2xl font-bold">{convocationStats.erreurs}</p>
+                                <p className="text-xs text-muted-foreground">Erreurs</p>
+                              </div>
+                            </div>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Convocations dont l&apos;envoi a échoué</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TooltipProvider>
                 </div>
               )}
 
@@ -1069,10 +1188,41 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             <TabsContent value="convocations" className="mt-0 tab-content-enter">
               <div className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between p-5 pb-3">
-                  <h2 className="text-lg font-semibold flex items-center gap-2">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    Convocataires ({seance.convocataires.length})
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                      Convocataires ({seance.convocataires.length})
+                    </h2>
+                    {convocationFilter && (
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="secondary" className="text-xs">
+                          {(() => {
+                            const filtered = seance.convocataires.filter(c => {
+                              const statut = c.statut_convocation || 'NON_ENVOYE'
+                              switch (convocationFilter) {
+                                case 'envoyes': return statut !== 'NON_ENVOYE'
+                                case 'confirmes': return statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION'
+                                case 'erreurs': return statut === 'ERREUR_EMAIL'
+                                case 'en_attente': return statut === 'ENVOYE' || statut === 'LU' || statut === 'ENVOYE_COURRIER'
+                                case 'non_envoyes': return statut === 'NON_ENVOYE'
+                                default: return true
+                              }
+                            })
+                            return `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}`
+                          })()}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setConvocationFilter(null)}
+                        >
+                          <X className="h-3 w-3 mr-1" />
+                          Tout afficher
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   {canManage && isBrouillon && (
                     <Button size="sm" variant="outline" onClick={() => setAddConvocataireOpen(true)}>
                       <UserPlus className="h-4 w-4 mr-1" />
@@ -1091,53 +1241,154 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 ) : (
                   <div className="px-5 pb-5">
                     <div className="divide-y rounded-lg border">
-                      {seance.convocataires.map(conv => {
-                        const convConfig = CONVOCATION_LABELS[conv.statut_convocation || 'NON_ENVOYE']
-                        return (
-                          <div key={conv.id} className="flex items-center justify-between px-3 py-2.5">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold">
-                                {conv.member?.prenom?.[0]}{conv.member?.nom?.[0]}
+                      {(() => {
+                        const displayedConvocataires = convocationFilter
+                          ? seance.convocataires.filter(c => {
+                              const statut = c.statut_convocation || 'NON_ENVOYE'
+                              switch (convocationFilter) {
+                                case 'envoyes': return statut !== 'NON_ENVOYE'
+                                case 'confirmes': return statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION'
+                                case 'erreurs': return statut === 'ERREUR_EMAIL'
+                                case 'en_attente': return statut === 'ENVOYE' || statut === 'LU' || statut === 'ENVOYE_COURRIER'
+                                case 'non_envoyes': return statut === 'NON_ENVOYE'
+                                default: return true
+                              }
+                            })
+                          : seance.convocataires
+
+                        if (displayedConvocataires.length === 0) {
+                          return (
+                            <div className="text-center py-6">
+                              <p className="text-sm text-muted-foreground">Aucun convocataire dans cette catégorie</p>
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="mt-1 text-xs"
+                                onClick={() => setConvocationFilter(null)}
+                              >
+                                Tout afficher
+                              </Button>
+                            </div>
+                          )
+                        }
+
+                        return displayedConvocataires.map(conv => {
+                          const statut = conv.statut_convocation || 'NON_ENVOYE'
+                          const convConfig = CONVOCATION_LABELS[statut]
+
+                          // Build rich status description
+                          let statusDetail: { text: string; color: string } | null = null
+                          switch (statut) {
+                            case 'CONFIRME_PRESENT':
+                              statusDetail = {
+                                text: conv.confirme_at ? `Confirmé ${formatRelativeDate(conv.confirme_at)}` : 'Présence confirmée',
+                                color: 'text-emerald-600',
+                              }
+                              break
+                            case 'ABSENT_PROCURATION':
+                              statusDetail = {
+                                text: conv.confirme_at ? `Procuration ${formatRelativeDate(conv.confirme_at)}` : 'Procuration déclarée',
+                                color: 'text-amber-600',
+                              }
+                              break
+                            case 'ERREUR_EMAIL':
+                              statusDetail = {
+                                text: "Erreur d'envoi",
+                                color: 'text-red-600',
+                              }
+                              break
+                            case 'ENVOYE':
+                              statusDetail = {
+                                text: conv.envoye_at ? `Envoyé ${formatRelativeDate(conv.envoye_at)} — En attente de réponse` : 'Envoyé — En attente de réponse',
+                                color: 'text-blue-600',
+                              }
+                              break
+                            case 'LU':
+                              statusDetail = {
+                                text: 'Email lu — En attente de confirmation',
+                                color: 'text-cyan-600',
+                              }
+                              break
+                            case 'ENVOYE_COURRIER':
+                              statusDetail = {
+                                text: conv.envoye_at ? `Envoyé par courrier ${formatRelativeDate(conv.envoye_at)}` : 'Envoyé par courrier',
+                                color: 'text-indigo-600',
+                              }
+                              break
+                            case 'NON_ENVOYE':
+                              statusDetail = {
+                                text: 'Non envoyé',
+                                color: 'text-slate-400',
+                              }
+                              break
+                          }
+
+                          return (
+                            <div key={conv.id} className="flex items-center justify-between px-3 py-3 transition-colors hover:bg-muted/30">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold shrink-0">
+                                  {conv.member?.prenom?.[0]}{conv.member?.nom?.[0]}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium truncate">
+                                    {conv.member?.prenom} {conv.member?.nom}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="text-muted-foreground truncate">{conv.member?.email}</span>
+                                    {statusDetail && (
+                                      <>
+                                        <span className="text-muted-foreground/40">·</span>
+                                        <span className={`${statusDetail.color} whitespace-nowrap`}>{statusDetail.text}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {conv.member?.prenom} {conv.member?.nom}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{conv.member?.email}</p>
+                              <div className="flex items-center gap-2 shrink-0 ml-2">
+                                <Badge className={`${convConfig.color} border-0 text-[11px]`}>
+                                  {convConfig.label}
+                                </Badge>
+                                {canManage && statut === 'ERREUR_EMAIL' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                                    onClick={() => handleResendConvocation(conv.member_id)}
+                                    disabled={isPending}
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    Renvoyer
+                                  </Button>
+                                )}
+                                {canManage && statut === 'ENVOYE' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+                                    onClick={() => handleResendConvocation(conv.member_id)}
+                                    disabled={isPending}
+                                    title="Renvoyer la convocation"
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                {canManage && isBrouillon && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setRemoveConvocataireDialog(conv.member_id)}
+                                    disabled={isPending}
+                                    title="Retirer ce convocataire"
+                                  >
+                                    <UserMinus className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge className={`${convConfig.color} border-0 text-[11px]`}>
-                                {convConfig.label}
-                              </Badge>
-                              {canManage && (conv.statut_convocation === 'ENVOYE' || conv.statut_convocation === 'ERREUR_EMAIL') && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-                                  onClick={() => handleResendConvocation(conv.member_id)}
-                                  disabled={isPending}
-                                  title="Renvoyer la convocation"
-                                >
-                                  <RefreshCw className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {canManage && isBrouillon && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setRemoveConvocataireDialog(conv.member_id)}
-                                  disabled={isPending}
-                                  title="Retirer ce convocataire"
-                                >
-                                  <UserMinus className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        )
-                      })}
+                          )
+                        })
+                      })()}
                     </div>
                   </div>
                 )}
@@ -1694,7 +1945,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     <p className="text-xs text-blue-600">À envoyer</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-emerald-600">{convocationStats.envoyes + convocationStats.confirmes}</p>
+                    <p className="text-lg font-bold text-emerald-600">{convocationStats.totalEnvoyes}</p>
                     <p className="text-xs text-emerald-600">Déjà envoyées</p>
                   </div>
                 </div>
