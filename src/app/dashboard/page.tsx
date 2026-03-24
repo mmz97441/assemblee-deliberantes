@@ -741,7 +741,7 @@ export default async function DashboardPage() {
             icon: <Mail className="h-5 w-5" />,
             label: `"${s.titre}" dans < 3 jours sans convocations envoyees`,
             action_label: 'Envoyer',
-            href: `/seances/${s.id}/preparation`,
+            href: `/seances/${s.id}`,
           })
         }
       }
@@ -860,7 +860,7 @@ export default async function DashboardPage() {
           icon: <ClipboardList className="h-5 w-5" />,
           label: `"${s.titre}" sans ordre du jour`,
           action_label: 'Preparer',
-          href: `/seances/${s.id}/preparation`,
+          href: `/seances/${s.id}`,
         })
       }
 
@@ -876,7 +876,7 @@ export default async function DashboardPage() {
           icon: <Users className="h-5 w-5" />,
           label: `"${s.titre}" sans convocataires`,
           action_label: 'Ajouter',
-          href: `/seances/${s.id}/preparation`,
+          href: `/seances/${s.id}`,
         })
       }
     }
