@@ -188,6 +188,8 @@ interface SessionConductorProps {
   instanceMemberCount: number
   recusations?: RecusationItem[]
   pvApprovalInfo?: PVApprovalInfo | null
+  /** When true, user can see everything but cannot open/close votes, mark presences, or control the session */
+  isObserver?: boolean
 }
 
 const MAJORITE_LABELS: Record<string, string> = {
@@ -239,7 +241,7 @@ function calculateQuorum(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function SessionConductor({ seance, instanceMemberCount, recusations = [], pvApprovalInfo = null }: SessionConductorProps) {
+export function SessionConductor({ seance, instanceMemberCount, recusations = [], pvApprovalInfo = null, isObserver = false }: SessionConductorProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentPointIndex, setCurrentPointIndex] = useState(0)
@@ -536,30 +538,49 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
           <Separator orientation="vertical" className="h-6" />
 
-          {/* Session controls */}
-          {seance.statut === 'CONVOQUEE' && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 btn-press" onClick={() => setStatusDialog('EN_COURS')} title="Ouvrir officiellement la séance">
-              <Play className="h-4 w-4 mr-1.5" />
-              Ouvrir la séance
-            </Button>
-          )}
-          {seance.statut === 'EN_COURS' && (
+          {/* Session controls — hidden for observers (president) */}
+          {!isObserver && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setStatusDialog('SUSPENDUE')} title="Suspendre temporairement la séance">
-                <Pause className="h-4 w-4 mr-1.5" />
-                Suspendre
-              </Button>
-              <Button size="sm" className="bg-purple-600 hover:bg-purple-700 btn-press" onClick={() => setStatusDialog('CLOTUREE')} title="Clôturer définitivement la séance">
-                <Square className="h-4 w-4 mr-1.5" />
-                Clôturer
-              </Button>
+              {seance.statut === 'CONVOQUEE' && (
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 btn-press" onClick={() => setStatusDialog('EN_COURS')} title="Ouvrir officiellement la séance">
+                  <Play className="h-4 w-4 mr-1.5" />
+                  Ouvrir la séance
+                </Button>
+              )}
+              {seance.statut === 'EN_COURS' && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setStatusDialog('SUSPENDUE')} title="Suspendre temporairement la séance">
+                    <Pause className="h-4 w-4 mr-1.5" />
+                    Suspendre
+                  </Button>
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700 btn-press" onClick={() => setStatusDialog('CLOTUREE')} title="Clôturer définitivement la séance">
+                    <Square className="h-4 w-4 mr-1.5" />
+                    Clôturer
+                  </Button>
+                </>
+              )}
+              {seance.statut === 'SUSPENDUE' && (
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')} title="Reprendre la séance">
+                  <Play className="h-4 w-4 mr-1.5" />
+                  Reprendre
+                </Button>
+              )}
             </>
           )}
-          {seance.statut === 'SUSPENDUE' && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setStatusDialog('EN_COURS')} title="Reprendre la séance">
-              <Play className="h-4 w-4 mr-1.5" />
-              Reprendre
-            </Button>
+          {isObserver && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-xs px-2 py-1 border-amber-300 text-amber-700">
+                    <Eye className="h-3 w-3 mr-1" />
+                    Mode observation
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Seul le gestionnaire peut gérer les votes et contrôler la séance</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
 
           <Badge className={`text-xs px-2 py-0.5 ${
@@ -839,24 +860,26 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                           </Badge>
                         )}
                       </h3>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => {
-                              setRecusationMemberId('')
-                              setRecusationMotif('')
-                              setShowRecusationDialog(true)
-                            }}
-                          >
-                            <UserMinus className="h-3 w-3 mr-1" />
-                            Ajouter
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Enregistrer un conflit d&apos;intérêt pour ce point (CGCT L2131-11)</TooltipContent>
-                      </Tooltip>
+                      {!isObserver && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setRecusationMemberId('')
+                                setRecusationMotif('')
+                                setShowRecusationDialog(true)
+                              }}
+                            >
+                              <UserMinus className="h-3 w-3 mr-1" />
+                              Ajouter
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Enregistrer un conflit d&apos;intérêt pour ce point (CGCT L2131-11)</TooltipContent>
+                        </Tooltip>
+                      )}
                     </div>
 
                     {currentRecusations.length === 0 ? (
@@ -907,8 +930,46 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
                 <Separator className="my-4" />
 
-                {/* Vote action area */}
-                {isVotable && seance.statut === 'EN_COURS' && (() => {
+                {/* Vote action area — observers can only see results, not trigger votes */}
+                {isObserver && isVotable && seance.statut === 'EN_COURS' && (() => {
+                  const existingVote = (seance.votes || []).find(
+                    v => v.odj_point_id === currentPoint.id && v.statut !== 'ANNULE'
+                  ) || null
+                  if (existingVote) {
+                    return (
+                      <div className="rounded-lg border p-3 space-y-2">
+                        <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                          <Vote className="h-4 w-4" />
+                          Vote — {existingVote.type_vote === 'SECRET' ? 'Secret' : existingVote.type_vote === 'NOMINAL' ? 'Nominal' : 'Main levée'}
+                          <Badge className={existingVote.statut === 'OUVERT' ? 'bg-emerald-100 text-emerald-700 border-0 text-xs' : 'bg-slate-100 text-slate-600 border-0 text-xs'}>
+                            {existingVote.statut === 'OUVERT' ? 'En cours' : existingVote.statut === 'CLOS' ? 'Clos' : existingVote.statut}
+                          </Badge>
+                        </h3>
+                        {existingVote.statut === 'CLOS' && (
+                          <div className="text-sm text-muted-foreground">
+                            Pour : {existingVote.pour} — Contre : {existingVote.contre} — Abstentions : {existingVote.abstention}
+                            {existingVote.resultat && (
+                              <Badge className={`ml-2 border-0 text-xs ${existingVote.resultat === 'ADOPTE' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                {existingVote.resultat === 'ADOPTE' ? 'Adopte' : 'Rejete'}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                        {existingVote.statut === 'OUVERT' && (
+                          <p className="text-sm text-muted-foreground">Vote en cours... En attente de la clôture par le gestionnaire.</p>
+                        )}
+                      </div>
+                    )
+                  }
+                  return (
+                    <div className="flex items-center gap-2 text-muted-foreground bg-slate-50 rounded-lg p-3">
+                      <Eye className="h-4 w-4" />
+                      <p className="text-sm">Seul le gestionnaire peut gérer les votes</p>
+                    </div>
+                  )
+                })()}
+
+                {!isObserver && isVotable && seance.statut === 'EN_COURS' && (() => {
                   // Find existing vote for this point
                   const existingVote = (seance.votes || []).find(
                     v => v.odj_point_id === currentPoint.id && v.statut !== 'ANNULE'

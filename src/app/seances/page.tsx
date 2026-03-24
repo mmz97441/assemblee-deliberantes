@@ -16,8 +16,31 @@ export default async function SeancesPage() {
     redirect(ROUTES.LOGIN)
   }
 
+  const userRole = (userData.user.user_metadata?.role as string) || 'elu'
+
+  // For elu/preparateur, only show seances where they are convoque
+  let eluSeanceIds: string[] | null = null
+  if (['elu', 'preparateur'].includes(userRole)) {
+    const { data: memberRecord } = await supabase
+      .from('members')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .maybeSingle()
+
+    if (memberRecord) {
+      const { data: convocatairesData } = await supabase
+        .from('convocataires')
+        .select('seance_id')
+        .eq('member_id', memberRecord.id)
+
+      eluSeanceIds = (convocatairesData || []).map(c => c.seance_id)
+    } else {
+      eluSeanceIds = []
+    }
+  }
+
   // Fetch seances with instance info and counts
-  const { data: seancesData, error: seancesError } = await supabase
+  let seancesQuery = supabase
     .from('seances')
     .select(`
       *,
@@ -26,6 +49,18 @@ export default async function SeancesPage() {
       convocataires (id)
     `)
     .order('date_seance', { ascending: false })
+
+  // Filter by convocataire IDs for elu/preparateur
+  if (eluSeanceIds !== null) {
+    if (eluSeanceIds.length === 0) {
+      // No convocations — will return empty
+      seancesQuery = seancesQuery.in('id', ['__none__'])
+    } else {
+      seancesQuery = seancesQuery.in('id', eluSeanceIds)
+    }
+  }
+
+  const { data: seancesData, error: seancesError } = await seancesQuery
 
   if (seancesError) {
     console.error('Erreur chargement seances:', seancesError)
@@ -66,17 +101,18 @@ export default async function SeancesPage() {
 
   const members = membersData || []
 
-  const userRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const canManage = ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'].includes(userRole)
+  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+
+  const isEluView = ['elu', 'preparateur'].includes(userRole)
 
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title="Séances"
-        description="Planification et suivi des séances délibérantes"
+        title={isEluView ? 'Mes seances' : 'Seances'}
+        description={isEluView ? 'Seances auxquelles vous etes convoque' : 'Planification et suivi des seances deliberantes'}
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: 'Séances' },
+          { label: isEluView ? 'Mes seances' : 'Seances' },
         ]}
       />
 
@@ -86,6 +122,7 @@ export default async function SeancesPage() {
           instances={instances}
           members={members}
           canManage={canManage}
+          isEluView={isEluView}
         />
       </main>
     </AuthenticatedLayout>

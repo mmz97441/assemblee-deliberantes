@@ -19,11 +19,13 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Check role
+  // Check role — president can observe the session too
   const role = (userData.user.user_metadata?.role as string) || ''
-  if (!['super_admin', 'gestionnaire'].includes(role)) {
+  if (!['super_admin', 'gestionnaire', 'president'].includes(role)) {
     redirect(`/seances/${id}`)
   }
+
+  const isObserver = role === 'president'
 
   // Load full seance data
   const { data: seance, error: seanceError } = await supabase
@@ -141,6 +143,7 @@ export default async function SeanceEnCoursPage({ params }: Props) {
       instanceMemberCount={instanceMemberCount || 0}
       recusations={(recusations || []) as unknown as { id: string; seance_id: string; odj_point_id: string; member_id: string; motif: string | null; declare_par: string; horodatage: string; member: { id: string; prenom: string; nom: string } | null }[]}
       pvApprovalInfo={pvApprovalInfo}
+      isObserver={isObserver}
     />
   )
 }

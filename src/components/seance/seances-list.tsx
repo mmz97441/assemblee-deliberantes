@@ -73,6 +73,8 @@ interface SeancesListProps {
   instances: InstanceConfigRow[]
   members: MemberOption[]
   canManage: boolean
+  /** When true, shows elu-specific empty states and hides filter controls */
+  isEluView?: boolean
 }
 
 const STATUT_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
@@ -116,7 +118,7 @@ function formatTime(dateStr: string): string {
   }
 }
 
-export function SeancesList({ seances, instances, members, canManage }: SeancesListProps) {
+export function SeancesList({ seances, instances, members, canManage, isEluView = false }: SeancesListProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
@@ -195,28 +197,32 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
             className="pl-9"
           />
         </div>
-        <Select value={statutFilter} onValueChange={setStatutFilter}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Statut" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            {Object.entries(STATUT_CONFIG).map(([value, { label }]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={instanceFilter} onValueChange={setInstanceFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Instance" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toutes les instances</SelectItem>
-            {instances.map(inst => (
-              <SelectItem key={inst.id} value={inst.id}>{inst.nom}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!isEluView && (
+          <>
+            <Select value={statutFilter} onValueChange={setStatutFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                {Object.entries(STATUT_CONFIG).map(([value, { label }]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={instanceFilter} onValueChange={setInstanceFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Instance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les instances</SelectItem>
+                {instances.map(inst => (
+                  <SelectItem key={inst.id} value={inst.id}>{inst.nom}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
         {canManage && (
           <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }}>
             <Plus className="h-4 w-4 mr-2" />
@@ -231,11 +237,15 @@ export function SeancesList({ seances, instances, members, canManage }: SeancesL
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
             <CalendarDays className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-1">Aucune séance</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-1">
+            {isEluView ? 'Aucune seance prevue' : 'Aucune seance'}
+          </h3>
           <p className="text-sm text-muted-foreground max-w-sm mb-4">
             {seances.length === 0
-              ? "Créez votre première séance pour commencer à gérer vos assemblées délibérantes."
-              : "Aucune séance ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
+              ? isEluView
+                ? "Vous n'avez aucune seance a venir pour le moment. Vous serez convoque par email lorsqu'une seance sera programmee."
+                : "Creez votre premiere seance pour commencer a gerer vos assemblees deliberantes."
+              : "Aucune seance ne correspond aux filtres selectionnes. Essayez de modifier vos criteres de recherche."}
           </p>
           {canManage && seances.length === 0 && (
             <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }}>

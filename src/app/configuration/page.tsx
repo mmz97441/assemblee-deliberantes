@@ -20,6 +20,12 @@ export default async function ConfigurationPage() {
     redirect(ROUTES.LOGIN)
   }
 
+  // Configuration is super_admin only
+  const role = (userData.user.user_metadata?.role as string) || ''
+  if (role !== 'super_admin') {
+    redirect(ROUTES.DASHBOARD)
+  }
+
   let institutionConfig: InstitutionConfigRow | null = null
   let instanceConfigs: InstanceConfigRow[] = []
 

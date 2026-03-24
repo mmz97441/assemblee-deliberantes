@@ -51,7 +51,7 @@ export default async function PVPage({ params }: Props) {
     .maybeSingle()
 
   const userRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const canEdit = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canEdit = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
 
   const instanceNom = (seance.instance_config as { nom: string } | null)?.nom || ''
 

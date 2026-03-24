@@ -18,6 +18,12 @@ export default async function EmargementPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
+  // Emargement is gestionnaire/super_admin only
+  const role = (userData.user.user_metadata?.role as string) || ''
+  if (!['super_admin', 'gestionnaire'].includes(role)) {
+    redirect(`/seances/${id}`)
+  }
+
   // Get seance with convocataires and existing presences
   const { data: seance, error: seanceError } = await supabase
     .from('seances')

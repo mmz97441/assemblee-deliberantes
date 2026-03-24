@@ -77,7 +77,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .eq('actif', true)
 
   const userRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const canManage = ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'].includes(userRole)
+  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
 
   const statutLabel: Record<string, string> = {
     BROUILLON: 'Brouillon',
