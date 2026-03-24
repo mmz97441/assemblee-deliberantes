@@ -317,8 +317,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     const total = seance.convocataires.length
     let totalEnvoyes = 0  // Everyone who received an email (all except NON_ENVOYE)
     let confirmes = 0     // Confirmed presence
+    let lus = 0           // Email opened but not confirmed
     let erreurs = 0       // Email errors
-    let enAttente = 0     // Sent but no response yet (ENVOYE, LU, ENVOYE_COURRIER)
+    let enAttente = 0     // Sent but not opened (ENVOYE, ENVOYE_COURRIER)
     let nonEnvoyes = 0    // Not sent yet
 
     for (const conv of seance.convocataires) {
@@ -329,11 +330,12 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         totalEnvoyes++
         if (statut === 'ERREUR_EMAIL') erreurs++
         else if (statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION') confirmes++
-        else enAttente++ // ENVOYE, LU, ENVOYE_COURRIER
+        else if (statut === 'LU') lus++
+        else enAttente++ // ENVOYE, ENVOYE_COURRIER
       }
     }
 
-    return { total, totalEnvoyes, confirmes, erreurs, enAttente, nonEnvoyes }
+    return { total, totalEnvoyes, confirmes, lus, erreurs, enAttente, nonEnvoyes }
   }, [seance.convocataires])
 
   // ─── Convocation filter (for clicking stat cards) ───────────────────────
@@ -1269,6 +1271,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     {[
                       { key: null, label: 'Tous', count: seance.convocataires.length, color: 'bg-slate-100 text-slate-700 hover:bg-slate-200', activeColor: 'bg-slate-700 text-white' },
                       { key: 'confirmes', label: 'Confirmées', count: convocationStats.confirmes, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100', activeColor: 'bg-emerald-600 text-white' },
+                      { key: 'lus', label: 'Lu ✓', count: convocationStats.lus, color: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100', activeColor: 'bg-cyan-600 text-white' },
                       { key: 'en_attente', label: 'En attente', count: convocationStats.enAttente, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100', activeColor: 'bg-amber-500 text-white' },
                       { key: 'erreurs', label: 'Erreurs', count: convocationStats.erreurs, color: 'bg-red-50 text-red-700 hover:bg-red-100', activeColor: 'bg-red-600 text-white' },
                       { key: 'non_envoyes', label: 'Non envoyées', count: convocationStats.nonEnvoyes, color: 'bg-slate-50 text-slate-600 hover:bg-slate-100', activeColor: 'bg-slate-600 text-white' },
@@ -1313,8 +1316,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                               switch (convocationFilter) {
                                 case 'envoyes': return statut !== 'NON_ENVOYE'
                                 case 'confirmes': return statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION'
+                                case 'lus': return statut === 'LU'
                                 case 'erreurs': return statut === 'ERREUR_EMAIL'
-                                case 'en_attente': return statut === 'ENVOYE' || statut === 'LU' || statut === 'ENVOYE_COURRIER'
+                                case 'en_attente': return statut === 'ENVOYE' || statut === 'ENVOYE_COURRIER'
                                 case 'non_envoyes': return statut === 'NON_ENVOYE'
                                 default: return true
                               }

@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import { resend, FROM_EMAIL, FROM_NAME } from '@/lib/email/resend'
@@ -255,7 +255,8 @@ export async function confirmPresence(token: string): Promise<
   { success: true; seanceTitre: string; memberNom: string } | { error: string }
 > {
   try {
-    const supabase = await createServerSupabaseClient()
+    // Use service role — this is a PUBLIC action (no user logged in)
+    const supabase = await createServiceRoleClient()
 
     // Find convocataire by token
     const { data: conv, error } = await supabase
