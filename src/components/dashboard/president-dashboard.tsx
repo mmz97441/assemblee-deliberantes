@@ -248,7 +248,7 @@ export function PresidentDashboard({
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-institutional-blue" />
-            Indicateurs {new Date().getFullYear()}
+            Indicateurs <span suppressHydrationWarning>{new Date().getFullYear()}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
             <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances présidées">

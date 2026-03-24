@@ -242,7 +242,7 @@ export function EluDashboard({
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-institutional-blue" />
-            Mes statistiques {new Date().getFullYear()}
+            Mes statistiques <span suppressHydrationWarning>{new Date().getFullYear()}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-3 stagger-in">
             {/* Participation */}
@@ -514,6 +514,7 @@ function HeroSeanceCard({ seance }: { seance: NextSeanceInfo }) {
                     ? 'bg-amber-500 text-white'
                     : 'bg-blue-600 text-white'
                 }`}
+                suppressHydrationWarning
               >
                 {countdown.label}
               </Badge>
