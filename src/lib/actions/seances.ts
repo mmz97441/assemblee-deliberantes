@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import type { SeanceRow, ODJPointRow, InstanceConfigRow, MemberRow } from '@/lib/supabase/types'
 import { addPVApprovalODJPoint } from '@/lib/actions/phase2-features'
+import { autoCreateDeliberationsForSeance } from '@/lib/actions/deliberations'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -317,6 +318,21 @@ export async function updateSeanceStatut(
       .eq('id', id)
 
     if (error) return { error: `Erreur : ${error.message}` }
+
+    // Auto-create deliberation drafts when seance is closed
+    if (statut === 'CLOTUREE') {
+      try {
+        const delibResult = await autoCreateDeliberationsForSeance(id)
+        if ('error' in delibResult) {
+          console.warn('Auto-creation deliberations warning:', delibResult.error)
+        } else if (delibResult.count > 0) {
+          console.log(`Auto-created ${delibResult.count} deliberation(s) for seance ${id}`)
+        }
+      } catch (delibErr) {
+        // Don't fail the seance cloture if deliberation creation fails
+        console.error('Auto-creation deliberations error:', delibErr)
+      }
+    }
 
     revalidatePath(ROUTES.SEANCES)
     revalidatePath(`${ROUTES.SEANCES}/${id}`)

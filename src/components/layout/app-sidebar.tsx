@@ -38,7 +38,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Tableau de bord', href: ROUTES.DASHBOARD, icon: LayoutDashboard },
   { label: 'Séances', href: ROUTES.SEANCES, icon: CalendarDays },
   { label: 'Membres', href: ROUTES.MEMBRES, icon: Users },
-  { label: 'Délibérations', href: '/deliberations', icon: FileText, disabled: true, disabledLabel: 'Bientôt disponible' },
+  { label: 'Délibérations', href: ROUTES.DELIBERATIONS, icon: FileText },
   { label: 'Configuration', href: ROUTES.CONFIGURATION, icon: Settings, roles: ['super_admin'] },
 ]
 

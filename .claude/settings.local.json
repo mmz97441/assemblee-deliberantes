@@ -58,7 +58,10 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://assemblee-deliberantes.vercel.app/api/qr?data=test-token-123\")",
       "Bash(ls -la /Users/niceguillaume/Desktop/assemblee-deliberantes/src/app/\\\\\\(app\\\\\\)/seances/[id]/pv/)",
       "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/src -type f -name *.tsx)",
-      "Bash(npm audit:*)"
+      "Bash(npm audit:*)",
+      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes -path *deliberations* -o -path *deliberation*)",
+      "Bash(ls -la /Users/niceguillaume/Desktop/assemblee-deliberantes/src/app/\\\\\\(app\\\\\\)/deliberations/)",
+      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/src -name *pdf* -o -name *PDF*)"
     ]
   }
 }

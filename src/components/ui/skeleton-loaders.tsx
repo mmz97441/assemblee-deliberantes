@@ -233,6 +233,94 @@ export function SeanceDetailSkeleton() {
   )
 }
 
+/** Deliberations list skeleton: search bar + filters + 5 card rows. */
+export function DeliberationsListSkeleton() {
+  return (
+    <div className="flex min-h-screen">
+      <div className="hidden lg:block w-[260px] bg-[hsl(220,30%,14%)] shrink-0" />
+
+      <div className="flex-1">
+        <PageHeaderSkeleton withBreadcrumb />
+
+        <div className="px-8 py-6 space-y-6">
+          {/* Search + filters */}
+          <div className="flex gap-3">
+            <Bone className="h-10 w-64 rounded-md" />
+            <Bone className="h-10 w-32 rounded-md" />
+            <Bone className="h-10 w-40 rounded-md" />
+            <Bone className="h-10 w-40 rounded-md" />
+          </div>
+
+          {/* Cards */}
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="rounded-xl border bg-card p-5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Bone className="h-6 w-24 rounded" />
+                  <Bone className="h-5 w-20 rounded-full" />
+                  <Bone className="h-5 w-16 rounded-full" />
+                </div>
+                <Bone className="h-5 w-3/4" />
+                <div className="flex gap-4">
+                  <Bone className="h-4 w-36" />
+                  <Bone className="h-4 w-28" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Deliberation detail skeleton: header + stepper + content + sidebar. */
+export function DeliberationDetailSkeleton() {
+  return (
+    <div className="flex min-h-screen">
+      <div className="hidden lg:block w-[260px] bg-[hsl(220,30%,14%)] shrink-0" />
+
+      <div className="flex-1">
+        <PageHeaderSkeleton withBreadcrumb />
+
+        <div className="px-8 py-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2 space-y-6">
+              {/* Stepper */}
+              <div className="flex items-center gap-2 py-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Bone key={i} className="h-8 w-28 rounded-full" />
+                ))}
+              </div>
+
+              {/* Content sections */}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="rounded-xl border bg-card p-6 space-y-3">
+                  <Bone className="h-5 w-24" />
+                  <Bone className="h-24 w-full rounded-lg" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <Bone className="h-10 w-full rounded-lg" />
+                <Bone className="h-10 w-full rounded-lg" />
+                <Bone className="h-10 w-full rounded-lg" />
+              </div>
+              <div className="rounded-xl border bg-card p-6 space-y-3">
+                <Bone className="h-4 w-32" />
+                <Bone className="h-4 w-full" />
+                <Bone className="h-4 w-full" />
+                <Bone className="h-4 w-3/4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /** Configuration skeleton: tabs + form cards. */
 export function ConfigurationSkeleton() {
   return (

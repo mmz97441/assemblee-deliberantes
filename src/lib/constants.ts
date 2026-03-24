@@ -18,6 +18,7 @@ export const ROUTES = {
   CONFIGURATION: '/configuration',
   MEMBRES: '/membres',
   SEANCES: '/seances',
+  DELIBERATIONS: '/deliberations',
   INVITE_CONFIRM: '/invite/confirm',
 } as const
 
