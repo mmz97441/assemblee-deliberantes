@@ -251,67 +251,83 @@ export function PresidentDashboard({
             Indicateurs {new Date().getFullYear()}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
-                  <CalendarDays className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances présidées">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">{stats.seancesPresidees}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances présidées</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.seancesPresidees}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">Seances presidees</p>
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                  <FileText className="h-5 w-5" />
+            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations publiées">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.deliberationsPubliees}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">Délibérations publiées</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.deliberationsPubliees}
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">Deliberations publiees</p>
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
-                  <TrendingUp className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir le détail de participation aux séances">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-sky-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground cursor-help">
+                          {stats.tauxParticipationMoyen}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Taux moyen de présence des membres lors de vos séances
+                      </TooltipContent>
+                    </Tooltip>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-xs text-muted-foreground cursor-help">
-                      {stats.tauxParticipationMoyen}%
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Taux moyen de presence des membres lors de vos seances
-                  </TooltipContent>
-                </Tooltip>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.tauxParticipationMoyen}%
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Taux de participation moyen
+                </p>
+                <Progress value={stats.tauxParticipationMoyen} className="mt-2 h-1.5" />
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.tauxParticipationMoyen}%
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Taux de participation moyen
-              </p>
-              <Progress value={stats.tauxParticipationMoyen} className="mt-2 h-1.5" />
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                  <PenLine className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir les PV en attente de signature">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <PenLine className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {stats.pvEnAttente > 0 && (
+                      <Badge className="bg-red-500 text-white border-0 text-xs font-bold">
+                        {stats.pvEnAttente}
+                      </Badge>
+                    )}
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-                {stats.pvEnAttente > 0 && (
-                  <Badge className="bg-red-500 text-white border-0 text-xs font-bold">
-                    {stats.pvEnAttente}
-                  </Badge>
-                )}
+                <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
-            </div>
+            </Link>
           </div>
         </section>
 

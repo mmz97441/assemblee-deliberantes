@@ -58,7 +58,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent } from '@/components/ui/card'
+// Card/CardContent removed — stat cards are now interactive divs
 import {
   Tooltip,
   TooltipContent,
@@ -1050,24 +1050,30 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   Ordre du jour
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold">{odjStats.total}</p>
-                      <p className="text-xs text-muted-foreground">Point{odjStats.total !== 1 ? 's' : ''} ODJ</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-blue-600">{odjStats.votables}</p>
-                      <p className="text-xs text-muted-foreground">Soumis au vote</p>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-4 text-center">
-                      <p className="text-2xl font-bold text-amber-600">{odjStats.documentsCount}</p>
-                      <p className="text-xs text-muted-foreground">Document{odjStats.documentsCount !== 1 ? 's' : ''} joint{odjStats.documentsCount !== 1 ? 's' : ''}</p>
-                    </CardContent>
-                  </Card>
+                  <button
+                    onClick={() => setActiveTab('odj')}
+                    title={`Voir ${odjStats.total} point${odjStats.total !== 1 ? 's' : ''} de l'ordre du jour`}
+                    className="w-full rounded-xl border bg-card p-4 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-primary/30"
+                  >
+                    <p className="text-2xl font-bold">{odjStats.total}</p>
+                    <p className="text-xs text-muted-foreground">Point{odjStats.total !== 1 ? 's' : ''} ODJ</p>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('odj')}
+                    title={`Voir les ${odjStats.votables} point${odjStats.votables !== 1 ? 's' : ''} soumis au vote`}
+                    className="w-full rounded-xl border bg-card p-4 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-blue-300"
+                  >
+                    <p className="text-2xl font-bold text-blue-600">{odjStats.votables}</p>
+                    <p className="text-xs text-muted-foreground">Soumis au vote</p>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('odj')}
+                    title={`Voir les ${odjStats.documentsCount} document${odjStats.documentsCount !== 1 ? 's' : ''} joint${odjStats.documentsCount !== 1 ? 's' : ''}`}
+                    className="w-full rounded-xl border bg-card p-4 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300"
+                  >
+                    <p className="text-2xl font-bold text-amber-600">{odjStats.documentsCount}</p>
+                    <p className="text-xs text-muted-foreground">Document{odjStats.documentsCount !== 1 ? 's' : ''} joint{odjStats.documentsCount !== 1 ? 's' : ''}</p>
+                  </button>
                 </div>
               </div>
             </TabsContent>

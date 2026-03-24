@@ -246,60 +246,71 @@ export function EluDashboard({
           </h2>
           <div className="grid gap-4 sm:grid-cols-3 stagger-in">
             {/* Participation */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
-                  <CalendarDays className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-xs text-muted-foreground cursor-help">
+                          {participationPercent}%
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Taux de participation aux séances cette année
+                      </TooltipContent>
+                    </Tooltip>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="text-xs text-muted-foreground cursor-help">
-                      {participationPercent}%
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Taux de participation aux seances cette annee
-                  </TooltipContent>
-                </Tooltip>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.seancesParticipees}{' '}
+                  <span className="text-sm font-normal text-muted-foreground">
+                    / {stats.seancesConvoquees}
+                  </span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances participées</p>
+                <Progress
+                  value={participationPercent}
+                  className="mt-2 h-1.5"
+                />
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.seancesParticipees}{' '}
-                <span className="text-sm font-normal text-muted-foreground">
-                  / {stats.seancesConvoquees}
-                </span>
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">Seances participees</p>
-              <Progress
-                value={participationPercent}
-                className="mt-2 h-1.5"
-              />
-            </div>
+            </Link>
 
             {/* Votes */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                  <Vote className="h-5 w-5" />
+            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <Vote className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">{stats.votesEffectues}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Votes effectués</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.votesEffectues}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">Votes effectues</p>
-            </div>
+            </Link>
 
             {/* Procurations */}
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                  <Users className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir les séances">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.procurationsGiven + stats.procurationsReceived}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {stats.procurationsGiven} donnée(s), {stats.procurationsReceived} reçue(s)
+                </p>
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.procurationsGiven + stats.procurationsReceived}
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {stats.procurationsGiven} donnee(s), {stats.procurationsReceived} recue(s)
-              </p>
-            </div>
+            </Link>
           </div>
         </section>
 

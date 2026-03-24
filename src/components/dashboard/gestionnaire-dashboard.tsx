@@ -359,58 +359,74 @@ export function GestionnaireDashboard({
             Vue d&apos;ensemble
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
-                  <CalendarDays className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Clock className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>Séances planifiées ce mois-ci</TooltipContent>
+                    </Tooltip>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Clock className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>Seances planifiees ce mois-ci</TooltipContent>
-                </Tooltip>
+                <p className="text-2xl font-bold text-foreground">{stats.seancesCeMois}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances ce mois</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.seancesCeMois}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">Seances ce mois</p>
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                  <CalendarCheck className="h-5 w-5" />
+            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <CalendarCheck className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.deliberationsCeMois}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">Délibérations ce mois</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.deliberationsCeMois}
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">Deliberations ce mois</p>
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-                  <UserCheck className="h-5 w-5" />
+            <Link href={ROUTES.MEMBRES} className="block group" title="Voir tous les membres">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <UserCheck className="h-5 w-5" />
+                  </div>
+                  <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <p className="text-2xl font-bold text-foreground">{stats.membresActifs}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Membres actifs</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.membresActifs}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">Membres actifs</p>
-            </div>
+            </Link>
 
-            <div className="stat-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
-                  <FileText className="h-5 w-5" />
+            <Link href={ROUTES.SEANCES} className="block group" title="Voir les séances avec PV en attente">
+              <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-purple-300">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {stats.pvEnAttente > 0 && (
+                      <Badge className="bg-red-500 text-white border-0 text-xs font-bold">
+                        {stats.pvEnAttente}
+                      </Badge>
+                    )}
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-                {stats.pvEnAttente > 0 && (
-                  <Badge className="bg-red-500 text-white border-0 text-xs font-bold">
-                    {stats.pvEnAttente}
-                  </Badge>
-                )}
+                <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
               </div>
-              <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
-              <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
-            </div>
+            </Link>
           </div>
         </section>
 
