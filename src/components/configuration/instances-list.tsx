@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/sheet'
 import { toggleInstanceActive } from '@/lib/actions/configuration'
 import { InstanceForm } from './instance-form'
-import { Plus, Pencil, ToggleLeft, ToggleRight, Landmark } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Plus, Pencil, ToggleLeft, ToggleRight, Landmark, Search } from 'lucide-react'
 import type { InstanceConfigRow } from '@/lib/supabase/types'
 
 const QUORUM_TYPE_LABELS: Record<string, string> = {
@@ -39,6 +40,13 @@ export function InstancesList({ data }: InstancesListProps) {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingInstance, setEditingInstance] = useState<InstanceConfigRow | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [search, setSearch] = useState('')
+
+  const filteredData = data.filter(instance => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return instance.nom.toLowerCase().includes(q) || (instance.type_legal || '').toLowerCase().includes(q)
+  })
 
   function handleEdit(instance: InstanceConfigRow) {
     setEditingInstance(instance)
@@ -68,13 +76,24 @@ export function InstancesList({ data }: InstancesListProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-muted-foreground">
           {data.length === 0
             ? 'Aucune instance configurée. Créez votre première instance délibérante.'
-            : `${data.length} instance${data.length > 1 ? 's' : ''} configurée${data.length > 1 ? 's' : ''}`}
+            : `${filteredData.length} instance${filteredData.length > 1 ? 's' : ''} sur ${data.length}`}
         </p>
-        <Button onClick={handleCreate} className="gap-2">
+        {data.length > 0 && (
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher une instance..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
+        <Button onClick={handleCreate} className="gap-2 ml-auto">
           <Plus className="h-4 w-4" />
           Ajouter une instance
         </Button>
@@ -125,7 +144,7 @@ export function InstancesList({ data }: InstancesListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((instance) => (
+              {filteredData.map((instance) => (
                 <TableRow key={instance.id} className={instance.actif === false ? 'opacity-50' : ''}>
                   <TableCell className="font-medium">{instance.nom}</TableCell>
                   <TableCell className="text-muted-foreground">{instance.type_legal}</TableCell>

@@ -1544,7 +1544,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
               {statusChangeDialog === 'EN_COURS' && (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    La seance sera officiellement ouverte. L&apos;heure d&apos;ouverture sera enregistree automatiquement.
+                    La séance sera officiellement ouverte. L&apos;heure d&apos;ouverture sera enregistrée automatiquement.
                   </p>
                   <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1.5">
                     <p className="text-xs font-medium text-blue-800">Ce qui va se passer :</p>
@@ -2721,10 +2721,11 @@ function DocumentBadge({
       {canRemove && !isPending && (
         <button
           onClick={handleRemove}
-          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity ml-0.5"
-          title="Supprimer"
+          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity ml-0.5 min-h-[44px] min-w-[44px] flex items-center justify-center -my-3 -mr-1"
+          title="Supprimer ce document"
+          aria-label={`Supprimer ${doc.name}`}
         >
-          <X className="h-3 w-3" />
+          <X className="h-3.5 w-3.5" />
         </button>
       )}
     </span>

@@ -50,11 +50,22 @@ interface AppSidebarProps {
   mobile?: boolean
   /** Called when user navigates, so mobile sheet can close */
   onNavigate?: () => void
+  /** Controlled collapsed state (desktop only) */
+  collapsed?: boolean
+  /** Callback when collapsed state changes (desktop only) */
+  onCollapsedChange?: (collapsed: boolean) => void
 }
 
-export function AppSidebar({ userFullName, userRole, mobile, onNavigate }: AppSidebarProps) {
+export function AppSidebar({ userFullName, userRole, mobile, onNavigate, collapsed: controlledCollapsed, onCollapsedChange }: AppSidebarProps) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const [internalCollapsed, setInternalCollapsed] = useState(false)
+
+  // Use controlled state if provided, otherwise fallback to internal
+  const collapsed = controlledCollapsed ?? internalCollapsed
+  const setCollapsed = (value: boolean) => {
+    setInternalCollapsed(value)
+    onCollapsedChange?.(value)
+  }
 
   // In mobile mode, never collapse
   const isCollapsed = mobile ? false : collapsed

@@ -137,8 +137,8 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
     return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Auto-refresh every 3 seconds
-  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 3000 })
+  // Auto-refresh every 3 seconds — pause during presence confirmation
+  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 3000, enabled: !isConfirming })
 
   // Screen Wake Lock — keep tablet awake during session
   useEffect(() => {
@@ -403,11 +403,21 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
         <div className="px-6 pt-4">
           <div className="max-w-2xl landscape:max-w-5xl mx-auto">
             {isPresent ? (
-              <div className="flex items-center gap-3 rounded-xl bg-emerald-50 border border-emerald-200 px-5 py-3">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
-                <span className="text-base font-medium text-emerald-800">
-                  Présent(e) depuis {formatTime(presenceTime)}
-                </span>
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-5 py-3 space-y-2">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />
+                  <span className="text-base font-medium text-emerald-800">
+                    Présent(e) depuis {formatTime(presenceTime)}
+                  </span>
+                </div>
+                {mandants.length > 0 && (
+                  <div className="flex items-center gap-2 pl-9 text-sm text-emerald-700">
+                    <User className="h-4 w-4 shrink-0" />
+                    <span>
+                      Vous représentez également : {mandants.map(m => `${m.prenom} ${m.nom}`).join(', ')} (procuration)
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (seance.statut === 'EN_COURS' || seance.statut === 'CONVOQUEE') && (
               <div className="rounded-xl bg-blue-50 border-2 border-blue-300 p-5 space-y-3">
@@ -566,6 +576,7 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
             disabled={currentPointIndex === 0}
             className="h-14 px-6 text-lg gap-2"
             style={{ minWidth: '56px', minHeight: '56px' }}
+            title={currentPointIndex === 0 ? 'Premier point — impossible de reculer' : 'Point précédent'}
           >
             <ChevronLeft className="h-6 w-6" /> Précédent
           </Button>
@@ -581,6 +592,7 @@ export function TabletteElu({ seance, currentMember, isConvoque, presenceData, v
             disabled={currentPointIndex >= totalPoints - 1}
             className="h-14 px-6 text-lg gap-2"
             style={{ minWidth: '56px', minHeight: '56px' }}
+            title={currentPointIndex >= totalPoints - 1 ? 'Dernier point' : 'Point suivant'}
           >
             Suivant <ChevronRight className="h-6 w-6" />
           </Button>

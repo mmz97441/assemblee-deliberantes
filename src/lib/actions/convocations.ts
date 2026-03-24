@@ -282,7 +282,7 @@ export async function confirmPresence(token: string): Promise<
 
     // Check seance isn't already closed
     if (seance?.statut === 'CLOTUREE' || seance?.statut === 'ARCHIVEE') {
-      return { error: 'Cette seance est deja cloturee' }
+      return { error: 'Cette séance est déjà clôturée' }
     }
 
     // Update convocataire status

@@ -7,11 +7,11 @@ import { SessionConductor } from '@/components/seance/session-conductor'
 import { getPreviousSeancePVForApproval } from '@/lib/actions/phase2-features'
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function SeanceEnCoursPage({ params }: Props) {
-  const { id } = params
+  const { id } = await params
   const supabase = await createServerSupabaseClient()
 
   const { data: userData, error: authError } = await supabase.auth.getUser()

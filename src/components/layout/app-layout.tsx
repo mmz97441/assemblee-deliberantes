@@ -20,6 +20,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, userFullName, userRole, userEmail }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -29,6 +30,8 @@ export function AppLayout({ children, userFullName, userRole, userEmail }: AppLa
           userFullName={userFullName}
           userRole={userRole}
           userEmail={userEmail}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
         />
       </div>
 
@@ -46,8 +49,8 @@ export function AppLayout({ children, userFullName, userRole, userEmail }: AppLa
         </SheetContent>
       </Sheet>
 
-      {/* Main content */}
-      <div className="flex-1 lg:ml-[260px] transition-all duration-200">
+      {/* Main content — margin adjusts when sidebar collapses */}
+      <div className={`flex-1 transition-all duration-200 ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[260px]'}`}>
         {/* Mobile header with hamburger */}
         <div className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background px-4 py-3 lg:hidden">
           <Button

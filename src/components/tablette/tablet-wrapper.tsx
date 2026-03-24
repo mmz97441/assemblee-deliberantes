@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { TabletteElu } from '@/components/seance/tablette-elu'
 import { TabletAuthScreen } from '@/components/tablette/tablet-auth-screen'
 
@@ -99,7 +100,11 @@ export function TabletWrapper({
 
   // Show loading while checking localStorage
   if (isChecking) {
-    return null
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+      </div>
+    )
   }
 
   // If not authenticated, show auth screen

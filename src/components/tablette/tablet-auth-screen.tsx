@@ -61,6 +61,7 @@ export function TabletAuthScreen({
   const [state, setState] = useState<AuthState>('scan')
   const [tokenInput, setTokenInput] = useState('')
   const [authenticatedName, setAuthenticatedName] = useState('')
+  const [authenticatedMemberId, setAuthenticatedMemberId] = useState<string | null>(null)
   const [webauthnAvailable, setWebauthnAvailable] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -88,6 +89,12 @@ export function TabletAuthScreen({
       }
 
       setAuthenticatedName(result.memberName)
+      setAuthenticatedMemberId(result.memberId)
+
+      // Always save memberId to localStorage so enrollment/skip handlers can use it
+      try {
+        localStorage.setItem(`device_session_${seanceId}`, result.memberId)
+      } catch { /* localStorage not available */ }
 
       if (webauthnAvailable) {
         // Show WebAuthn enrollment option
@@ -95,10 +102,6 @@ export function TabletAuthScreen({
       } else {
         // Go straight to authenticated
         setState('authenticated')
-        // Save to localStorage for session persistence
-        try {
-          localStorage.setItem(`device_session_${seanceId}`, result.memberId)
-        } catch { /* localStorage not available */ }
         setTimeout(() => onAuthenticated(result.memberId), 1200)
       }
     })
@@ -106,26 +109,22 @@ export function TabletAuthScreen({
 
   const handleSkipWebAuthn = useCallback(() => {
     setState('authenticated')
-    try {
-      const memberId = localStorage.getItem(`device_session_${seanceId}`)
-      if (memberId) {
-        setTimeout(() => onAuthenticated(memberId), 1200)
-      }
-    } catch { /* localStorage not available */ }
-  }, [seanceId, onAuthenticated])
+    const memberId = authenticatedMemberId
+    if (memberId) {
+      setTimeout(() => onAuthenticated(memberId), 1200)
+    }
+  }, [authenticatedMemberId, onAuthenticated])
 
   const handleEnrollWebAuthn = useCallback(async () => {
     // TODO: Implement actual WebAuthn enrollment with server-side challenge
     // For Phase 2 MVP, we skip actual WebAuthn and just note that it's available
     toast.success('Empreinte biométrique enregistrée (simulation Phase 2)')
     setState('authenticated')
-    try {
-      const memberId = localStorage.getItem(`device_session_${seanceId}`)
-      if (memberId) {
-        setTimeout(() => onAuthenticated(memberId), 1200)
-      }
-    } catch { /* localStorage not available */ }
-  }, [seanceId, onAuthenticated])
+    const memberId = authenticatedMemberId
+    if (memberId) {
+      setTimeout(() => onAuthenticated(memberId), 1200)
+    }
+  }, [authenticatedMemberId, onAuthenticated])
 
   // ─── Render: SCAN state ─────────────────────────────────────────────────
 

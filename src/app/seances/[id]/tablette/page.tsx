@@ -6,11 +6,11 @@ import { ROUTES } from '@/lib/constants'
 import { TabletWrapper } from '@/components/tablette/tablet-wrapper'
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function TablettePage({ params }: Props) {
-  const { id } = params
+  const { id } = await params
   const supabase = await createServerSupabaseClient()
 
   const { data: userData, error: authError } = await supabase.auth.getUser()

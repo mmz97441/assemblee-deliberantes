@@ -68,6 +68,7 @@ import {
   EyeOff,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Smartphone,
+  Info,
 } from 'lucide-react'
 import { updateSeanceStatut, reconvoquerSeance } from '@/lib/actions/seances'
 import { recuseFromPoint, cancelRecusation } from '@/lib/actions/recusations'
@@ -433,7 +434,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
   }, [handleKeyDown])
 
   // ─── Auto-refresh every 5 seconds ───────────────────────────────────────
-  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 5000 })
+  const { secondsSinceRefresh, isRefreshing } = useAutoRefresh({ intervalMs: 5000, enabled: !isPending })
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   function handleStatusChange(newStatut: string) {
@@ -466,8 +467,9 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
       {/* ═══ Top bar ═══ */}
       <header className="bg-white border-b shadow-sm px-4 py-2 flex items-center justify-between sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/seances/${seance.id}`)} title="Retour à la séance">
+          <Button variant="ghost" onClick={() => router.push(`/seances/${seance.id}`)} title="Retour à la séance" className="gap-1.5">
             <ArrowLeft className="h-5 w-5" />
+            <span className="hidden sm:inline text-sm">Retour</span>
           </Button>
           <div>
             <h1 className="text-base font-bold leading-tight">{seance.titre}</h1>
@@ -1102,6 +1104,16 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
               <span className="text-sm font-semibold flex items-center gap-1.5">
                 <Shield className={`h-4 w-4 ${quorum.reached ? 'text-emerald-600' : 'text-red-600'}`} />
                 Quorum
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Aide quorum">
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px]">
+                    Le quorum est le nombre minimum de membres présents requis pour que les délibérations soient valables.
+                  </TooltipContent>
+                </Tooltip>
               </span>
               {quorum.reached ? (
                 <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">

@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useState, useCallback } from 'react'
 import { useAutoRefresh } from '@/lib/hooks/use-auto-refresh'
-import { Landmark, Clock, FileText, Vote, Shield, Eye, Lock, Maximize } from 'lucide-react'
+import { Landmark, Clock, FileText, Vote, Shield, Eye, Lock, Maximize, X } from 'lucide-react'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -89,6 +89,29 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
     } catch { /* ignore */ }
   }, [])
 
+  const handleExitFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // ESC key handler to exit fullscreen + keyboard fullscreen toggle (Enter/Space)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+      if ((e.key === 'Enter' || e.key === ' ') && !document.fullscreenElement) {
+        e.preventDefault()
+        document.documentElement.requestFullscreen().catch(() => {})
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Sort points
   const sortedPoints = useMemo(() =>
     [...seance.odj_points].sort((a, b) => (a.position || 0) - (b.position || 0)),
@@ -125,10 +148,22 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
   if (!isEnCours && !isCloturee) {
     return (
       <div
-        className="min-h-screen bg-[#0D2B55] flex flex-col items-center justify-center text-white p-12 cursor-pointer"
+        className="min-h-screen bg-[#0D2B55] flex flex-col items-center justify-center text-white p-12 cursor-pointer relative"
         onClick={handleClickFullscreen}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClickFullscreen() } }}
+        role="button"
+        tabIndex={0}
         title="Cliquez pour passer en plein écran"
       >
+        {/* Discrete exit fullscreen button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleExitFullscreen() }}
+          className="absolute top-4 right-4 opacity-0 hover:opacity-80 transition-opacity text-white/40 hover:text-white p-2 rounded-lg hover:bg-white/10"
+          title="Quitter le plein écran"
+          aria-label="Quitter le plein écran"
+        >
+          <X className="h-6 w-6" />
+        </button>
         {/* Fullscreen banner */}
         {fullscreenFailed && (
           <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-white/10 border border-white/20 rounded-xl px-8 py-3 flex items-center gap-3 animate-pulse">
@@ -238,6 +273,9 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
       <div
         className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white p-12 cursor-pointer"
         onClick={handleClickFullscreen}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClickFullscreen() } }}
       >
         <Lock className="h-32 w-32 text-red-400 mb-12" />
         <h1 className="text-8xl font-bold tracking-tight mb-8 text-center">
@@ -251,7 +289,16 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
   }
 
   return (
-    <div className="min-h-screen bg-[#0D2B55] flex flex-col text-white" onClick={handleClickFullscreen}>
+    <div className="min-h-screen bg-[#0D2B55] flex flex-col text-white relative" onClick={handleClickFullscreen} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClickFullscreen() } }}>
+      {/* Discrete exit fullscreen button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); handleExitFullscreen() }}
+        className="absolute top-4 right-4 z-20 opacity-0 hover:opacity-80 transition-opacity text-white/40 hover:text-white p-2 rounded-lg hover:bg-white/10"
+        title="Quitter le plein écran (Echap)"
+        aria-label="Quitter le plein écran"
+      >
+        <X className="h-6 w-6" />
+      </button>
 
       {/* Fullscreen banner */}
       {fullscreenFailed && (

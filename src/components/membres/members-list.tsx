@@ -114,6 +114,11 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
     newStatut: MemberStatut
     memberName: string
   } | null>(null)
+  const [invitationConfirm, setInvitationConfirm] = useState<{
+    memberId: string
+    memberName: string
+    memberEmail: string
+  } | null>(null)
 
   const filteredMembers = useMemo(() => {
     return members.filter(m => {
@@ -174,6 +179,17 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
   }
 
   function handleSendInvitation(memberId: string) {
+    const member = members.find(m => m.id === memberId)
+    if (member) {
+      setInvitationConfirm({
+        memberId,
+        memberName: `${member.prenom} ${member.nom}`,
+        memberEmail: member.email,
+      })
+    }
+  }
+
+  function executeSendInvitation(memberId: string) {
     startTransition(async () => {
       const result = await sendMemberInvitation(memberId)
       if ('error' in result) {
@@ -344,7 +360,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isPending} title="Plus d'options">
+                            <Button variant="ghost" size="icon" className="h-11 w-11" disabled={isPending} title="Plus d'options">
                               <MoreHorizontal className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>
@@ -443,6 +459,37 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
               }
             >
               Confirmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Invitation confirmation dialog */}
+      <AlertDialog open={!!invitationConfirm} onOpenChange={(open) => { if (!open) setInvitationConfirm(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Envoyer une invitation</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invitationConfirm && (
+                <>
+                  Envoyer une invitation à <strong>{invitationConfirm.memberName}</strong> ({invitationConfirm.memberEmail}) ?
+                  Un email contenant un lien de connexion lui sera envoyé.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (invitationConfirm) {
+                  executeSendInvitation(invitationConfirm.memberId)
+                  setInvitationConfirm(null)
+                }
+              }}
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Envoyer
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

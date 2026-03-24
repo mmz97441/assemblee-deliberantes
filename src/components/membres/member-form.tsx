@@ -126,11 +126,36 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
     )
   }
 
+  // Inline validation errors
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+
+  function validateField(field: string, value: string): string {
+    if (field === 'prenom' && !value.trim()) return 'Le prénom est requis'
+    if (field === 'nom' && !value.trim()) return 'Le nom est requis'
+    if (field === 'email' && !value.trim()) return 'L\'adresse email est requise'
+    if (field === 'email' && value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Adresse email invalide'
+    return ''
+  }
+
+  function handleBlur(field: string, value: string) {
+    setTouched(prev => ({ ...prev, [field]: true }))
+    const error = validateField(field, value)
+    setErrors(prev => ({ ...prev, [field]: error }))
+  }
+
   function handleSubmit() {
-    // Basic validation
-    if (!prenom.trim()) { toast.error('Le prénom est requis'); return }
-    if (!nom.trim()) { toast.error('Le nom est requis'); return }
-    if (!email.trim()) { toast.error('L\'email est requis'); return }
+    // Validate all required fields
+    const newErrors: Record<string, string> = {
+      prenom: validateField('prenom', prenom),
+      nom: validateField('nom', nom),
+      email: validateField('email', email),
+    }
+    setErrors(newErrors)
+    setTouched({ prenom: true, nom: true, email: true })
+
+    const hasErrors = Object.values(newErrors).some(e => e !== '')
+    if (hasErrors) return
 
     startTransition(async () => {
       const formData = new FormData()
@@ -196,7 +221,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
         </DialogHeader>
 
         <Tabs defaultValue="identite" className="mt-2">
-          <TabsList className="grid w-full grid-cols-4 h-10">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto sm:h-10 gap-1 sm:gap-0">
             <TabsTrigger value="identite" className="gap-1.5 text-xs">
               <User className="h-3.5 w-3.5" />
               Identité
@@ -223,18 +248,24 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                 <Input
                   id="prenom"
                   value={prenom}
-                  onChange={e => setPrenom(e.target.value)}
+                  onChange={e => { setPrenom(e.target.value); if (touched.prenom) setErrors(prev => ({ ...prev, prenom: validateField('prenom', e.target.value) })) }}
+                  onBlur={() => handleBlur('prenom', prenom)}
                   placeholder="Jean"
+                  className={touched.prenom && errors.prenom ? 'border-red-500' : ''}
                 />
+                {touched.prenom && errors.prenom && <p className="text-xs text-red-500">{errors.prenom}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nom">Nom *</Label>
                 <Input
                   id="nom"
                   value={nom}
-                  onChange={e => setNom(e.target.value)}
+                  onChange={e => { setNom(e.target.value); if (touched.nom) setErrors(prev => ({ ...prev, nom: validateField('nom', e.target.value) })) }}
+                  onBlur={() => handleBlur('nom', nom)}
                   placeholder="Dupont"
+                  className={touched.nom && errors.nom ? 'border-red-500' : ''}
                 />
+                {touched.nom && errors.nom && <p className="text-xs text-red-500">{errors.nom}</p>}
               </div>
             </div>
             <div className="space-y-2">
@@ -243,9 +274,12 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                 id="email"
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => { setEmail(e.target.value); if (touched.email) setErrors(prev => ({ ...prev, email: validateField('email', e.target.value) })) }}
+                onBlur={() => handleBlur('email', email)}
                 placeholder="jean.dupont@mairie.fr"
+                className={touched.email && errors.email ? 'border-red-500' : ''}
               />
+              {touched.email && errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="telephone">Téléphone</Label>
