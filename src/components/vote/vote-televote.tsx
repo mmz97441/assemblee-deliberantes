@@ -417,7 +417,7 @@ export function VoteTelevote({
 
         {/* Confirm dialogs */}
         <AlertDialog open={confirmDialog === 'close'} onOpenChange={() => setConfirmDialog(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent aria-describedby={undefined}>
             <AlertDialogHeader>
               <AlertDialogTitle>Clôturer le télévote ?</AlertDialogTitle>
             </AlertDialogHeader>
@@ -437,7 +437,7 @@ export function VoteTelevote({
         </AlertDialog>
 
         <AlertDialog open={confirmDialog === 'cancel'} onOpenChange={() => setConfirmDialog(null)}>
-          <AlertDialogContent>
+          <AlertDialogContent aria-describedby={undefined}>
             <AlertDialogHeader>
               <AlertDialogTitle>Annuler le télévote ?</AlertDialogTitle>
             </AlertDialogHeader>
@@ -560,7 +560,7 @@ export function VoteTelevote({
 
       {/* Confirm open dialog */}
       <AlertDialog open={confirmDialog === 'open'} onOpenChange={() => setConfirmDialog(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Ouvrir le télévote ?</AlertDialogTitle>
           </AlertDialogHeader>

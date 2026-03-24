@@ -438,7 +438,7 @@ export function DeliberationsList({
 
       {/* Publish confirmation */}
       <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Publier cette deliberation ?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -461,7 +461,7 @@ export function DeliberationsList({
 
       {/* Annulation dialog */}
       <AlertDialog open={annulDialogOpen} onOpenChange={setAnnulDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler cette deliberation ?</AlertDialogTitle>
             <AlertDialogDescription>

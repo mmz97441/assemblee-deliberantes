@@ -777,7 +777,7 @@ export function DeliberationDetail({
 
       {/* Publish confirmation */}
       <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Publier cette deliberation ?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -797,7 +797,7 @@ export function DeliberationDetail({
 
       {/* Delete draft confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce brouillon ?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -820,7 +820,7 @@ export function DeliberationDetail({
 
       {/* Annulation dialog */}
       <AlertDialog open={annulDialogOpen} onOpenChange={setAnnulDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Annuler cette deliberation ?</AlertDialogTitle>
             <AlertDialogDescription>

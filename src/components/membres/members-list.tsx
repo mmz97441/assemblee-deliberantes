@@ -420,7 +420,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
       {/* Status change confirmation dialog */}
       <AlertDialog open={!!statusChangeConfirm} onOpenChange={(open) => { if (!open) setStatusChangeConfirm(null) }}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmer le changement de statut</AlertDialogTitle>
             <AlertDialogDescription>
@@ -466,7 +466,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
       {/* Invitation confirmation dialog */}
       <AlertDialog open={!!invitationConfirm} onOpenChange={(open) => { if (!open) setInvitationConfirm(null) }}>
-        <AlertDialogContent>
+        <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
             <AlertDialogTitle>Envoyer une invitation</AlertDialogTitle>
             <AlertDialogDescription>
