@@ -223,14 +223,14 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   APPROBATION_PV: { label: 'Approbation PV', color: 'bg-emerald-50 text-emerald-700' },
 }
 
-const CONVOCATION_LABELS: Record<string, { label: string; color: string }> = {
-  NON_ENVOYE: { label: 'Non envoyé', color: 'bg-slate-100 text-slate-600' },
-  ENVOYE: { label: 'Envoyé', color: 'bg-blue-100 text-blue-700' },
-  LU: { label: 'Lu', color: 'bg-cyan-100 text-cyan-700' },
-  CONFIRME_PRESENT: { label: 'Confirmé', color: 'bg-emerald-100 text-emerald-700' },
-  ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700' },
-  ERREUR_EMAIL: { label: 'Erreur', color: 'bg-red-100 text-red-700' },
-  ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700' },
+const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip: string }> = {
+  NON_ENVOYE: { label: 'Non envoy\u00e9', color: 'bg-slate-100 text-slate-600', tooltip: 'La convocation n\u2019a pas encore \u00e9t\u00e9 envoy\u00e9e' },
+  ENVOYE: { label: 'Envoy\u00e9', color: 'bg-blue-100 text-blue-700', tooltip: 'La convocation a \u00e9t\u00e9 envoy\u00e9e par email' },
+  LU: { label: 'Lu \u2713', color: 'bg-cyan-100 text-cyan-700', tooltip: 'Le membre a ouvert l\u2019email de convocation' },
+  CONFIRME_PRESENT: { label: 'Confirm\u00e9', color: 'bg-emerald-100 text-emerald-700', tooltip: 'Le membre a confirm\u00e9 sa pr\u00e9sence' },
+  ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700', tooltip: 'Le membre a donn\u00e9 procuration' },
+  ERREUR_EMAIL: { label: 'Erreur', color: 'bg-red-100 text-red-700', tooltip: 'L\u2019envoi de la convocation a \u00e9chou\u00e9' },
+  ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700', tooltip: 'Convocation envoy\u00e9e par courrier postal' },
 }
 
 function formatDate(dateStr: string): string {
@@ -1040,6 +1040,41 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       </Tooltip>
                     </div>
                   </TooltipProvider>
+
+                  {/* Progress bar: confirmation rate */}
+                  {convocationStats.totalEnvoyes > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+                        <span>Taux de confirmation</span>
+                        <span className="font-medium">
+                          {convocationStats.confirmes}/{convocationStats.totalEnvoyes} ({Math.round((convocationStats.confirmes / convocationStats.totalEnvoyes) * 100)}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden flex">
+                        {convocationStats.confirmes > 0 && (
+                          <div
+                            className="h-full bg-emerald-500 transition-all duration-500"
+                            style={{ width: `${(convocationStats.confirmes / convocationStats.totalEnvoyes) * 100}%` }}
+                            title={`${convocationStats.confirmes} confirmée${convocationStats.confirmes > 1 ? 's' : ''}`}
+                          />
+                        )}
+                        {convocationStats.enAttente > 0 && (
+                          <div
+                            className="h-full bg-amber-400 transition-all duration-500"
+                            style={{ width: `${(convocationStats.enAttente / convocationStats.totalEnvoyes) * 100}%` }}
+                            title={`${convocationStats.enAttente} en attente`}
+                          />
+                        )}
+                        {convocationStats.erreurs > 0 && (
+                          <div
+                            className="h-full bg-red-400 transition-all duration-500"
+                            style={{ width: `${(convocationStats.erreurs / convocationStats.totalEnvoyes) * 100}%` }}
+                            title={`${convocationStats.erreurs} erreur${convocationStats.erreurs > 1 ? 's' : ''}`}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1200,33 +1235,15 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       Convocataires ({seance.convocataires.length})
                     </h2>
                     {convocationFilter && (
-                      <div className="flex items-center gap-1.5">
-                        <Badge variant="secondary" className="text-xs">
-                          {(() => {
-                            const filtered = seance.convocataires.filter(c => {
-                              const statut = c.statut_convocation || 'NON_ENVOYE'
-                              switch (convocationFilter) {
-                                case 'envoyes': return statut !== 'NON_ENVOYE'
-                                case 'confirmes': return statut === 'CONFIRME_PRESENT' || statut === 'ABSENT_PROCURATION'
-                                case 'erreurs': return statut === 'ERREUR_EMAIL'
-                                case 'en_attente': return statut === 'ENVOYE' || statut === 'LU' || statut === 'ENVOYE_COURRIER'
-                                case 'non_envoyes': return statut === 'NON_ENVOYE'
-                                default: return true
-                              }
-                            })
-                            return `${filtered.length} résultat${filtered.length > 1 ? 's' : ''}`
-                          })()}
-                        </Badge>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
-                          onClick={() => setConvocationFilter(null)}
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Tout afficher
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setConvocationFilter(null)}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Retirer le filtre
+                      </Button>
                     )}
                   </div>
                   {canManage && isBrouillon && (
@@ -1236,6 +1253,39 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     </Button>
                   )}
                 </div>
+
+                {/* Filter pills */}
+                {seance.convocataires.length > 0 && (
+                  <div className="px-5 pb-2 flex flex-wrap gap-1.5">
+                    {[
+                      { key: null, label: 'Tous', count: seance.convocataires.length, color: 'bg-slate-100 text-slate-700 hover:bg-slate-200', activeColor: 'bg-slate-700 text-white' },
+                      { key: 'confirmes', label: 'Confirmées', count: convocationStats.confirmes, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100', activeColor: 'bg-emerald-600 text-white' },
+                      { key: 'en_attente', label: 'En attente', count: convocationStats.enAttente, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100', activeColor: 'bg-amber-500 text-white' },
+                      { key: 'erreurs', label: 'Erreurs', count: convocationStats.erreurs, color: 'bg-red-50 text-red-700 hover:bg-red-100', activeColor: 'bg-red-600 text-white' },
+                      { key: 'non_envoyes', label: 'Non envoyées', count: convocationStats.nonEnvoyes, color: 'bg-slate-50 text-slate-600 hover:bg-slate-100', activeColor: 'bg-slate-600 text-white' },
+                    ].filter(f => f.key === null || f.count > 0).map(f => (
+                      <button
+                        key={f.key ?? 'all'}
+                        type="button"
+                        onClick={() => setConvocationFilter(f.key)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
+                          convocationFilter === f.key || (f.key === null && convocationFilter === null)
+                            ? f.activeColor
+                            : f.color
+                        }`}
+                      >
+                        {f.label}
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                          convocationFilter === f.key || (f.key === null && convocationFilter === null)
+                            ? 'bg-white/20'
+                            : 'bg-black/5'
+                        }`}>
+                          {f.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {seance.convocataires.length === 0 ? (
                   <div className="px-5 pb-5">
@@ -1351,7 +1401,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0 ml-2">
-                                <Badge className={`${convConfig.color} border-0 text-[11px]`}>
+                                <Badge className={`${convConfig.color} border-0 text-[11px]`} title={convConfig.tooltip}>
                                   {convConfig.label}
                                 </Badge>
                                 {canManage && statut === 'ERREUR_EMAIL' && (
