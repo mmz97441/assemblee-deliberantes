@@ -53,7 +53,30 @@ export default async function PVPage({ params }: Props) {
 
   const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
   const userRole = await getEffectiveRole(realUserRole)
-  const canEdit = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+  let canEdit = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+  const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+
+  if (!isManager) {
+    // Check if user is convoqué to this séance
+    if (currentMember) {
+      const { data: conv } = await supabase
+        .from('convocataires')
+        .select('id')
+        .eq('seance_id', id)
+        .eq('member_id', currentMember.id)
+        .maybeSingle()
+
+      if (!conv) {
+        redirect(`/seances/${id}`)
+      }
+    }
+
+    // Élu should only see PV if it's SIGNE or PUBLIE (not draft)
+    if (pv && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
+      canEdit = false
+      redirect(`/seances/${id}`)
+    }
+  }
 
   const instanceNom = (seance.instance_config as { nom: string } | null)?.nom || ''
 

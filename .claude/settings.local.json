@@ -68,7 +68,8 @@
       "Bash(while read:*)",
       "Bash(do if:*)",
       "Bash(then sed:*)",
-      "Bash(grep -rn \"CGCT\\\\|legal.*delay\\\\|delai.*legal\" /Users/niceguillaume/Desktop/assemblee-deliberantes/src/lib/actions/*.ts)"
+      "Bash(grep -rn \"CGCT\\\\|legal.*delay\\\\|delai.*legal\" /Users/niceguillaume/Desktop/assemblee-deliberantes/src/lib/actions/*.ts)",
+      "Bash(ls -la /Users/niceguillaume/Desktop/assemblee-deliberantes/src/lib/actions/*.ts)"
     ]
   }
 }

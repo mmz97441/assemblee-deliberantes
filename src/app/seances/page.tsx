@@ -20,7 +20,9 @@ export default async function SeancesPage() {
   const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
   const userRole = await getEffectiveRole(realUserRole)
 
-  // For elu/preparateur, only show seances where they are convoque
+  // SECURITY (single-tenant): In single-tenant architecture, all users belong to the same
+  // institution so gestionnaires/super_admin see all seances. For elu/preparateur, we restrict
+  // visibility to only seances where they are convocataires (convoqued members).
   let eluSeanceIds: string[] | null = null
   if (['elu', 'preparateur'].includes(userRole)) {
     const { data: memberRecord } = await supabase

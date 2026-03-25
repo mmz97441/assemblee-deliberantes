@@ -60,6 +60,10 @@ export async function openVote(
       return { error: 'Seul le gestionnaire peut ouvrir un vote' }
     }
 
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVote on seance ${seanceId}, point ${odjPointId}`)
+    }
+
     // Rate limiting: max 20 ouvertures de vote par séance par heure
     const rateCheck = await checkRateLimit(supabase, user!.id, {
       actionKey: `open_vote_${seanceId}`,
@@ -198,6 +202,10 @@ export async function closeVoteMainLevee(
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut clore un vote' }
+    }
+
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteMainLevee on vote ${voteId}`)
     }
 
     // Fetch the open vote
@@ -432,6 +440,10 @@ export async function openVoteSecret(
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut ouvrir un vote secret' }
+    }
+
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteSecret on seance ${seanceId}, point ${odjPointId}`)
     }
 
     // Verify encryption key is configured
@@ -720,6 +732,10 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut clore un vote secret' }
+    }
+
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteSecret on vote ${voteId}`)
     }
 
     // Verify encryption key is configured
@@ -1012,7 +1028,11 @@ export async function openVoteTelevote(
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
+      return { error: 'Seul le gestionnaire peut ouvrir un t\u00e9l\u00e9vote' }
+    }
+
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteTelevote on seance ${seanceId}, point ${odjPointId}`)
     }
 
     const rateCheck = await checkRateLimit(supabase, user.id, {
@@ -1384,7 +1404,11 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut clore un télévote' }
+      return { error: 'Seul le gestionnaire peut clore un t\u00e9l\u00e9vote' }
+    }
+
+    if (role === 'super_admin') {
+      console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteTelevote on vote ${voteId}`)
     }
 
     const { data: vote } = await supabase
@@ -1395,7 +1419,7 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
 
     if (!vote) return { error: 'Vote introuvable' }
     if (vote.statut !== 'OUVERT') return { error: 'Ce vote n\'est pas ouvert' }
-    if (vote.type_vote !== 'TELEVOTE') return { error: 'Ce n\'est pas un télévote' }
+    if (vote.type_vote !== 'TELEVOTE') return { error: 'Ce n\'est pas un t\u00e9l\u00e9vote' }
 
     const { data: otps } = await televoteOtps(supabase)
       .select('member_id, used, choix')

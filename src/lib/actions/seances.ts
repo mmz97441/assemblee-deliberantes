@@ -297,8 +297,10 @@ export async function updateSeanceStatut(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
-    if (roleError) return { error: roleError }
+    const role = (user?.user_metadata?.role as string) || ''
+    if (!['super_admin', 'gestionnaire'].includes(role)) {
+      return { error: 'Seul le gestionnaire peut modifier le statut de la séance.' }
+    }
 
     // Validate transition
     const { data: currentSeance } = await supabase
@@ -649,6 +651,17 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
     const seanceId = formData.get('seance_id') as string
     if (!id) return { error: 'ID du point manquant' }
 
+    // Check séance status — no ODJ changes during or after séance
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceCheck?.statut && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seanceCheck.statut)) {
+      return { error: 'L\'ordre du jour ne peut pas être modifié pendant ou après la séance.' }
+    }
+
     // Check if convocations have been sent — ODJ is communicated and cannot change
     const { count: sentCount } = await supabase
       .from('convocataires')
@@ -694,6 +707,17 @@ export async function deleteODJPoint(id: string, seanceId: string): Promise<Acti
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Check séance status — no ODJ changes during or after séance
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceCheck?.statut && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seanceCheck.statut)) {
+      return { error: 'L\'ordre du jour ne peut pas être modifié pendant ou après la séance.' }
+    }
 
     // Check if convocations have been sent — ODJ is communicated and cannot change
     const { count: sentCount } = await supabase
@@ -747,6 +771,17 @@ export async function reorderODJPoints(
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Check séance status — no ODJ changes during or after séance
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceCheck?.statut && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seanceCheck.statut)) {
+      return { error: 'L\'ordre du jour ne peut pas être modifié pendant ou après la séance.' }
+    }
 
     // Check if convocations have been sent — ODJ is communicated and cannot change
     const { count: sentCount } = await supabase

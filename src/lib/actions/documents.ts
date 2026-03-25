@@ -176,6 +176,37 @@ export async function getDocumentUrl(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
+    // Extract seanceId from the document path (format: seances/{seanceId}/odj/...)
+    const pathParts = documentPath.split('/')
+    const seanceId = pathParts[0] === 'seances' ? pathParts[1] : null
+
+    if (seanceId) {
+      const role = (user.user_metadata?.role as string) || ''
+      const isManager = ['super_admin', 'gestionnaire'].includes(role)
+
+      if (!isManager) {
+        // Check user is convoqué to this séance
+        const { data: memberRecord } = await supabase
+          .from('members')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (memberRecord) {
+          const { data: conv } = await supabase
+            .from('convocataires')
+            .select('id')
+            .eq('seance_id', seanceId)
+            .eq('member_id', memberRecord.id)
+            .maybeSingle()
+
+          if (!conv) {
+            return { error: 'Vous n\'êtes pas convoqué(e) à cette séance.' }
+          }
+        }
+      }
+    }
+
     const { data, error } = await supabase.storage
       .from('documents')
       .createSignedUrl(documentPath, 3600) // 1 hour

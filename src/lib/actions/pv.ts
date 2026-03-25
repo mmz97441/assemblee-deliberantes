@@ -409,6 +409,14 @@ export async function getPV(seanceId: string) {
       .maybeSingle()
 
     if (error) return { error: error.message }
+
+    // Élus can only see PV that has been signed or published
+    const role = (user.user_metadata?.role as string) || ''
+    const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
+    if (!isManager && data && data.statut !== 'SIGNE' && data.statut !== 'PUBLIE') {
+      return { error: 'Le proc\u00e8s-verbal n\'est pas encore disponible.' }
+    }
+
     return { data }
   } catch (err) {
     console.error('getPV error:', err)
@@ -727,7 +735,14 @@ export async function getPVWithComments(seanceId: string): Promise<
       .maybeSingle()
 
     if (pvError) return { error: pvError.message }
-    if (!pv) return { error: 'Aucun procès-verbal trouvé pour cette séance' }
+    if (!pv) return { error: 'Aucun proc\u00e8s-verbal trouv\u00e9 pour cette s\u00e9ance' }
+
+    // \u00c9lus can only see PV that has been signed or published
+    const role = (user.user_metadata?.role as string) || ''
+    const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
+    if (!isManager && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
+      return { error: 'Le proc\u00e8s-verbal n\'est pas encore disponible.' }
+    }
 
     // Fetch comments
     const { data: comments, error: commentsError } = await supabase
