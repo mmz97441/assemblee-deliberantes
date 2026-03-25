@@ -49,6 +49,7 @@ import {
   ArrowLeft,
   Mail,
   Send,
+  UserPlus,
 } from 'lucide-react'
 import {
   generatePVBrouillon,
@@ -60,8 +61,21 @@ import {
   type PVSignatureRecord,
 } from '@/lib/actions/pv'
 import { improvePVSection } from '@/lib/actions/ai-pv'
+import { designateSeanceOfficer } from '@/lib/actions/phase2-features'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+interface ConvocataireForDesignation {
+  member_id: string
+  member: { id: string; prenom: string; nom: string } | null
+}
 
 interface PVEditorProps {
   seanceId: string
@@ -80,6 +94,7 @@ interface PVEditorProps {
   currentUserMemberId: string | null
   presidentMemberId: string | null
   secretaireMemberId: string | null
+  convocataires?: ConvocataireForDesignation[]
 }
 
 const RESULTAT_LABELS: Record<string, { label: string; icon: typeof CheckCircle2; colorClass: string }> = {
@@ -123,8 +138,9 @@ export function PVEditor({
   existingPV,
   canEdit,
   currentUserMemberId,
-  presidentMemberId,
-  secretaireMemberId,
+  presidentMemberId: initialPresidentMemberId,
+  secretaireMemberId: initialSecretaireMemberId,
+  convocataires = [],
 }: PVEditorProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -139,6 +155,10 @@ export function PVEditor({
     (existingPV?.signe_par as PVSignatureRecord[] | null) || []
   )
   const [pdfUrl] = useState<string | null>(existingPV?.pdf_url || null)
+
+  // ─── Dynamic designation state (can be updated from signatures step) ──
+  const [presidentMemberId, setPresidentMemberId] = useState<string | null>(initialPresidentMemberId)
+  const [secretaireMemberId, setSecretaireMemberId] = useState<string | null>(initialSecretaireMemberId)
 
   // ─── Wizard state ─────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState(0)
@@ -810,6 +830,22 @@ export function PVEditor({
               onSign={handleSign}
               pdfUrl={pdfUrl}
               onPrev={() => prevStep()}
+              presidentMemberId={presidentMemberId}
+              secretaireMemberId={secretaireMemberId}
+              convocataires={convocataires}
+              onDesignate={(role, memberId, memberName) => {
+                if (role === 'president') {
+                  setPresidentMemberId(memberId)
+                  if (contenu) {
+                    setContenu({ ...contenu, bureau: { ...contenu.bureau, president: memberName } })
+                  }
+                } else {
+                  setSecretaireMemberId(memberId)
+                  if (contenu) {
+                    setContenu({ ...contenu, bureau: { ...contenu.bureau, secretaire: memberName } })
+                  }
+                }
+              }}
             />
           )}
 
@@ -1683,6 +1719,10 @@ function StepSignatures({
   onSign,
   pdfUrl,
   onPrev,
+  presidentMemberId,
+  secretaireMemberId,
+  convocataires,
+  onDesignate,
 }: {
   contenu: PVContenu
   seanceId: string
@@ -1696,7 +1736,51 @@ function StepSignatures({
   onSign: () => void
   pdfUrl: string | null
   onPrev: () => void
+  presidentMemberId: string | null
+  secretaireMemberId: string | null
+  convocataires: ConvocataireForDesignation[]
+  onDesignate: (role: 'president' | 'secretaire', memberId: string, memberName: string) => void
 }) {
+  const [selectedPresident, setSelectedPresident] = useState('')
+  const [selectedSecretaire, setSelectedSecretaire] = useState('')
+  const [isSavingPresident, setIsSavingPresident] = useState(false)
+  const [isSavingSecretaire, setIsSavingSecretaire] = useState(false)
+
+  async function handleDesignate(role: 'president' | 'secretaire') {
+    const memberId = role === 'president' ? selectedPresident : selectedSecretaire
+    if (!memberId) return
+
+    const setLoading = role === 'president' ? setIsSavingPresident : setIsSavingSecretaire
+    setLoading(true)
+    try {
+      const result = await designateSeanceOfficer(seanceId, role, memberId)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      const label = role === 'president' ? 'Président(e)' : 'Secrétaire'
+      toast.success(`${label} désigné(e) : ${result.memberName}`)
+      onDesignate(role, memberId, result.memberName)
+    } catch {
+      toast.error('Erreur lors de la désignation')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Helper to get member name from convocataires list
+  function getMemberName(memberId: string): string {
+    const c = convocataires.find(cv => cv.member_id === memberId)
+    return c?.member ? `${c.member.prenom} ${c.member.nom}` : ''
+  }
+
+  // Filter convocataires: exclude the other role's already-designated person
+  const presidentCandidates = convocataires.filter(c => c.member_id !== secretaireMemberId)
+  const secretaireCandidates = convocataires.filter(c => c.member_id !== presidentMemberId)
+
+  const needsPresidentDesignation = !presidentMemberId && !presidentSignature
+  const needsSecretaireDesignation = !secretaireMemberId && !secretaireSignature
+
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -1704,7 +1788,9 @@ function StepSignatures({
         <p className="text-muted-foreground text-sm">
           {bothSigned
             ? 'Le procès-verbal est signé et verrouillé.'
-            : 'Le procès-verbal doit être signé par le président et le secrétaire.'}
+            : needsPresidentDesignation || needsSecretaireDesignation
+              ? 'Désignez les signataires manquants pour permettre la signature du procès-verbal.'
+              : 'Le procès-verbal doit être signé par le président et le secrétaire.'}
         </p>
       </div>
 
@@ -1740,125 +1826,241 @@ function StepSignatures({
       {/* Signature cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* President */}
-        <Card className={presidentSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
+        <Card className={
+          presidentSignature
+            ? 'border-emerald-200 bg-emerald-50/50'
+            : needsPresidentDesignation
+              ? 'border-amber-200 bg-amber-50/50'
+              : ''
+        }>
           <CardContent className="p-6 text-center">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
               Le/La Président(e)
             </p>
-            <p className="font-medium text-sm mb-4">
-              {contenu.bureau.president || '...'}
-            </p>
-            {presidentSignature ? (
-              <div className="flex items-center justify-center gap-1.5 text-emerald-600">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="text-xs" suppressHydrationWarning>
-                  Signé le{' '}
-                  {new Date(presidentSignature.timestamp).toLocaleDateString('fr-FR', {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  })}
-                  {' '}à{' '}
-                  {new Date(presidentSignature.timestamp).toLocaleTimeString('fr-FR', {
-                    hour: '2-digit', minute: '2-digit',
-                  })}
-                </span>
+
+            {needsPresidentDesignation ? (
+              /* ── Designation form ── */
+              <div className="space-y-3 text-left">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <p className="text-sm font-medium">
+                    Aucun(e) président(e) désigné(e)
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Désignez le/la président(e) pour permettre la signature :
+                </p>
+                <Select value={selectedPresident} onValueChange={setSelectedPresident}>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Choisir le/la président(e)..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {presidentCandidates.map(c => (
+                      <SelectItem key={c.member_id} value={c.member_id}>
+                        {c.member ? `${c.member.prenom} ${c.member.nom}` : c.member_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => handleDesignate('president')}
+                  disabled={!selectedPresident || isSavingPresident}
+                  className="w-full min-h-[44px] gap-2"
+                >
+                  {isSavingPresident ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Désignation en cours...</>
+                  ) : (
+                    <><UserPlus className="h-4 w-4" /> Désigner comme président(e)</>
+                  )}
+                </Button>
               </div>
-            ) : canSignPV && isCurrentUserPresident ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="lg"
-                    className="gap-2 min-h-[48px] w-full"
-                    disabled={isPending}
-                  >
-                    {isPending ? (
-                      <><Loader2 className="h-5 w-5 animate-spin" /> Signature en cours...</>
-                    ) : (
-                      <><PenLine className="h-5 w-5" /> Signer</>
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent aria-describedby={undefined}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Président(e) ?
-                      Cette action est définitive.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={onSign}>
-                      Signer définitivement
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             ) : (
-              <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
-                En attente
-              </Badge>
+              /* ── Normal display ── */
+              <>
+                <p className="font-medium text-sm mb-4">
+                  {contenu.bureau.president || getMemberName(presidentMemberId || '')}
+                </p>
+                {presidentSignature ? (
+                  <div className="flex items-center justify-center gap-1.5 text-emerald-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-xs" suppressHydrationWarning>
+                      Signé le{' '}
+                      {new Date(presidentSignature.timestamp).toLocaleDateString('fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                      {' '}à{' '}
+                      {new Date(presidentSignature.timestamp).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                ) : canSignPV && isCurrentUserPresident ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="lg"
+                        className="gap-2 min-h-[48px] w-full"
+                        disabled={isPending}
+                      >
+                        {isPending ? (
+                          <><Loader2 className="h-5 w-5 animate-spin" /> Signature en cours...</>
+                        ) : (
+                          <><PenLine className="h-5 w-5" /> Signer</>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent aria-describedby={undefined}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Président(e) ?
+                          Cette action est définitive.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={onSign}>
+                          Signer définitivement
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
+                          <Clock className="h-3 w-3 mr-1" />
+                          En attente
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Le/La président(e) doit se connecter pour signer le PV</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
         {/* Secretary */}
-        <Card className={secretaireSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
+        <Card className={
+          secretaireSignature
+            ? 'border-emerald-200 bg-emerald-50/50'
+            : needsSecretaireDesignation
+              ? 'border-amber-200 bg-amber-50/50'
+              : ''
+        }>
           <CardContent className="p-6 text-center">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
               Le/La Secrétaire
             </p>
-            <p className="font-medium text-sm mb-4">
-              {contenu.bureau.secretaire || '...'}
-            </p>
-            {secretaireSignature ? (
-              <div className="flex items-center justify-center gap-1.5 text-emerald-600">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="text-xs" suppressHydrationWarning>
-                  Signé le{' '}
-                  {new Date(secretaireSignature.timestamp).toLocaleDateString('fr-FR', {
-                    day: 'numeric', month: 'long', year: 'numeric',
-                  })}
-                  {' '}à{' '}
-                  {new Date(secretaireSignature.timestamp).toLocaleTimeString('fr-FR', {
-                    hour: '2-digit', minute: '2-digit',
-                  })}
-                </span>
+
+            {needsSecretaireDesignation ? (
+              /* ── Designation form ── */
+              <div className="space-y-3 text-left">
+                <div className="flex items-center gap-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                  <p className="text-sm font-medium">
+                    Aucun(e) secrétaire désigné(e)
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Désignez le/la secrétaire pour permettre la signature :
+                </p>
+                <Select value={selectedSecretaire} onValueChange={setSelectedSecretaire}>
+                  <SelectTrigger className="min-h-[44px]">
+                    <SelectValue placeholder="Choisir le/la secrétaire..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {secretaireCandidates.map(c => (
+                      <SelectItem key={c.member_id} value={c.member_id}>
+                        {c.member ? `${c.member.prenom} ${c.member.nom}` : c.member_id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={() => handleDesignate('secretaire')}
+                  disabled={!selectedSecretaire || isSavingSecretaire}
+                  className="w-full min-h-[44px] gap-2"
+                >
+                  {isSavingSecretaire ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Désignation en cours...</>
+                  ) : (
+                    <><UserPlus className="h-4 w-4" /> Désigner comme secrétaire</>
+                  )}
+                </Button>
               </div>
-            ) : canSignPV && isCurrentUserSecretaire ? (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="lg"
-                    className="gap-2 min-h-[48px] w-full"
-                    disabled={isPending}
-                  >
-                    {isPending ? (
-                      <><Loader2 className="h-5 w-5 animate-spin" /> Signature en cours...</>
-                    ) : (
-                      <><PenLine className="h-5 w-5" /> Signer</>
-                    )}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent aria-describedby={undefined}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Secrétaire de séance ?
-                      Cette action est définitive.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Annuler</AlertDialogCancel>
-                    <AlertDialogAction onClick={onSign}>
-                      Signer définitivement
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             ) : (
-              <Badge variant="outline" className="text-xs text-amber-600 border-amber-200">
-                En attente
-              </Badge>
+              /* ── Normal display ── */
+              <>
+                <p className="font-medium text-sm mb-4">
+                  {contenu.bureau.secretaire || getMemberName(secretaireMemberId || '')}
+                </p>
+                {secretaireSignature ? (
+                  <div className="flex items-center justify-center gap-1.5 text-emerald-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-xs" suppressHydrationWarning>
+                      Signé le{' '}
+                      {new Date(secretaireSignature.timestamp).toLocaleDateString('fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                      {' '}à{' '}
+                      {new Date(secretaireSignature.timestamp).toLocaleTimeString('fr-FR', {
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </span>
+                  </div>
+                ) : canSignPV && isCurrentUserSecretaire ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="lg"
+                        className="gap-2 min-h-[48px] w-full"
+                        disabled={isPending}
+                      >
+                        {isPending ? (
+                          <><Loader2 className="h-5 w-5 animate-spin" /> Signature en cours...</>
+                        ) : (
+                          <><PenLine className="h-5 w-5" /> Signer</>
+                        )}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent aria-describedby={undefined}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Secrétaire de séance ?
+                          Cette action est définitive.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction onClick={onSign}>
+                          Signer définitivement
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
+                          <Clock className="h-3 w-3 mr-1" />
+                          En attente
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Le/La secrétaire doit se connecter pour signer le PV</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </>
             )}
           </CardContent>
         </Card>

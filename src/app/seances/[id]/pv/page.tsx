@@ -78,6 +78,12 @@ export default async function PVPage({ params }: Props) {
     }
   }
 
+  // Load convocataires for inline designation in signature step
+  const { data: convocataires } = await supabase
+    .from('convocataires')
+    .select('member_id, member:members (id, prenom, nom)')
+    .eq('seance_id', id)
+
   const instanceNom = (seance.instance_config as { nom: string } | null)?.nom || ''
 
   return (
@@ -111,6 +117,10 @@ export default async function PVPage({ params }: Props) {
           currentUserMemberId={currentMember?.id || null}
           presidentMemberId={seance.president_effectif_seance_id || null}
           secretaireMemberId={seance.secretaire_seance_id || null}
+          convocataires={(convocataires || []).map(c => ({
+            member_id: c.member_id,
+            member: c.member as { id: string; prenom: string; nom: string } | null,
+          }))}
         />
       </main>
     </AuthenticatedLayout>

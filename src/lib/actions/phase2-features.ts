@@ -207,6 +207,91 @@ export async function designateSecretary(
   }
 }
 
+// ─── Désignation président ou secrétaire depuis le PV ────────────────────────
+
+/**
+ * Designates a president or secretary for the session, directly from the PV signature step.
+ * This allows the user to never be blocked when reaching the signature step.
+ */
+export async function designateSeanceOfficer(
+  seanceId: string,
+  role: 'president' | 'secretaire',
+  memberId: string
+): Promise<{ success: true; memberName: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    if (!seanceId || !memberId) {
+      return { error: 'Paramètres manquants' }
+    }
+
+    // Verify séance exists
+    const { data: seance, error: seanceError } = await supabase
+      .from('seances')
+      .select('id, statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceError || !seance) return { error: 'Séance introuvable' }
+
+    // Verify member is a convocataire of this séance
+    const { data: convocataire } = await supabase
+      .from('convocataires')
+      .select('id')
+      .eq('seance_id', seanceId)
+      .eq('member_id', memberId)
+      .maybeSingle()
+
+    if (!convocataire) {
+      return { error: 'Ce membre n\'est pas convoqué pour cette séance' }
+    }
+
+    // Get member name for response and audit
+    const { data: member } = await supabase
+      .from('members')
+      .select('prenom, nom')
+      .eq('id', memberId)
+      .single()
+
+    const memberName = member ? `${member.prenom} ${member.nom}` : memberId
+
+    // Update séance
+    const updateData = role === 'president'
+      ? { president_effectif_seance_id: memberId }
+      : { secretaire_seance_id: memberId, secretaire_designation_mode: 'DIRECT' as const }
+
+    const { error: updateError } = await supabase
+      .from('seances')
+      .update(updateData)
+      .eq('id', seanceId)
+
+    if (updateError) return { error: `Erreur : ${updateError.message}` }
+
+    // Log in audit
+    await supabase.from('audit_log').insert({
+      action: role === 'president' ? 'DESIGNATE_PRESIDENT_FROM_PV' : 'DESIGNATE_SECRETARY_FROM_PV',
+      table_name: 'seances',
+      record_id: seanceId,
+      new_values: {
+        member_id: memberId,
+        member_name: memberName,
+        role,
+        source: 'pv_signature_step',
+      },
+      user_id: user?.id,
+    })
+
+    revalidatePath(`/seances/${seanceId}`)
+    revalidatePath(`/seances/${seanceId}/pv`)
+    return { success: true, memberName }
+  } catch (err) {
+    console.error('designateSeanceOfficer error:', err)
+    return { error: 'Erreur inattendue lors de la désignation' }
+  }
+}
+
 // ─── PART 3: Approbation PV en séance ───────────────────────────────────────
 
 /**
