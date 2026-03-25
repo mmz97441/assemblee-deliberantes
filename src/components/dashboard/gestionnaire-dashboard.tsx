@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -15,10 +16,17 @@ import {
   CheckCircle2,
   ClipboardList,
   BarChart3,
+  PenLine,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
@@ -59,6 +67,37 @@ interface GestionnaireStats {
   membresActifs: number
 }
 
+interface SeanceDetail {
+  id: string
+  titre: string
+  date_seance: string
+  statut: string | null
+  instance_nom: string | null
+}
+
+interface DelibDetail {
+  id: string
+  titre: string
+  numero: string | null
+  statut: string | null
+  created_at: string
+}
+
+interface PVDetail {
+  seance_id: string
+  seance_titre: string
+  seance_date: string
+  pv_statut: string
+}
+
+interface MembreDetail {
+  id: string
+  nom: string
+  prenom: string
+  role: string | null
+  statut: string | null
+}
+
 export interface GestionnaireDashboardProps {
   firstName: string
   greeting: string
@@ -67,6 +106,10 @@ export interface GestionnaireDashboardProps {
   tasks: TaskItem[]
   upcomingSeances: UpcomingSeanceCard[]
   stats: GestionnaireStats
+  seancesCeMoisDetails?: SeanceDetail[]
+  deliberationsCeMoisDetails?: DelibDetail[]
+  pvEnAttenteDetails?: PVDetail[]
+  membresActifsDetails?: MembreDetail[]
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -120,6 +163,24 @@ const SEVERITY_STYLES = {
   },
 }
 
+const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
+  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
+  CONVOQUEE: { label: 'Convoquee', color: 'bg-blue-100 text-blue-700' },
+  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
+  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
+  CLOTUREE: { label: 'Cloturee', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivee', color: 'bg-gray-100 text-gray-500' },
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  super_admin: 'Super Admin',
+  gestionnaire: 'Gestionnaire',
+  president: 'President(e)',
+  secretaire_seance: 'Secretaire',
+  elu: 'Elu(e)',
+  preparateur: 'Preparateur',
+}
+
 // ────────────────────────────────────────────────────────────────
 // Component
 // ────────────────────────────────────────────────────────────────
@@ -130,7 +191,13 @@ export function GestionnaireDashboard({
   tasks,
   upcomingSeances,
   stats,
+  seancesCeMoisDetails,
+  deliberationsCeMoisDetails,
+  pvEnAttenteDetails,
+  membresActifsDetails,
 }: GestionnaireDashboardProps) {
+  const [detailDialog, setDetailDialog] = useState<string | null>(null)
+
   return (
     <TooltipProvider>
       <div className="space-y-8">
@@ -359,7 +426,13 @@ export function GestionnaireDashboard({
             Vue d&apos;ensemble
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances">
+            {/* Seances ce mois */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('seances')}
+              className="block w-full text-left group"
+              title="Voir le detail des seances ce mois"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
@@ -370,17 +443,23 @@ export function GestionnaireDashboard({
                       <TooltipTrigger asChild>
                         <Clock className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent>Séances planifiées ce mois-ci</TooltipContent>
+                      <TooltipContent>Seances planifiees ce mois-ci</TooltipContent>
                     </Tooltip>
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{stats.seancesCeMois}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Séances ce mois</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Seances ce mois</p>
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations">
+            {/* Deliberations ce mois */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('deliberations')}
+              className="block w-full text-left group"
+              title="Voir le detail des deliberations ce mois"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -391,11 +470,17 @@ export function GestionnaireDashboard({
                 <p className="text-2xl font-bold text-foreground">
                   {stats.deliberationsCeMois}
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Délibérations ce mois</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Deliberations ce mois</p>
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.MEMBRES} className="block group" title="Voir tous les membres">
+            {/* Membres actifs */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('membres')}
+              className="block w-full text-left group"
+              title="Voir la liste des membres actifs"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
@@ -406,9 +491,15 @@ export function GestionnaireDashboard({
                 <p className="text-2xl font-bold text-foreground">{stats.membresActifs}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">Membres actifs</p>
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir les séances avec PV en attente">
+            {/* PV en attente */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('pv')}
+              className="block w-full text-left group"
+              title="Voir les PV en attente"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-purple-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50 text-purple-700">
@@ -426,7 +517,7 @@ export function GestionnaireDashboard({
                 <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
               </div>
-            </Link>
+            </button>
           </div>
         </section>
 
@@ -505,6 +596,193 @@ export function GestionnaireDashboard({
           </div>
         </section>
       </div>
+
+      {/* ─── Detail Dialogs ──────────────────────────────────── */}
+
+      {/* Seances ce mois dialog */}
+      <Dialog open={detailDialog === 'seances'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-institutional-blue" />
+              Seances ce mois
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {seancesCeMoisDetails && seancesCeMoisDetails.length > 0 ? (
+              seancesCeMoisDetails.map((seance) => {
+                const statut = STATUT_CONFIG[seance.statut || 'BROUILLON']
+                return (
+                  <Link key={seance.id} href={`/seances/${seance.id}`} className="block">
+                    <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{seance.titre}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">{formatShortDate(seance.date_seance)}</span>
+                            {seance.instance_nom && (
+                              <Badge variant="outline" className="text-xs">{seance.instance_nom}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`}>
+                          {statut?.label || seance.statut}
+                        </Badge>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })
+            ) : (
+              <div className="text-center py-6">
+                <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucune seance ce mois-ci.</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link href={ROUTES.SEANCES} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
+              Voir toutes les seances <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deliberations ce mois dialog */}
+      <Dialog open={detailDialog === 'deliberations'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-emerald-600" />
+              Deliberations ce mois
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {deliberationsCeMoisDetails && deliberationsCeMoisDetails.length > 0 ? (
+              deliberationsCeMoisDetails.map((delib) => (
+                <div key={delib.id} className="rounded-lg border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        {delib.numero && (
+                          <Badge variant="outline" className="text-xs shrink-0">{delib.numero}</Badge>
+                        )}
+                        <p className="text-sm font-medium text-foreground truncate">{delib.titre}</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatShortDate(delib.created_at)}
+                      </p>
+                    </div>
+                    {delib.statut && (
+                      <Badge className={`border-0 text-xs ${delib.statut === 'PUBLIEE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {delib.statut === 'PUBLIEE' ? 'Publiee' : delib.statut}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6">
+                <CalendarCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucune deliberation ce mois-ci.</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link href={ROUTES.DELIBERATIONS} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
+              Voir toutes les deliberations <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Membres actifs dialog */}
+      <Dialog open={detailDialog === 'membres'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-amber-600" />
+              Membres actifs ({stats.membresActifs})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {membresActifsDetails && membresActifsDetails.length > 0 ? (
+              membresActifsDetails.map((membre) => (
+                <div key={membre.id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {membre.prenom} {membre.nom}
+                    </p>
+                  </div>
+                  {membre.role && (
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      {ROLE_LABELS[membre.role] || membre.role}
+                    </Badge>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6">
+                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucun membre actif enregistre.</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link href={ROUTES.MEMBRES} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
+              Voir tous les membres <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PV en attente dialog */}
+      <Dialog open={detailDialog === 'pv'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              PV en attente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {pvEnAttenteDetails && pvEnAttenteDetails.length > 0 ? (
+              pvEnAttenteDetails.map((pv) => (
+                <div key={pv.seance_id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{pv.seance_titre}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{formatShortDate(pv.seance_date)}</span>
+                      <Badge className={`border-0 text-xs ${pv.pv_statut === 'EN_RELECTURE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {pv.pv_statut === 'EN_RELECTURE' ? 'En relecture' : 'Brouillon'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button asChild size="sm" className="shrink-0">
+                    <Link href={`/seances/${pv.seance_id}/pv`}>
+                      <PenLine className="h-3.5 w-3.5 mr-1.5" />
+                      Rediger
+                    </Link>
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Aucun PV en attente. Tout est a jour !
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

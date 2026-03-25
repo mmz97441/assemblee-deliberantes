@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -21,6 +22,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
@@ -62,6 +69,21 @@ interface PVDocument {
   pdf_url: string | null
 }
 
+interface SeanceParticipation {
+  id: string
+  titre: string
+  date_seance: string
+  participated: boolean
+}
+
+interface ProcurationDetail {
+  id: string
+  seance_titre: string
+  seance_date: string
+  autre_membre_nom: string
+  type: 'donnee' | 'recue'
+}
+
 interface EluStats {
   seancesParticipees: number
   seancesConvoquees: number
@@ -77,6 +99,9 @@ export interface EluDashboardProps {
   stats: EluStats
   recentVotes: VoteSummary[]
   recentPV: PVDocument[]
+  allSeancesParticipation?: SeanceParticipation[]
+  allVotes?: VoteSummary[]
+  procurationDetails?: ProcurationDetail[]
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -164,6 +189,13 @@ const RESULTAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; co
   },
 }
 
+const CHOIX_CONFIG: Record<string, { label: string; color: string }> = {
+  POUR: { label: 'Pour', color: 'bg-emerald-100 text-emerald-700' },
+  CONTRE: { label: 'Contre', color: 'bg-red-100 text-red-700' },
+  ABSTENTION: { label: 'Abstention', color: 'bg-slate-100 text-slate-600' },
+  NPPV: { label: 'NPPV', color: 'bg-amber-100 text-amber-700' },
+}
+
 const CONVOCATION_CONFIG: Record<string, { label: string; color: string }> = {
   CONFIRME_PRESENT: { label: 'Presence confirmee', color: 'bg-emerald-100 text-emerald-700' },
   ENVOYE: { label: 'Convocation envoyee', color: 'bg-blue-100 text-blue-700' },
@@ -196,11 +228,18 @@ export function EluDashboard({
   stats,
   recentVotes,
   recentPV,
+  allSeancesParticipation,
+  allVotes,
+  procurationDetails,
 }: EluDashboardProps) {
+  const [detailDialog, setDetailDialog] = useState<string | null>(null)
+
   const participationPercent =
     stats.seancesConvoquees > 0
       ? Math.round((stats.seancesParticipees / stats.seancesConvoquees) * 100)
       : 0
+
+  const currentYear = new Date().getFullYear()
 
   return (
     <TooltipProvider>
@@ -242,11 +281,16 @@ export function EluDashboard({
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-institutional-blue" />
-            Mes statistiques <span suppressHydrationWarning>{new Date().getFullYear()}</span>
+            Mes statistiques <span suppressHydrationWarning>{currentYear}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-3 stagger-in">
             {/* Participation */}
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances">
+            <button
+              type="button"
+              onClick={() => setDetailDialog('seances')}
+              className="block w-full text-left group"
+              title="Voir le detail de mes seances"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
@@ -260,7 +304,7 @@ export function EluDashboard({
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        Taux de participation aux séances cette année
+                        Taux de participation aux seances cette annee
                       </TooltipContent>
                     </Tooltip>
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -272,16 +316,21 @@ export function EluDashboard({
                     / {stats.seancesConvoquees}
                   </span>
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Séances participées</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Seances participees</p>
                 <Progress
                   value={participationPercent}
                   className="mt-2 h-1.5"
                 />
               </div>
-            </Link>
+            </button>
 
             {/* Votes */}
-            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations">
+            <button
+              type="button"
+              onClick={() => setDetailDialog('votes')}
+              className="block w-full text-left group"
+              title="Voir le detail de mes votes"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -290,12 +339,17 @@ export function EluDashboard({
                   <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{stats.votesEffectues}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Votes effectués</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Votes effectues</p>
               </div>
-            </Link>
+            </button>
 
             {/* Procurations */}
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir les séances">
+            <button
+              type="button"
+              onClick={() => setDetailDialog('procurations')}
+              className="block w-full text-left group"
+              title="Voir le detail de mes procurations"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
@@ -307,10 +361,10 @@ export function EluDashboard({
                   {stats.procurationsGiven + stats.procurationsReceived}
                 </p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  {stats.procurationsGiven} donnée(s), {stats.procurationsReceived} reçue(s)
+                  {stats.procurationsGiven} donnee(s), {stats.procurationsReceived} recue(s)
                 </p>
               </div>
-            </Link>
+            </button>
           </div>
         </section>
 
@@ -473,6 +527,241 @@ export function EluDashboard({
           </div>
         </section>
       </div>
+
+      {/* ─── Detail Dialogs ──────────────────────────────────── */}
+
+      {/* Seances participation dialog */}
+      <Dialog open={detailDialog === 'seances'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-institutional-blue" />
+              Mes seances ({currentYear})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {allSeancesParticipation && allSeancesParticipation.length > 0 ? (
+              allSeancesParticipation.map((seance) => (
+                <div
+                  key={seance.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    seance.participated
+                      ? 'border-emerald-200 bg-emerald-50'
+                      : 'border-muted bg-muted/30'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{seance.titre}</p>
+                    <p className="text-xs text-muted-foreground">{formatShortDate(seance.date_seance)}</p>
+                  </div>
+                  {seance.participated ? (
+                    <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs shrink-0 ml-2">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Present(e)
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground text-xs shrink-0 ml-2">
+                      Absent(e)
+                    </Badge>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6">
+                <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Aucune seance enregistree cette annee.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link
+              href={ROUTES.SEANCES}
+              className="text-sm text-institutional-blue hover:underline flex items-center gap-1"
+            >
+              Voir toutes les seances
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Votes detail dialog */}
+      <Dialog open={detailDialog === 'votes'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Vote className="h-5 w-5 text-emerald-600" />
+              Mes votes ({currentYear})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {(allVotes && allVotes.length > 0 ? allVotes : recentVotes).length > 0 ? (
+              (allVotes && allVotes.length > 0 ? allVotes : recentVotes).map((vote) => {
+                const resultConfig = vote.resultat ? RESULTAT_CONFIG[vote.resultat] : null
+                const choixConfig = vote.choix ? CHOIX_CONFIG[vote.choix] : null
+                return (
+                  <div
+                    key={vote.id}
+                    className="rounded-lg border bg-card p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {vote.question || 'Vote'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs text-muted-foreground">
+                            {vote.clos_at ? formatShortDate(vote.clos_at) : ''}
+                          </span>
+                          {vote.type_vote && (
+                            <Badge variant="outline" className="text-xs">
+                              {vote.type_vote === 'MAIN_LEVEE'
+                                ? 'Main levee'
+                                : vote.type_vote === 'BULLETIN_SECRET'
+                                  ? 'Bulletin secret'
+                                  : vote.type_vote === 'NOMINAL'
+                                    ? 'Nominal'
+                                    : vote.type_vote}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      {resultConfig && (
+                        <Badge
+                          className={`${resultConfig.color} border-0 text-xs font-medium flex items-center gap-1 shrink-0`}
+                        >
+                          {resultConfig.icon}
+                          {resultConfig.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-2 pt-2 border-t">
+                      {vote.is_secret ? (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Lock className="h-3 w-3" />
+                          Vote enregistre (bulletin secret)
+                        </span>
+                      ) : choixConfig ? (
+                        <span className="text-xs flex items-center gap-1">
+                          Mon choix :
+                          <Badge className={`${choixConfig.color} border-0 text-xs ml-1`}>
+                            {choixConfig.label}
+                          </Badge>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Choix non renseigne
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="text-center py-6">
+                <Vote className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Vous n&apos;avez participe a aucun vote pour le moment.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link
+              href={ROUTES.DELIBERATIONS}
+              className="text-sm text-institutional-blue hover:underline flex items-center gap-1"
+            >
+              Voir toutes les deliberations
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Procurations detail dialog */}
+      <Dialog open={detailDialog === 'procurations'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-amber-600" />
+              Mes procurations
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            {procurationDetails && procurationDetails.length > 0 ? (
+              <>
+                {/* Procurations recues */}
+                {procurationDetails.filter((p) => p.type === 'recue').length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Procurations recues
+                    </h4>
+                    <div className="space-y-2">
+                      {procurationDetails
+                        .filter((p) => p.type === 'recue')
+                        .map((proc) => (
+                          <div key={proc.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                            <p className="text-sm font-medium text-foreground">
+                              De {proc.autre_membre_nom}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {proc.seance_titre} - {formatShortDate(proc.seance_date)}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Procurations donnees */}
+                {procurationDetails.filter((p) => p.type === 'donnee').length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                      <ArrowRight className="h-4 w-4 text-amber-600" />
+                      Procurations donnees
+                    </h4>
+                    <div className="space-y-2">
+                      {procurationDetails
+                        .filter((p) => p.type === 'donnee')
+                        .map((proc) => (
+                          <div key={proc.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-sm font-medium text-foreground">
+                              A {proc.autre_membre_nom}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {proc.seance_titre} - {formatShortDate(proc.seance_date)}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-6">
+                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Aucune procuration enregistree.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>
+              Fermer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

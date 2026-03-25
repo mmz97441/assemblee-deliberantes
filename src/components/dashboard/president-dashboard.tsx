@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -18,7 +19,14 @@ import {
   MapPin,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
@@ -72,6 +80,21 @@ interface SeanceSummary {
   lieu: string | null
 }
 
+interface ParticipationDetail {
+  seance_id: string
+  seance_titre: string
+  seance_date: string
+  presents: number
+  total: number
+}
+
+interface PVEnAttenteDetail {
+  seance_id: string
+  seance_titre: string
+  seance_date: string
+  pv_statut: string
+}
+
 export interface PresidentDashboardProps {
   firstName: string
   greeting: string
@@ -80,6 +103,9 @@ export interface PresidentDashboardProps {
   quorumPrediction: QuorumPrediction | null
   recentDelibs: DelibSummary[]
   seances: SeanceSummary[]
+  allDelibs?: DelibSummary[]
+  participationDetails?: ParticipationDetail[]
+  pvEnAttenteDetails?: PVEnAttenteDetail[]
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -171,10 +197,17 @@ export function PresidentDashboard({
   quorumPrediction,
   recentDelibs,
   seances,
+  allDelibs,
+  participationDetails,
+  pvEnAttenteDetails,
 }: PresidentDashboardProps) {
+  const [detailDialog, setDetailDialog] = useState<string | null>(null)
+
   const upcoming = seances.filter(
     (s) => new Date(s.date_seance) >= new Date() || s.statut === 'EN_COURS'
   )
+
+  const currentYear = new Date().getFullYear()
 
   return (
     <TooltipProvider>
@@ -248,10 +281,16 @@ export function PresidentDashboard({
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-institutional-blue" />
-            Indicateurs <span suppressHydrationWarning>{new Date().getFullYear()}</span>
+            Indicateurs <span suppressHydrationWarning>{currentYear}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir toutes les séances présidées">
+            {/* Seances presidees */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('seances')}
+              className="block w-full text-left group"
+              title="Voir le detail des seances presidees"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-institutional-blue/30">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-institutional-blue">
@@ -260,11 +299,17 @@ export function PresidentDashboard({
                   <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{stats.seancesPresidees}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Séances présidées</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Seances presidees</p>
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.DELIBERATIONS} className="block group" title="Voir toutes les délibérations publiées">
+            {/* Deliberations publiees */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('deliberations')}
+              className="block w-full text-left group"
+              title="Voir le detail des deliberations publiees"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -275,11 +320,17 @@ export function PresidentDashboard({
                 <p className="text-2xl font-bold text-foreground">
                   {stats.deliberationsPubliees}
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Délibérations publiées</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Deliberations publiees</p>
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir le détail de participation aux séances">
+            {/* Taux de participation */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('participation')}
+              className="block w-full text-left group"
+              title="Voir le detail de participation par seance"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-sky-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
@@ -293,7 +344,7 @@ export function PresidentDashboard({
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        Taux moyen de présence des membres lors de vos séances
+                        Taux moyen de presence des membres lors de vos seances
                       </TooltipContent>
                     </Tooltip>
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -307,9 +358,15 @@ export function PresidentDashboard({
                 </p>
                 <Progress value={stats.tauxParticipationMoyen} className="mt-2 h-1.5" />
               </div>
-            </Link>
+            </button>
 
-            <Link href={ROUTES.SEANCES} className="block group" title="Voir les PV en attente de signature">
+            {/* PV en attente */}
+            <button
+              type="button"
+              onClick={() => setDetailDialog('pv')}
+              className="block w-full text-left group"
+              title="Voir les PV en attente"
+            >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-amber-300">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
@@ -327,7 +384,7 @@ export function PresidentDashboard({
                 <p className="text-2xl font-bold text-foreground">{stats.pvEnAttente}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">PV en attente</p>
               </div>
-            </Link>
+            </button>
           </div>
         </section>
 
@@ -520,6 +577,208 @@ export function PresidentDashboard({
           </div>
         </section>
       </div>
+
+      {/* ─── Detail Dialogs ──────────────────────────────────── */}
+
+      {/* Seances presidees dialog */}
+      <Dialog open={detailDialog === 'seances'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-institutional-blue" />
+              Seances presidees ({currentYear})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {seances.length > 0 ? (
+              seances.map((seance) => {
+                const statut = STATUT_CONFIG[seance.statut || 'BROUILLON']
+                return (
+                  <Link
+                    key={seance.id}
+                    href={`/seances/${seance.id}`}
+                    className="block"
+                  >
+                    <div className="rounded-lg border bg-card p-3 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">{seance.titre}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-muted-foreground">{formatShortDate(seance.date_seance)}</span>
+                            {seance.instance_nom && (
+                              <Badge variant="outline" className="text-xs">{seance.instance_nom}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`}>
+                          {statut?.label || seance.statut}
+                        </Badge>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })
+            ) : (
+              <div className="text-center py-6">
+                <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucune seance presidee cette annee.</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link href={ROUTES.SEANCES} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
+              Voir toutes les seances <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deliberations publiees dialog */}
+      <Dialog open={detailDialog === 'deliberations'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-600" />
+              Deliberations publiees ({currentYear})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {(allDelibs || recentDelibs).length > 0 ? (
+              (allDelibs || recentDelibs).map((delib) => {
+                const resultConfig = delib.resultat ? RESULTAT_CONFIG[delib.resultat] : null
+                return (
+                  <div key={delib.id} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          {delib.numero && (
+                            <Badge variant="outline" className="text-xs shrink-0">{delib.numero}</Badge>
+                          )}
+                          <p className="text-sm font-medium text-foreground truncate">{delib.titre}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {delib.publie_at ? formatShortDate(delib.publie_at) : ''}
+                        </p>
+                      </div>
+                      {resultConfig && (
+                        <Badge className={`${resultConfig.color} border-0 text-xs font-medium flex items-center gap-1 shrink-0`}>
+                          {resultConfig.icon}
+                          {resultConfig.label}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="text-center py-6">
+                <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Aucune deliberation publiee cette annee.</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between mt-4 pt-3 border-t">
+            <Link href={ROUTES.DELIBERATIONS} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
+              Voir toutes les deliberations <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Participation detail dialog */}
+      <Dialog open={detailDialog === 'participation'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-sky-600" />
+              Detail de participation par seance
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            {participationDetails && participationDetails.length > 0 ? (
+              participationDetails.map((detail) => {
+                const pct = detail.total > 0 ? Math.round((detail.presents / detail.total) * 100) : 0
+                return (
+                  <div key={detail.seance_id} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">{detail.seance_titre}</p>
+                        <p className="text-xs text-muted-foreground">{formatShortDate(detail.seance_date)}</p>
+                      </div>
+                      <span className="text-sm font-bold text-foreground shrink-0">
+                        {detail.presents}/{detail.total}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress value={pct} className="h-2 flex-1" />
+                      <span className={`text-xs font-medium ${pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {pct}%
+                      </span>
+                    </div>
+                  </div>
+                )
+              })
+            ) : (
+              <div className="text-center py-6">
+                <TrendingUp className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Aucune donnee de participation disponible.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PV en attente dialog */}
+      <Dialog open={detailDialog === 'pv'} onOpenChange={(open) => !open && setDetailDialog(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PenLine className="h-5 w-5 text-amber-600" />
+              PV en attente
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {pvEnAttenteDetails && pvEnAttenteDetails.length > 0 ? (
+              pvEnAttenteDetails.map((pv) => (
+                <div key={pv.seance_id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{pv.seance_titre}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{formatShortDate(pv.seance_date)}</span>
+                      <Badge className={`border-0 text-xs ${pv.pv_statut === 'EN_RELECTURE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
+                        {pv.pv_statut === 'EN_RELECTURE' ? 'En relecture' : 'Brouillon'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button asChild size="sm" className="shrink-0">
+                    <Link href={`/seances/${pv.seance_id}/pv`}>
+                      <PenLine className="h-3.5 w-3.5 mr-1.5" />
+                      {pv.pv_statut === 'EN_RELECTURE' ? 'Signer' : 'Voir'}
+                    </Link>
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-6">
+                <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Aucun PV en attente. Tout est a jour !
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-end mt-4 pt-3 border-t">
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   )
 }

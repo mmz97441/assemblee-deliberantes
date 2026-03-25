@@ -79,6 +79,9 @@ export default async function DashboardPage() {
       },
       recentVotes: [],
       recentPV: [],
+      allSeancesParticipation: [],
+      allVotes: [],
+      procurationDetails: [],
     }
 
     if (memberRecord) {
@@ -293,6 +296,154 @@ export default async function DashboardPage() {
           })
         }
       }
+
+      // ── Dialog detail: seances participation ──
+      if (seanceIds.length > 0) {
+        const { data: allConvoquees } = await supabase
+          .from('seances')
+          .select('id, titre, date_seance')
+          .in('id', seanceIds)
+          .gte('date_seance', yearStart)
+          .order('date_seance', { ascending: false })
+
+        const { data: presencesForDialog } = await supabase
+          .from('presences')
+          .select('seance_id, statut')
+          .eq('member_id', memberId)
+          .gte('created_at', yearStart)
+
+        const participatedIds = new Set(
+          (presencesForDialog || [])
+            .filter((p) => p.statut === 'PRESENT')
+            .map((p) => p.seance_id)
+        )
+
+        props.allSeancesParticipation = (allConvoquees || []).map((s) => ({
+          id: s.id,
+          titre: s.titre,
+          date_seance: s.date_seance,
+          participated: participatedIds.has(s.id),
+        }))
+      }
+
+      // ── Dialog detail: all votes ──
+      const { data: allBulletins } = await supabase
+        .from('bulletins_vote')
+        .select('id, choix, vote_id')
+        .eq('member_id', memberId)
+        .order('horodatage_serveur', { ascending: false })
+        .limit(20)
+
+      const { data: allSecretParticipations } = await supabase
+        .from('votes_participation')
+        .select('id, vote_id')
+        .eq('member_id', memberId)
+        .order('horodatage_serveur', { ascending: false })
+        .limit(20)
+
+      const allVoteIds = [
+        ...(allBulletins || []).map((b) => b.vote_id),
+        ...(allSecretParticipations || []).map((p) => p.vote_id),
+      ].filter((id, i, arr) => arr.indexOf(id) === i)
+
+      if (allVoteIds.length > 0) {
+        const { data: allVotesData } = await supabase
+          .from('votes')
+          .select('id, question, resultat, clos_at, type_vote')
+          .in('id', allVoteIds)
+
+        const allVotesMap = new Map((allVotesData || []).map((v) => [v.id, v]))
+        const bulletinMap = new Map((allBulletins || []).map((b) => [b.vote_id, b]))
+        const secretSet = new Set((allSecretParticipations || []).map((p) => p.vote_id))
+
+        const allVotesMerged = allVoteIds
+          .map((vid) => {
+            const vote = allVotesMap.get(vid)
+            if (!vote) return null
+            const bulletin = bulletinMap.get(vid)
+            const isSecret = !bulletin && secretSet.has(vid)
+            return {
+              id: bulletin?.id || vid,
+              question: vote.question,
+              resultat: vote.resultat,
+              clos_at: vote.clos_at,
+              type_vote: vote.type_vote,
+              choix: bulletin?.choix || null,
+              is_secret: isSecret,
+            }
+          })
+          .filter((v): v is NonNullable<typeof v> => v !== null)
+          .sort((a, b) => {
+            const da = a.clos_at ? new Date(a.clos_at).getTime() : 0
+            const db = b.clos_at ? new Date(b.clos_at).getTime() : 0
+            return db - da
+          })
+          .slice(0, 20)
+
+        props.allVotes = allVotesMerged
+      }
+
+      // ── Dialog detail: procurations ──
+      const { data: procGivenData } = await supabase
+        .from('procurations')
+        .select('id, mandataire_id, seance_id')
+        .eq('mandant_id', memberId)
+        .eq('valide', true)
+
+      const { data: procReceivedData } = await supabase
+        .from('procurations')
+        .select('id, mandant_id, seance_id')
+        .eq('mandataire_id', memberId)
+        .eq('valide', true)
+
+      const procMemberIds = [
+        ...(procGivenData || []).map((p) => p.mandataire_id),
+        ...(procReceivedData || []).map((p) => p.mandant_id),
+      ].filter((id, i, arr) => arr.indexOf(id) === i)
+
+      const procSeanceIds = [
+        ...(procGivenData || []).map((p) => p.seance_id),
+        ...(procReceivedData || []).map((p) => p.seance_id),
+      ].filter((id, i, arr) => arr.indexOf(id) === i)
+
+      let procMemberMap = new Map<string, string>()
+      let procSeanceMap = new Map<string, { titre: string; date: string }>()
+
+      if (procMemberIds.length > 0) {
+        const { data: procMembers } = await supabase
+          .from('members')
+          .select('id, nom, prenom')
+          .in('id', procMemberIds)
+        procMemberMap = new Map(
+          (procMembers || []).map((m) => [m.id, `${m.prenom} ${m.nom}`])
+        )
+      }
+      if (procSeanceIds.length > 0) {
+        const { data: procSeances } = await supabase
+          .from('seances')
+          .select('id, titre, date_seance')
+          .in('id', procSeanceIds)
+        procSeanceMap = new Map(
+          (procSeances || []).map((s) => [s.id, { titre: s.titre, date: s.date_seance }])
+        )
+      }
+
+      props.procurationDetails = [
+        ...(procGivenData || []).map((p) => ({
+          id: p.id,
+          seance_titre: procSeanceMap.get(p.seance_id)?.titre || 'Seance',
+          seance_date: procSeanceMap.get(p.seance_id)?.date || '',
+          autre_membre_nom: procMemberMap.get(p.mandataire_id) || 'Membre',
+          type: 'donnee' as const,
+        })),
+        ...(procReceivedData || []).map((p) => ({
+          id: p.id,
+          seance_titre: procSeanceMap.get(p.seance_id)?.titre || 'Seance',
+          seance_date: procSeanceMap.get(p.seance_id)?.date || '',
+          autre_membre_nom: procMemberMap.get(p.mandant_id) || 'Membre',
+          type: 'recue' as const,
+        })),
+      ]
     }
 
     return (
@@ -333,6 +484,9 @@ export default async function DashboardPage() {
       quorumPrediction: null,
       recentDelibs: [],
       seances: [],
+      allDelibs: [],
+      participationDetails: [],
+      pvEnAttenteDetails: [],
     }
 
     if (memberRecord) {
@@ -477,6 +631,9 @@ export default async function DashboardPage() {
           .filter((s) => ['CLOTUREE', 'ARCHIVEE'].includes(s.statut || ''))
           .map((s) => s.id)
 
+        const presencesBySeance = new Map<string, number>()
+        const convocBySeance = new Map<string, number>()
+
         if (closedSeanceIds.length > 0) {
           const { data: allPresences } = await supabase
             .from('presences')
@@ -487,9 +644,6 @@ export default async function DashboardPage() {
             .from('convocataires')
             .select('seance_id')
             .in('seance_id', closedSeanceIds)
-
-          const presencesBySeance = new Map<string, number>()
-          const convocBySeance = new Map<string, number>()
 
           for (const p of allPresences || []) {
             if (p.statut === 'PRESENT') {
@@ -553,6 +707,77 @@ export default async function DashboardPage() {
             totalConvocataires,
             quorumRequis: seanceDetail?.quorum_requis || quorumRequis,
           }
+        }
+
+        // ── Dialog detail: all deliberations (up to 20) ──
+        if (deliberations && deliberations.length > 0) {
+          const allDelibVoteIds = deliberations
+            .map((d) => d.vote_id)
+            .filter((id): id is string => id !== null)
+
+          let allDelibVotesMap = new Map<string, string | null>()
+          if (allDelibVoteIds.length > 0) {
+            const { data: allDelibVotes } = await supabase
+              .from('votes')
+              .select('id, resultat')
+              .in('id', allDelibVoteIds)
+            allDelibVotesMap = new Map((allDelibVotes || []).map((v) => [v.id, v.resultat]))
+          }
+
+          props.allDelibs = deliberations.map((d) => ({
+            id: d.id,
+            numero: d.numero,
+            titre: d.titre,
+            publie_at: d.publie_at,
+            resultat: d.vote_id ? (allDelibVotesMap.get(d.vote_id) || null) : null,
+          }))
+        }
+
+        // ── Dialog detail: participation per seance ──
+        if (closedSeanceIds.length > 0) {
+          const closedSeancesMap = new Map(
+            (seancesPresidees || [])
+              .filter((s) => closedSeanceIds.includes(s.id))
+              .map((s) => [s.id, { titre: s.titre, date: s.date_seance }])
+          )
+
+          props.participationDetails = closedSeanceIds
+            .map((sid) => {
+              const info = closedSeancesMap.get(sid)
+              if (!info) return null
+              return {
+                seance_id: sid,
+                seance_titre: info.titre,
+                seance_date: info.date,
+                presents: presencesBySeance.get(sid) || 0,
+                total: convocBySeance.get(sid) || 0,
+              }
+            })
+            .filter((d): d is NonNullable<typeof d> => d !== null && d.total > 0)
+            .sort((a, b) => new Date(b.seance_date).getTime() - new Date(a.seance_date).getTime())
+        }
+
+        // ── Dialog detail: PV en attente ──
+        if (pvData && pvData.length > 0) {
+          const pvSeanceIds = pvData.map((p) => p.seance_id)
+          const { data: pvSeances } = await supabase
+            .from('seances')
+            .select('id, titre, date_seance')
+            .in('id', pvSeanceIds)
+
+          const pvSeanceMap = new Map(
+            (pvSeances || []).map((s) => [s.id, { titre: s.titre, date: s.date_seance }])
+          )
+
+          props.pvEnAttenteDetails = pvData.map((pv) => {
+            const s = pvSeanceMap.get(pv.seance_id)
+            return {
+              seance_id: pv.seance_id,
+              seance_titre: s?.titre || 'Seance',
+              seance_date: s?.date || '',
+              pv_statut: pv.statut || 'BROUILLON',
+            }
+          })
         }
       }
     }
@@ -938,6 +1163,84 @@ export default async function DashboardPage() {
     }
   }
 
+  // ── Dialog detail data for gestionnaire ──
+  // Seances ce mois
+  const { data: seancesCeMoisData } = await supabase
+    .from('seances')
+    .select('id, titre, date_seance, statut, instance_config (nom)')
+    .gte('date_seance', monthStart)
+    .order('date_seance', { ascending: true })
+    .limit(50)
+
+  const seancesCeMoisDetails = (seancesCeMoisData || []).map((s) => ({
+    id: s.id,
+    titre: s.titre,
+    date_seance: s.date_seance,
+    statut: s.statut,
+    instance_nom: (s.instance_config as { nom: string } | null)?.nom || null,
+  }))
+
+  // Deliberations ce mois
+  const { data: delibsCeMoisData } = await supabase
+    .from('deliberations')
+    .select('id, titre, numero, publie_at, created_at')
+    .gte('created_at', monthStart)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  const deliberationsCeMoisDetails = (delibsCeMoisData || []).map((d) => ({
+    id: d.id,
+    titre: d.titre,
+    numero: d.numero,
+    statut: d.publie_at ? 'PUBLIEE' : null,
+    created_at: d.created_at || '',
+  }))
+
+  // PV en attente details
+  const { data: pvEnAttenteData } = await supabase
+    .from('pv')
+    .select('seance_id, statut')
+    .in('statut', ['BROUILLON', 'EN_RELECTURE'])
+
+  let pvEnAttenteDetailsGest: { seance_id: string; seance_titre: string; seance_date: string; pv_statut: string }[] = []
+  if (pvEnAttenteData && pvEnAttenteData.length > 0) {
+    const pvSeanceIds = pvEnAttenteData.map((p) => p.seance_id)
+    const { data: pvSeances } = await supabase
+      .from('seances')
+      .select('id, titre, date_seance')
+      .in('id', pvSeanceIds)
+
+    const pvSeanceMap = new Map(
+      (pvSeances || []).map((s) => [s.id, { titre: s.titre, date: s.date_seance }])
+    )
+
+    pvEnAttenteDetailsGest = pvEnAttenteData.map((pv) => {
+      const s = pvSeanceMap.get(pv.seance_id)
+      return {
+        seance_id: pv.seance_id,
+        seance_titre: s?.titre || 'Seance',
+        seance_date: s?.date || '',
+        pv_statut: pv.statut || 'BROUILLON',
+      }
+    })
+  }
+
+  // Membres actifs details
+  const { data: membresActifsData } = await supabase
+    .from('members')
+    .select('id, nom, prenom, role, statut')
+    .eq('statut', 'ACTIF')
+    .order('nom', { ascending: true })
+    .limit(100)
+
+  const membresActifsDetails = (membresActifsData || []).map((m) => ({
+    id: m.id,
+    nom: m.nom,
+    prenom: m.prenom,
+    role: m.role,
+    statut: m.statut,
+  }))
+
   return (
     <AuthenticatedLayout>
       <PageHeader
@@ -953,6 +1256,10 @@ export default async function DashboardPage() {
           tasks={tasks}
           upcomingSeances={upcomingSeances}
           stats={gestionnaireStats}
+          seancesCeMoisDetails={seancesCeMoisDetails}
+          deliberationsCeMoisDetails={deliberationsCeMoisDetails}
+          pvEnAttenteDetails={pvEnAttenteDetailsGest}
+          membresActifsDetails={membresActifsDetails}
         />
       </main>
     </AuthenticatedLayout>
