@@ -69,13 +69,17 @@ export default async function SeancesPage() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const seances = (seancesData || []).map((s: any) => ({
+  const allSeances = (seancesData || []).map((s: any) => ({
     ...s,
     _count_odj: Array.isArray(s.odj_points) ? s.odj_points.length : 0,
     _count_convocataires: Array.isArray(s.convocataires) ? s.convocataires.length : 0,
     odj_points: undefined,
     convocataires: undefined,
   }))
+
+  // Split active vs archived
+  const seances = allSeances.filter((s: { statut: string }) => s.statut !== 'ARCHIVEE')
+  const archivedSeances = allSeances.filter((s: { statut: string }) => s.statut === 'ARCHIVEE')
 
   // Fetch active instances for the filter and create form
   const { data: instancesData, error: instancesError } = await supabase
@@ -121,6 +125,7 @@ export default async function SeancesPage() {
       <main className="px-4 sm:px-8 py-6 page-enter">
         <SeancesList
           seances={seances}
+          archivedSeances={archivedSeances}
           instances={instances}
           members={members}
           canManage={canManage}

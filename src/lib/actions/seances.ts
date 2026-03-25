@@ -275,11 +275,11 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   'BROUILLON': ['CONVOQUEE'],
-  'CONVOQUEE': ['EN_COURS', 'BROUILLON'],
+  'CONVOQUEE': ['EN_COURS', 'BROUILLON', 'ARCHIVEE'],
   'EN_COURS': ['SUSPENDUE', 'CLOTUREE'],
   'SUSPENDUE': ['EN_COURS', 'CLOTUREE'],
   'CLOTUREE': ['ARCHIVEE'],
-  'ARCHIVEE': [],
+  'ARCHIVEE': ['CLOTUREE'],
 }
 
 export async function updateSeanceStatut(
@@ -358,9 +358,20 @@ export async function deleteSeance(id: string): Promise<ActionResult> {
       .eq('id', id)
       .single()
 
-    if (!seance) return { error: 'Seance introuvable' }
+    if (!seance) return { error: 'Séance introuvable' }
     if (seance.statut !== 'BROUILLON') {
-      return { error: 'Seule une seance en brouillon peut etre supprimee' }
+      return { error: 'Seules les séances en brouillon peuvent être supprimées. Utilisez l\'archivage pour les séances convoquées ou clôturées.' }
+    }
+
+    // Extra check: no convocations sent
+    const { count: sentCount } = await supabase
+      .from('convocataires')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', id)
+      .neq('statut_convocation', 'NON_ENVOYE')
+
+    if (sentCount && sentCount > 0) {
+      return { error: 'Des convocations ont déjà été envoyées — cette séance ne peut pas être supprimée. Archivez-la à la place.' }
     }
 
     // Delete convocataires first (FK)
@@ -376,6 +387,83 @@ export async function deleteSeance(id: string): Promise<ActionResult> {
     return { success: true }
   } catch (err) {
     console.error('deleteSeance error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Archivage / Désarchivage ────────────────────────────────────────────────
+
+export async function archiveSeance(id: string): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', id)
+      .single()
+
+    if (!seance) return { error: 'Séance introuvable' }
+
+    // BROUILLON should be deleted, not archived
+    if (seance.statut === 'BROUILLON') {
+      return { error: 'Un brouillon doit être supprimé, pas archivé.' }
+    }
+    if (seance.statut === 'ARCHIVEE') {
+      return { error: 'Cette séance est déjà archivée.' }
+    }
+    if (seance.statut === 'EN_COURS' || seance.statut === 'SUSPENDUE') {
+      return { error: 'Impossible d\'archiver une séance en cours ou suspendue. Clôturez-la d\'abord.' }
+    }
+
+    const { error } = await supabase
+      .from('seances')
+      .update({ statut: 'ARCHIVEE' })
+      .eq('id', id)
+
+    if (error) return { error: `Erreur d'archivage : ${error.message}` }
+
+    revalidatePath(ROUTES.SEANCES)
+    revalidatePath(`${ROUTES.SEANCES}/${id}`)
+    return { success: true }
+  } catch (err) {
+    console.error('archiveSeance error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+export async function unarchiveSeance(id: string): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', id)
+      .single()
+
+    if (!seance) return { error: 'Séance introuvable' }
+    if (seance.statut !== 'ARCHIVEE') {
+      return { error: 'Cette séance n\'est pas archivée.' }
+    }
+
+    // Restore to CLOTUREE (safe default for archived séances)
+    const { error } = await supabase
+      .from('seances')
+      .update({ statut: 'CLOTUREE' })
+      .eq('id', id)
+
+    if (error) return { error: `Erreur de désarchivage : ${error.message}` }
+
+    revalidatePath(ROUTES.SEANCES)
+    revalidatePath(`${ROUTES.SEANCES}/${id}`)
+    return { success: true }
+  } catch (err) {
+    console.error('unarchiveSeance error:', err)
     return { error: 'Erreur inattendue' }
   }
 }
