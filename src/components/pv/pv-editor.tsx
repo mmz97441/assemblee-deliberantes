@@ -1040,7 +1040,26 @@ function StepDiscussions({
     : null
   const ResultIcon = resultatConfig?.icon || Eye
   const isLastPoint = currentPointIndex === totalPoints - 1
-  const hasEmptyDiscussionOnVotedPoint = !isInfoPoint && point.vote && !point.discussion?.trim()
+  const hasEmptyDiscussion = !point.discussion?.trim()
+  const voteResultat = point.vote?.resultat || null
+
+  // Smart warning logic based on vote result
+  type DiscussionWarning = { level: 'amber' | 'red'; message: string } | null
+  const discussionWarning: DiscussionWarning = (() => {
+    if (!hasEmptyDiscussion) return null
+    if (isInfoPoint || !point.vote) return null
+    if (voteResultat === 'ADOPTE_UNANIMITE') return null
+    if (voteResultat === 'REJETE') {
+      return { level: 'red', message: 'Ce point a \u00e9t\u00e9 rejet\u00e9 \u2014 la discussion est fortement recommand\u00e9e' }
+    }
+    if (voteResultat === 'ADOPTE_VOIX_PREPONDERANTE') {
+      return { level: 'red', message: 'Vote d\u00e9partag\u00e9 par la voix du pr\u00e9sident \u2014 les arguments doivent figurer au PV' }
+    }
+    if (voteResultat === 'ADOPTE' && (point.vote?.nomsContre?.length || 0) > 0) {
+      return { level: 'amber', message: 'Ce point a eu des voix contre \u2014 la discussion est recommand\u00e9e pour le PV' }
+    }
+    return null
+  })()
 
   return (
     <div className="space-y-6">
@@ -1202,12 +1221,22 @@ function StepDiscussions({
               )
             )}
 
-            {/* Warning for empty discussion on voted points */}
-            {hasEmptyDiscussionOnVotedPoint && (
-              <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                La discussion est recommand\u00e9e pour les points soumis au vote
-              </p>
+            {/* Smart warning for empty discussion based on vote result */}
+            {discussionWarning && (
+              <div className={`mt-3 rounded-lg p-3 flex items-start gap-2 ${
+                discussionWarning.level === 'red'
+                  ? 'bg-red-50 border border-red-200'
+                  : 'bg-amber-50 border border-amber-200'
+              }`}>
+                <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${
+                  discussionWarning.level === 'red' ? 'text-red-500' : 'text-amber-500'
+                }`} />
+                <p className={`text-sm ${
+                  discussionWarning.level === 'red' ? 'text-red-700' : 'text-amber-700'
+                }`}>
+                  {discussionWarning.message}
+                </p>
+              </div>
             )}
           </div>
         </CardContent>
@@ -1408,6 +1437,13 @@ function StepRelecture({
           </button>
         )}
       </div>
+
+      {/* ── Verification recap card before signatures ────────────────── */}
+      <RelectureRecapCard
+        contenu={contenu}
+        onGoToDiscussions={() => onGoToStep(steps.indexOf('discussions'))}
+        onGoToSignatures={onNext}
+      />
 
       {/* Navigation */}
       <div className="flex items-center justify-center pt-4">
@@ -1722,6 +1758,123 @@ function StepCarence({
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
+    </div>
+  )
+}
+
+// ─── Relecture recap card (verification before signatures) ──────────────────
+
+const INFORMATION_TYPES_SET = new Set(INFORMATION_TYPES)
+
+function RelectureRecapCard({
+  contenu,
+  onGoToDiscussions,
+  onGoToSignatures,
+}: {
+  contenu: PVContenu
+  onGoToDiscussions: () => void
+  onGoToSignatures: () => void
+}) {
+  // Analyze each point
+  const pointAnalysis = contenu.points.map((point) => {
+    const hasDiscussion = !!point.discussion?.trim()
+    const isInfo = INFORMATION_TYPES_SET.has(point.type)
+    const voteResultat = point.vote?.resultat || null
+    const hasOpposition =
+      voteResultat === 'REJETE' ||
+      voteResultat === 'ADOPTE_VOIX_PREPONDERANTE' ||
+      (voteResultat === 'ADOPTE' && (point.vote?.nomsContre?.length || 0) > 0)
+
+    return {
+      titre: point.titre,
+      hasDiscussion,
+      isInfo,
+      voteResultat,
+      hasOpposition,
+      noVote: !point.vote && !isInfo,
+    }
+  })
+
+  const missingImportant = pointAnalysis.filter(
+    (p) => !p.hasDiscussion && p.hasOpposition
+  ).length
+
+  return (
+    <div className={`rounded-xl border-2 p-5 mt-6 ${
+      missingImportant > 0
+        ? 'border-amber-200 bg-amber-50'
+        : 'border-emerald-200 bg-emerald-50'
+    }`}>
+      <h3 className={`font-semibold flex items-center gap-2 mb-3 ${
+        missingImportant > 0 ? 'text-amber-800' : 'text-emerald-800'
+      }`}>
+        <AlertTriangle className={`h-5 w-5 ${
+          missingImportant > 0 ? 'text-amber-600' : 'text-emerald-600'
+        }`} />
+        V\u00e9rification avant signature
+      </h3>
+
+      <div className="space-y-2">
+        {pointAnalysis.map((pa, idx) => (
+          <div key={idx} className="flex items-center gap-2 text-sm flex-wrap">
+            {pa.hasDiscussion ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+            ) : pa.hasOpposition ? (
+              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground shrink-0" />
+            )}
+            <span className={pa.hasOpposition && !pa.hasDiscussion ? 'text-amber-900' : ''}>
+              {pa.titre}
+            </span>
+            {!pa.hasDiscussion && pa.hasOpposition && (
+              <Badge className="bg-amber-100 text-amber-700 text-[10px] border-0 shrink-0">
+                Discussion manquante
+              </Badge>
+            )}
+            {!pa.hasDiscussion && !pa.hasOpposition && !pa.isInfo && pa.voteResultat && (
+              <span className="text-xs text-muted-foreground">(adopt\u00e9 sans d\u00e9bat)</span>
+            )}
+            {!pa.hasDiscussion && pa.isInfo && (
+              <span className="text-xs text-muted-foreground">(information)</span>
+            )}
+            {!pa.hasDiscussion && pa.noVote && !pa.isInfo && (
+              <span className="text-xs text-muted-foreground">(pas de vote)</span>
+            )}
+            {pa.hasDiscussion && (
+              <Badge className="bg-emerald-100 text-emerald-700 text-[10px] border-0 shrink-0">
+                Compl\u00e8te
+              </Badge>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {missingImportant > 0 && (
+        <div className="mt-4 pt-3 border-t border-amber-200">
+          <p className="text-sm text-amber-700">
+            {missingImportant} discussion{missingImportant > 1 ? 's' : ''} manquante{missingImportant > 1 ? 's' : ''} sur des points avec opposition.
+          </p>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={onGoToDiscussions} className="min-h-[44px]">
+              Compl\u00e9ter les discussions
+            </Button>
+            <Button size="sm" onClick={onGoToSignatures} className="min-h-[44px]">
+              Continuer quand m\u00eame
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {missingImportant === 0 && (
+        <div className="mt-4 pt-3 border-t border-emerald-200">
+          <p className="text-sm text-emerald-700 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4" />
+            Toutes les discussions importantes sont compl\u00e8tes
+          </p>
+        </div>
+      )}
     </div>
   )
 }
