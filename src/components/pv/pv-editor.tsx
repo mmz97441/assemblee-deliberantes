@@ -47,12 +47,15 @@ import {
   ChevronRight,
   Save,
   ArrowLeft,
+  Mail,
+  Send,
 } from 'lucide-react'
 import {
   generatePVBrouillon,
   savePVContent,
   updatePVStatus,
   signPV,
+  sendPVSignatureNotifications,
   type PVContenu,
   type PVSignatureRecord,
 } from '@/lib/actions/pv'
@@ -99,13 +102,14 @@ const INFORMATION_TYPES = ['INFORMATION', 'QUESTION_DIVERSE']
 
 const AUTO_SAVE_INTERVAL_MS = 30_000
 
-type StepId = 'presences' | 'discussions' | 'observations' | 'relecture' | 'signatures' | 'carence'
+type StepId = 'presences' | 'discussions' | 'observations' | 'relecture' | 'finaliser' | 'signatures' | 'carence'
 
 const STEP_LABELS: Record<StepId, string> = {
   presences: 'Présences',
   discussions: 'Discussions',
   observations: 'Observations',
   relecture: 'Relecture',
+  finaliser: 'Finaliser',
   signatures: 'Signatures',
   carence: 'Carence',
 }
@@ -386,7 +390,7 @@ export function PVEditor({
 
   const steps: StepId[] = isCarence
     ? ['presences', 'carence', 'signatures']
-    : ['presences', 'discussions', 'observations', 'relecture', 'signatures']
+    : ['presences', 'discussions', 'observations', 'relecture', 'finaliser', 'signatures']
 
   const totalSteps = steps.length
   const totalPoints = contenu?.points.length || 0
@@ -779,6 +783,16 @@ export function PVEditor({
               onNext={() => nextStep()}
               onGoToStep={goToStep}
               steps={steps}
+            />
+          )}
+
+          {currentStepId === 'finaliser' && (
+            <StepFinaliser
+              contenu={contenu}
+              seanceId={seanceId}
+              pvId={pvId}
+              onNext={() => nextStep()}
+              onPrev={() => prevStep()}
             />
           )}
 
@@ -1460,7 +1474,201 @@ function StepRelecture({
   )
 }
 
-// ─── Step 5: Signatures ──────────────────────────────────────────────────────
+// ─── Step 5: Finaliser et envoyer ─────────────────────────────────────────────
+
+function StepFinaliser({
+  contenu,
+  seanceId,
+  pvId,
+  onNext,
+  onPrev,
+}: {
+  contenu: PVContenu
+  seanceId: string
+  pvId: string | null
+  onNext: () => void
+  onPrev: () => void
+}) {
+  const [isSending, setIsSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [emailsSentCount, setEmailsSentCount] = useState(0)
+
+  const presidentName = contenu.bureau.president
+  const secretaireName = contenu.bureau.secretaire
+
+  async function handleSendNotifications() {
+    if (!pvId) {
+      toast.error('Le procès-verbal doit être sauvegardé avant d\'envoyer les notifications')
+      return
+    }
+
+    setIsSending(true)
+    try {
+      const result = await sendPVSignatureNotifications(seanceId, pvId)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      setEmailsSentCount(result.emailsSent)
+      setSent(true)
+      toast.success(
+        result.emailsSent > 0
+          ? `Notifications envoyées (${result.emailsSent} email${result.emailsSent > 1 ? 's' : ''}) — le président et le secrétaire ont été prévenus`
+          : 'Le PV est passé en relecture (aucun email envoyé — vérifiez les adresses email des signataires)'
+      )
+      // Auto-advance after a brief delay so the user sees the confirmation
+      setTimeout(() => {
+        onNext()
+      }, 1500)
+    } catch {
+      toast.error('Erreur inattendue lors de l\'envoi des notifications')
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
+          <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Le procès-verbal est prêt</h2>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
+          Vous avez terminé la rédaction. Envoyez les notifications pour inviter
+          le président et le secrétaire à signer.
+        </p>
+      </div>
+
+      {/* Recap card */}
+      <Card className="border-emerald-200 bg-emerald-50/30">
+        <CardContent className="p-6">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            Récapitulatif
+          </h3>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div>
+                <span className="text-muted-foreground">Points traités :</span>{' '}
+                <span className="font-medium">{contenu.points.length} point{contenu.points.length > 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 text-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div>
+                <span className="text-muted-foreground">Votes enregistrés :</span>{' '}
+                <span className="font-medium">{contenu.points.filter(p => p.vote).length}</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Who will be notified */}
+      <Card>
+        <CardContent className="p-6">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
+            Signataires à notifier
+          </h3>
+          <div className="space-y-3">
+            {presidentName && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 shrink-0">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{presidentName}</p>
+                  <p className="text-xs text-muted-foreground">Président(e)</p>
+                </div>
+                {sent && (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                )}
+              </div>
+            )}
+            {secretaireName && (
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 shrink-0">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{secretaireName}</p>
+                  <p className="text-xs text-muted-foreground">Secrétaire de séance</p>
+                </div>
+                {sent && (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                )}
+              </div>
+            )}
+            {!presidentName && !secretaireName && (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                <AlertTriangle className="h-5 w-5 mx-auto mb-2 text-amber-500" />
+                Aucun signataire identifié. Vérifiez que le président et le secrétaire
+                sont bien désignés pour cette séance.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Send button or success */}
+      {sent ? (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-6 text-center">
+          <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
+          <h3 className="text-base font-semibold text-emerald-700 mb-1">
+            Notifications envoyées
+          </h3>
+          <p className="text-sm text-emerald-600">
+            {emailsSentCount} email{emailsSentCount > 1 ? 's' : ''} envoyé{emailsSentCount > 1 ? 's' : ''} — passage automatique aux signatures...
+          </p>
+        </div>
+      ) : (
+        <Button
+          size="lg"
+          className="w-full gap-2 min-h-[56px] text-base"
+          onClick={handleSendNotifications}
+          disabled={isSending || (!presidentName && !secretaireName)}
+        >
+          {isSending ? (
+            <><Loader2 className="h-5 w-5 animate-spin" /> Envoi en cours...</>
+          ) : (
+            <><Send className="h-5 w-5" /> Envoyer les notifications de signature</>
+          )}
+        </Button>
+      )}
+
+      {/* Skip option */}
+      {!sent && (
+        <p className="text-center text-xs text-muted-foreground">
+          <button
+            type="button"
+            className="underline hover:text-foreground transition-colors"
+            onClick={onNext}
+          >
+            Passer cette étape et aller directement aux signatures
+          </button>
+        </p>
+      )}
+
+      {/* Navigation */}
+      <Separator className="my-2" />
+      <div className="flex justify-between">
+        <Button variant="ghost" size="sm" onClick={onPrev} className="gap-1.5 min-h-[36px]">
+          <ChevronLeft className="h-4 w-4" />
+          Retour à la relecture
+        </Button>
+        {sent && (
+          <Button size="sm" onClick={onNext} className="gap-1.5 min-h-[36px]">
+            Signatures
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Step 6: Signatures ──────────────────────────────────────────────────────
 
 function StepSignatures({
   contenu,

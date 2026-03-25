@@ -4,6 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { createHash } from 'crypto'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
+import { resend, FROM_EMAIL, FROM_NAME } from '@/lib/email/resend'
+import {
+  generatePVSignatureSubject,
+  generatePVSignatureHTML,
+  generatePVSignedBySubject,
+  generatePVSignedByHTML,
+} from '@/lib/email/pv-signature-template'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -609,6 +616,12 @@ export async function signPV(
       if (updateError) return { error: `Erreur lors de la signature : ${updateError.message}` }
     }
 
+    // Send email notifications (non-blocking)
+    const signerName = `${member.prenom} ${member.nom}`
+    sendSignatureEventEmail(seanceId, sigRole, signerName, bothSigned).catch(() => {
+      // Silently ignore — email failures should not block the signature
+    })
+
     revalidatePath(`/seances/${seanceId}/pv`)
     return { success: true, bothSigned }
   } catch (err) {
@@ -726,5 +739,257 @@ export async function getPVWithComments(seanceId: string): Promise<
   } catch (err) {
     console.error('getPVWithComments error:', err)
     return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Send PV signature notifications ────────────────────────────────────────
+
+export async function sendPVSignatureNotifications(
+  seanceId: string,
+  pvId: string
+): Promise<{ success: true; emailsSent: number } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const role = (user.user_metadata?.role as string) || ''
+    if (!['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)) {
+      return { error: 'Permissions insuffisantes' }
+    }
+
+    // Load seance with president and secretary member data
+    const { data: seance, error: seanceError } = await supabase
+      .from('seances')
+      .select(`
+        id, titre, date_seance,
+        president_effectif_seance_id,
+        secretaire_seance_id
+      `)
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceError || !seance) return { error: 'Séance introuvable' }
+
+    // Load president member
+    let presidentMember: { id: string; prenom: string; nom: string; email: string } | null = null
+    if (seance.president_effectif_seance_id) {
+      const { data } = await supabase
+        .from('members')
+        .select('id, prenom, nom, email')
+        .eq('id', seance.president_effectif_seance_id)
+        .single()
+      presidentMember = data
+    }
+
+    // Load secretary member
+    let secretaireMember: { id: string; prenom: string; nom: string; email: string } | null = null
+    if (seance.secretaire_seance_id) {
+      const { data } = await supabase
+        .from('members')
+        .select('id, prenom, nom, email')
+        .eq('id', seance.secretaire_seance_id)
+        .single()
+      secretaireMember = data
+    }
+
+    // Get institution name
+    const { data: institution } = await supabase
+      .from('institution_config')
+      .select('nom_officiel')
+      .limit(1)
+      .maybeSingle()
+
+    const institutionName = institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const pvUrl = `${appUrl}/seances/${seanceId}/pv`
+
+    const dateObj = new Date(seance.date_seance)
+    const seanceDate = dateObj.toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+
+    const secretaireName = secretaireMember
+      ? `${secretaireMember.prenom} ${secretaireMember.nom}`
+      : undefined
+
+    let emailsSent = 0
+
+    // Send to president
+    if (presidentMember?.email) {
+      try {
+        await resend.emails.send({
+          from: `${FROM_NAME} <${FROM_EMAIL}>`,
+          to: [presidentMember.email],
+          subject: generatePVSignatureSubject(seanceDate),
+          html: generatePVSignatureHTML({
+            memberName: `${presidentMember.prenom} ${presidentMember.nom}`,
+            role: 'président',
+            seanceTitre: seance.titre,
+            seanceDate,
+            institutionName,
+            pvUrl,
+            secretaireName,
+          }),
+        })
+        emailsSent++
+      } catch (emailErr) {
+        console.error('Erreur envoi email président:', emailErr)
+      }
+    }
+
+    // Send to secretary (if different from sender)
+    if (secretaireMember?.email && secretaireMember.id !== presidentMember?.id) {
+      // Find current user's member id to avoid sending to the sender
+      const { data: currentMember } = await supabase
+        .from('members')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      // Only send if secretary is not the current user (who triggered the send)
+      if (!currentMember || currentMember.id !== secretaireMember.id) {
+        try {
+          await resend.emails.send({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: [secretaireMember.email],
+            subject: generatePVSignatureSubject(seanceDate),
+            html: generatePVSignatureHTML({
+              memberName: `${secretaireMember.prenom} ${secretaireMember.nom}`,
+              role: 'secrétaire',
+              seanceTitre: seance.titre,
+              seanceDate,
+              institutionName,
+              pvUrl,
+            }),
+          })
+          emailsSent++
+        } catch (emailErr) {
+          console.error('Erreur envoi email secrétaire:', emailErr)
+        }
+      }
+    }
+
+    // Update PV status to EN_RELECTURE to signal it's ready for signatures
+    await supabase
+      .from('pv')
+      .update({ statut: 'EN_RELECTURE' as const })
+      .eq('id', pvId)
+
+    revalidatePath(`/seances/${seanceId}/pv`)
+    return { success: true, emailsSent }
+  } catch (err) {
+    console.error('sendPVSignatureNotifications error:', err)
+    return { error: 'Erreur inattendue lors de l\'envoi des notifications' }
+  }
+}
+
+// ─── Helper: send post-signature notification emails ────────────────────────
+
+async function sendSignatureEventEmail(
+  seanceId: string,
+  signerRole: 'president' | 'secretaire',
+  signerName: string,
+  bothSigned: boolean
+): Promise<void> {
+  try {
+    const supabase = await createServerSupabaseClient()
+
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('id, titre, date_seance, president_effectif_seance_id, secretaire_seance_id')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seance) return
+
+    const { data: institution } = await supabase
+      .from('institution_config')
+      .select('nom_officiel')
+      .limit(1)
+      .maybeSingle()
+
+    const institutionName = institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const pvUrl = `${appUrl}/seances/${seanceId}/pv`
+
+    const dateObj = new Date(seance.date_seance)
+    const seanceDate = dateObj.toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+
+    const signerRoleLabel = signerRole === 'president' ? 'président' : 'secrétaire'
+
+    // Determine the OTHER party to notify
+    const recipientMemberId = signerRole === 'president'
+      ? seance.secretaire_seance_id
+      : seance.president_effectif_seance_id
+
+    if (!recipientMemberId) return
+
+    const { data: recipientMember } = await supabase
+      .from('members')
+      .select('id, prenom, nom, email')
+      .eq('id', recipientMemberId)
+      .single()
+
+    if (!recipientMember?.email) return
+
+    const recipientName = `${recipientMember.prenom} ${recipientMember.nom}`
+
+    const emailData = {
+      recipientName,
+      signerRole: signerRoleLabel as 'président' | 'secrétaire',
+      signerName,
+      seanceTitre: seance.titre,
+      seanceDate,
+      institutionName,
+      pvUrl,
+      allSigned: bothSigned,
+    }
+
+    await resend.emails.send({
+      from: `${FROM_NAME} <${FROM_EMAIL}>`,
+      to: [recipientMember.email],
+      subject: generatePVSignedBySubject(emailData),
+      html: generatePVSignedByHTML(emailData),
+    })
+
+    // If both signed, also notify the signer that it's complete
+    if (bothSigned) {
+      const signerMemberId = signerRole === 'president'
+        ? seance.president_effectif_seance_id
+        : seance.secretaire_seance_id
+
+      if (signerMemberId) {
+        const { data: signerMemberData } = await supabase
+          .from('members')
+          .select('id, prenom, nom, email')
+          .eq('id', signerMemberId)
+          .single()
+
+        if (signerMemberData?.email) {
+          const signerEmailData = {
+            recipientName: `${signerMemberData.prenom} ${signerMemberData.nom}`,
+            signerRole: signerRoleLabel as 'président' | 'secrétaire',
+            signerName,
+            seanceTitre: seance.titre,
+            seanceDate,
+            institutionName,
+            pvUrl,
+            allSigned: true,
+          }
+
+          await resend.emails.send({
+            from: `${FROM_NAME} <${FROM_EMAIL}>`,
+            to: [signerMemberData.email],
+            subject: generatePVSignedBySubject(signerEmailData),
+            html: generatePVSignedByHTML(signerEmailData),
+          })
+        }
+      }
+    }
+  } catch (emailErr) {
+    // Non-blocking: log but don't fail the signature
+    console.error('sendSignatureEventEmail error:', emailErr)
   }
 }
