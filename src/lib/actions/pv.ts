@@ -47,6 +47,7 @@ export interface PVContenu {
   bureau: {
     president: string | null
     secretaire: string | null
+    mentionRemplacement?: string
   }
   points: {
     position: number
@@ -263,6 +264,28 @@ export async function generatePVBrouillon(seanceId: string): Promise<
       }
     })
 
+    // Vérifier si le président de séance diffère du président du bureau
+    let mentionRemplacement = ''
+    if (seance.president_effectif && seance.instance_id) {
+      const { data: bureauPresident } = await supabase
+        .from('instance_members')
+        .select('member_id, member:members (id, prenom, nom)')
+        .eq('instance_config_id', seance.instance_id)
+        .eq('bureau_role', 'president')
+        .eq('actif', true)
+        .maybeSingle()
+
+      if (bureauPresident && bureauPresident.member_id !== seance.president_effectif.id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const bureauMember = bureauPresident.member as any
+        if (bureauMember) {
+          const bureauPresidentNom = `${bureauMember.prenom} ${bureauMember.nom}`
+          const actualPresidentNom = `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
+          mentionRemplacement = `En l'absence de ${bureauPresidentNom}, ${actualPresidentNom} préside la séance conformément à l'article L2122-17 du CGCT.`
+        }
+      }
+    }
+
     // Build PV content structure
     const contenu: PVContenu = {
       entete: {
@@ -296,6 +319,7 @@ export async function generatePVBrouillon(seanceId: string): Promise<
         secretaire: seance.secretaire_seance
           ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
           : null,
+        mentionRemplacement: mentionRemplacement || undefined,
       },
       points,
       cloture: {

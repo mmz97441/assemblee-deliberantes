@@ -319,6 +319,11 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
           <Text style={styles.infoLabel}>Secr\u00e9taire :</Text>
           <Text style={styles.infoValue}>{bureau.secretaire || 'Non d\u00e9sign\u00e9(e)'}</Text>
         </View>
+        {bureau.mentionRemplacement && (
+          <Text style={{ fontSize: 9, fontStyle: 'italic', marginTop: 4 }}>
+            {bureau.mentionRemplacement}
+          </Text>
+        )}
 
         <View style={styles.separator} />
 

@@ -433,27 +433,33 @@ export type Database = {
       instance_members: {
         Row: {
           actif: boolean | null
+          bureau_role: string | null
           created_at: string | null
           fonction_dans_instance: string | null
           id: string
           instance_config_id: string
           member_id: string
+          ordre_succession: number | null
         }
         Insert: {
           actif?: boolean | null
+          bureau_role?: string | null
           created_at?: string | null
           fonction_dans_instance?: string | null
           id?: string
           instance_config_id: string
           member_id: string
+          ordre_succession?: number | null
         }
         Update: {
           actif?: boolean | null
+          bureau_role?: string | null
           created_at?: string | null
           fonction_dans_instance?: string | null
           id?: string
           instance_config_id?: string
           member_id?: string
+          ordre_succession?: number | null
         }
         Relationships: [
           {

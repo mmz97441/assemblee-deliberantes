@@ -158,8 +158,8 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
     const lieu = (formData.get('lieu') as string)?.trim() || null
     const publique = formData.get('publique') !== 'false'
     const notes = (formData.get('notes') as string)?.trim() || null
-    const presidentId = (formData.get('president_effectif_seance_id') as string) || null
-    const secretaireId = (formData.get('secretaire_seance_id') as string) || null
+    let presidentId = (formData.get('president_effectif_seance_id') as string) || null
+    let secretaireId = (formData.get('secretaire_seance_id') as string) || null
 
     // Fetch instance config for defaults
     const { data: instanceConfig } = await supabase
@@ -167,6 +167,31 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
       .select('voix_preponderante, mode_arrivee_tardive, seances_publiques_defaut')
       .eq('id', instanceId)
       .single()
+
+    // Auto-fill président et secrétaire depuis le bureau si non spécifiés
+    if (!presidentId || !secretaireId) {
+      const { data: bureauMembers } = await supabase
+        .from('instance_members')
+        .select('member_id, bureau_role')
+        .eq('instance_config_id', instanceId)
+        .not('bureau_role', 'is', null)
+        .eq('actif', true)
+
+      if (bureauMembers) {
+        if (!presidentId) {
+          const bureauPresident = bureauMembers.find(m => m.bureau_role === 'president')
+          if (bureauPresident) {
+            presidentId = bureauPresident.member_id
+          }
+        }
+        if (!secretaireId) {
+          const bureauSecretaire = bureauMembers.find(m => m.bureau_role === 'secretaire')
+          if (bureauSecretaire) {
+            secretaireId = bureauSecretaire.member_id
+          }
+        }
+      }
+    }
 
     const payload = {
       titre,

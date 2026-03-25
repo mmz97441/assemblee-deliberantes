@@ -2205,6 +2205,11 @@ function ReadOnlyDocument({
             <>, {contenu.bureau.secretaire} assure le secrétariat de séance</>
           )}.
         </p>
+        {contenu.bureau.mentionRemplacement && (
+          <p className="italic text-muted-foreground mt-1">
+            {contenu.bureau.mentionRemplacement}
+          </p>
+        )}
       </div>
 
       <Separator className="my-8" />
