@@ -20,12 +20,12 @@ export async function setRoleOverride(role: string | null) {
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.getUser()
   if (error || !data?.user) {
-    throw new Error('Non authentifie')
+    throw new Error('Non authentifié')
   }
 
   const realRole = data.user.user_metadata?.role as string
   if (realRole !== 'super_admin') {
-    throw new Error('Acces refuse : super_admin uniquement')
+    throw new Error('Accès refusé : super_admin uniquement')
   }
 
   const cookieStore = await cookies()

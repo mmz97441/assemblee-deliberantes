@@ -98,9 +98,9 @@ export async function registerAction(formData: FormData) {
 
   if (createError) {
     if (createError.message.includes('already been registered')) {
-      return { error: 'Cet email est deja utilise' }
+      return { error: 'Cet email est d\u00e9j\u00e0 utilis\u00e9' }
     }
-    return { error: `Erreur creation compte: ${createError.message}` }
+    return { error: `Erreur cr\u00e9ation compte : ${createError.message}` }
   }
 
   // Creer l'entree dans la table members
@@ -115,13 +115,13 @@ export async function registerAction(formData: FormData) {
     })
 
     if (insertError) {
-      return { error: `Erreur creation membre: ${insertError.message}` }
+      return { error: `Erreur cr\u00e9ation membre : ${insertError.message}` }
     }
   }
 
   // Ne pas auto-connecter ici — les cookies serveur ne se propagent pas
   // correctement vers le client via router.push. Rediriger vers login.
-  return { success: true, message: 'Compte cree avec succes. Connectez-vous.' }
+  return { success: true, message: 'Compte cr\u00e9\u00e9 avec succ\u00e8s. Connectez-vous.' }
 }
 
 // ============================================
@@ -152,7 +152,7 @@ export async function sendInvitationAction(formData: FormData) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) return { error: 'Non authentifie' }
+  if (!user) return { error: 'Non authentifi\u00e9' }
 
   const currentRole = user.user_metadata?.role as UserRole
   if (currentRole !== 'super_admin' && currentRole !== 'gestionnaire') {
@@ -173,7 +173,7 @@ export async function sendInvitationAction(formData: FormData) {
 
   if (error) {
     if (error.message.includes('already been registered')) {
-      return { error: 'Cet email est deja utilise' }
+      return { error: 'Cet email est d\u00e9j\u00e0 utilis\u00e9' }
     }
     return { error: `Erreur d'envoi: ${error.message}` }
   }

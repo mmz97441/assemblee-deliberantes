@@ -173,6 +173,18 @@ export async function markPresenceManual(
       return { error: 'Permissions insuffisantes' }
     }
 
+    // Verify the member is a convocataire of this séance (CGCT compliance)
+    const { data: convocataire } = await supabase
+      .from('convocataires')
+      .select('id')
+      .eq('seance_id', seanceId)
+      .eq('member_id', memberId)
+      .maybeSingle()
+
+    if (!convocataire) {
+      return { error: 'Ce membre n\'est pas convoqué pour cette séance. Ajoutez-le d\'abord comme convocataire.' }
+    }
+
     const { error } = await supabase
       .from('presences')
       .upsert(

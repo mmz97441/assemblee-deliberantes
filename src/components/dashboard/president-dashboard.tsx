@@ -303,12 +303,12 @@ export function PresidentDashboard({
               </div>
             </button>
 
-            {/* Deliberations publiees */}
+            {/* Délibérations publiées */}
             <button
               type="button"
               onClick={() => setDetailDialog('deliberations')}
               className="block w-full text-left group"
-              title="Voir le detail des deliberations publiees"
+              title="Voir le détail des délibérations publiées"
             >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
                 <div className="flex items-center justify-between mb-3">
@@ -320,7 +320,7 @@ export function PresidentDashboard({
                 <p className="text-2xl font-bold text-foreground">
                   {stats.deliberationsPubliees}
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Deliberations publiees</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Délibérations publiées</p>
               </div>
             </button>
 
@@ -418,7 +418,7 @@ export function PresidentDashboard({
           {recentDelibs.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-muted p-6 text-center">
               <p className="text-sm text-muted-foreground">
-                Aucune deliberation publiee pour le moment.
+                Aucune délibération publiée pour le moment.
               </p>
             </div>
           ) : (
@@ -634,13 +634,13 @@ export function PresidentDashboard({
         </DialogContent>
       </Dialog>
 
-      {/* Deliberations publiees dialog */}
+      {/* Délibérations publiées dialog */}
       <Dialog open={detailDialog === 'deliberations'} onOpenChange={(open) => !open && setDetailDialog(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-emerald-600" />
-              Deliberations publiees ({currentYear})
+              Délibérations publiées ({currentYear})
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-2">
@@ -674,7 +674,7 @@ export function PresidentDashboard({
             ) : (
               <div className="text-center py-6">
                 <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune deliberation publiee cette annee.</p>
+                <p className="text-sm text-muted-foreground">Aucune délibération publiée cette année.</p>
               </div>
             )}
           </div>

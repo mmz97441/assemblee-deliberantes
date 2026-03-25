@@ -261,7 +261,7 @@ export function DeliberationsList({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`Deliberation publiee sous le numero ${result.numero}`)
+        toast.success(`Délibération publiée sous le numéro ${result.numero}`)
         router.refresh()
       }
       setPublishDialogOpen(false)
@@ -379,11 +379,11 @@ export function DeliberationsList({
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
             <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-1">Aucune deliberation</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-1">Aucune délibération</h3>
           <p className="text-sm text-muted-foreground max-w-md mb-4">
             {deliberations.length === 0
-              ? "Les deliberations sont creees automatiquement apres la cloture d'une seance avec des votes adoptes."
-              : "Aucune deliberation ne correspond aux filtres selectionnes. Essayez de modifier vos criteres de recherche."}
+              ? "Les délibérations sont créées automatiquement après la clôture d'une séance avec des votes adoptés."
+              : "Aucune délibération ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
           </p>
           {deliberations.length > 0 && (
             <Button
@@ -440,11 +440,11 @@ export function DeliberationsList({
       <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
         <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Publier cette deliberation ?</AlertDialogTitle>
+            <AlertDialogTitle>Publier cette délibération ?</AlertDialogTitle>
             <AlertDialogDescription>
-              La deliberation &laquo;&nbsp;{publishingDelib?.titre}&nbsp;&raquo; sera publiee et un numero officiel lui sera attribue automatiquement.
+              La deliberation &laquo;&nbsp;{publishingDelib?.titre}&nbsp;&raquo; sera publiée et un numéro officiel lui sera attribué automatiquement.
               <br /><br />
-              <strong>Cette action est irreversible</strong> : le numero ne pourra pas etre change une fois attribue.
+              <strong>Cette action est irréversible</strong> : le numéro ne pourra pas être changé une fois attribué.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -453,7 +453,7 @@ export function DeliberationsList({
               onClick={handlePublish}
               disabled={isPending}
             >
-              {isPending ? 'Publication...' : 'Publier et attribuer le numero'}
+              {isPending ? 'Publication...' : 'Publier et attribuer le numéro'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -463,10 +463,10 @@ export function DeliberationsList({
       <AlertDialog open={annulDialogOpen} onOpenChange={setAnnulDialogOpen}>
         <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Annuler cette deliberation ?</AlertDialogTitle>
+            <AlertDialogTitle>Annuler cette délibération ?</AlertDialogTitle>
             <AlertDialogDescription>
-              La deliberation n&deg;&nbsp;{annulingDelib?.numero || 'brouillon'} &laquo;&nbsp;{annulingDelib?.titre}&nbsp;&raquo; sera marquee comme annulee.
-              Le numero ne sera pas reutilise.
+              La deliberation n&deg;&nbsp;{annulingDelib?.numero || 'brouillon'} &laquo;&nbsp;{annulingDelib?.titre}&nbsp;&raquo; sera marquée comme annulée.
+              Le numéro ne sera pas réutilisé.
               <br /><br />
               <strong>Motif d&apos;annulation (obligatoire)&nbsp;:</strong>
             </AlertDialogDescription>
@@ -641,7 +641,7 @@ function DeliberationCard({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Attribuer un numero officiel et publier</p>
+                    <p>Attribuer un numéro officiel et publier</p>
                   </TooltipContent>
                 </Tooltip>
               )}

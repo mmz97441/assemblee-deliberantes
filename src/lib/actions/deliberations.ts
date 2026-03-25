@@ -103,7 +103,7 @@ async function generateDeliberationNumber(
     const { count, error: countError } = await countQuery
 
     if (countError) {
-      return { error: `Erreur comptage des deliberations : ${countError.message}` }
+      return { error: `Erreur comptage des délibérations : ${countError.message}` }
     }
 
     const nextNumber = (count ?? 0) + numeroDepart
@@ -125,7 +125,7 @@ async function generateDeliberationNumber(
     return { numero }
   } catch (err) {
     console.error('generateDeliberationNumber error:', err)
-    return { error: 'Erreur inattendue lors de la generation du numero' }
+    return { error: 'Erreur inattendue lors de la génération du numéro' }
   }
 }
 
@@ -142,7 +142,7 @@ export async function createDeliberationFromVote(
 ): Promise<{ success: true; deliberationId: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -158,12 +158,12 @@ export async function createDeliberationFromVote(
     if (voteError || !vote) return { error: 'Vote introuvable' }
 
     if (vote.statut !== 'CLOS') {
-      return { error: 'Le vote doit etre clos avant de creer une deliberation' }
+      return { error: 'Le vote doit être clos avant de créer une délibération' }
     }
 
     const adoptedResults = ['ADOPTE', 'ADOPTE_UNANIMITE', 'ADOPTE_VOIX_PREPONDERANTE']
     if (!adoptedResults.includes(vote.resultat || '')) {
-      return { error: `Le vote n'a pas ete adopte (resultat : ${vote.resultat || 'inconnu'}). Seuls les votes adoptes peuvent generer une deliberation.` }
+      return { error: `Le vote n\'a pas été adopté (résultat : ${vote.resultat || 'inconnu'}). Seuls les votes adoptés peuvent générer une délibération.` }
     }
 
     // Check no deliberation already exists for this vote
@@ -174,7 +174,7 @@ export async function createDeliberationFromVote(
       .maybeSingle()
 
     if (existing) {
-      return { error: 'Une deliberation existe deja pour ce vote' }
+      return { error: 'Une délibération existe déjà pour ce vote' }
     }
 
     // Fetch the ODJ point data
@@ -239,7 +239,7 @@ export async function createDeliberationFromVote(
       .single()
 
     if (insertError) {
-      return { error: `Erreur creation deliberation : ${insertError.message}` }
+      return { error: `Erreur création délibération : ${insertError.message}` }
     }
 
     revalidatePath(`/seances/${seanceId}`)
@@ -247,7 +247,7 @@ export async function createDeliberationFromVote(
     return { success: true, deliberationId: newDelib.id }
   } catch (err) {
     console.error('createDeliberationFromVote error:', err)
-    return { error: 'Erreur inattendue lors de la creation de la deliberation' }
+    return { error: 'Erreur inattendue lors de la création de la délibération' }
   }
 }
 
@@ -263,7 +263,7 @@ export async function updateDeliberationContent(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -276,10 +276,10 @@ export async function updateDeliberationContent(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.publie_at) {
-      return { error: 'Impossible de modifier une deliberation deja publiee' }
+      return { error: 'Impossible de modifier une délibération déjà publiée' }
     }
 
     const { error: updateError } = await supabase
@@ -291,7 +291,7 @@ export async function updateDeliberationContent(
       .eq('id', deliberationId)
 
     if (updateError) {
-      return { error: `Erreur mise a jour : ${updateError.message}` }
+      return { error: `Erreur mise à jour : ${updateError.message}` }
     }
 
     revalidatePath(`/seances/${delib.seance_id}`)
@@ -299,7 +299,7 @@ export async function updateDeliberationContent(
     return { success: true }
   } catch (err) {
     console.error('updateDeliberationContent error:', err)
-    return { error: 'Erreur inattendue lors de la mise a jour' }
+    return { error: 'Erreur inattendue lors de la mise à jour' }
   }
 }
 
@@ -314,7 +314,7 @@ export async function publishDeliberation(
 ): Promise<{ success: true; numero: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -327,14 +327,14 @@ export async function publishDeliberation(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.publie_at) {
-      return { error: 'Cette deliberation est deja publiee' }
+      return { error: 'Cette délibération est déjà publiée' }
     }
 
     if (delib.annulee) {
-      return { error: 'Impossible de publier une deliberation annulee' }
+      return { error: 'Impossible de publier une délibération annulée' }
     }
 
     // Generate the official number
@@ -376,10 +376,10 @@ export async function annulDeliberation(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin'])) {
-      return { error: 'Seul un super administrateur peut annuler une deliberation' }
+      return { error: 'Seul un super administrateur peut annuler une délibération' }
     }
 
     if (!motif.trim()) {
@@ -392,10 +392,10 @@ export async function annulDeliberation(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.annulee) {
-      return { error: 'Cette deliberation est deja annulee' }
+      return { error: 'Cette délibération est déjà annulée' }
     }
 
     const { error: updateError } = await supabase
@@ -427,7 +427,7 @@ export async function markAffichage(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -439,7 +439,7 @@ export async function markAffichage(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.affiche_at) {
       return { error: 'La date d\'affichage est deja enregistree' }
@@ -473,7 +473,7 @@ export async function markTransmissionPrefecture(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -485,7 +485,7 @@ export async function markTransmissionPrefecture(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.transmis_prefecture_at) {
       return { error: 'La date de transmission en prefecture est deja enregistree' }
@@ -519,7 +519,7 @@ export async function getDeliberations(filters?: DeliberationFilters): Promise<
 > {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     let query = supabase
       .from('deliberations')
@@ -561,7 +561,7 @@ export async function getDeliberations(filters?: DeliberationFilters): Promise<
 
     const { data, error } = await query
 
-    if (error) return { error: `Erreur chargement deliberations : ${error.message}` }
+    if (error) return { error: `Erreur chargement délibérations : ${error.message}` }
 
     return { data: (data || []) as unknown as Record<string, unknown>[] }
   } catch (err) {
@@ -577,7 +577,7 @@ export async function getDeliberation(id: string): Promise<
 > {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const { data, error } = await supabase
       .from('deliberations')
@@ -593,7 +593,7 @@ export async function getDeliberation(id: string): Promise<
       .eq('id', id)
       .single()
 
-    if (error) return { error: `Deliberation introuvable : ${error.message}` }
+    if (error) return { error: `Délibération introuvable : ${error.message}` }
 
     return { data: data as unknown as Record<string, unknown> }
   } catch (err) {
@@ -613,7 +613,7 @@ export async function deleteDeliberationDraft(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -625,10 +625,10 @@ export async function deleteDeliberationDraft(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.publie_at) {
-      return { error: 'Impossible de supprimer une deliberation publiee. Utilisez l\'annulation.' }
+      return { error: 'Impossible de supprimer une délibération publiée. Utilisez l\'annulation.' }
     }
 
     const { error: deleteError } = await supabase
@@ -657,7 +657,7 @@ export async function updateDeliberationTitle(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -673,10 +673,10 @@ export async function updateDeliberationTitle(
       .eq('id', deliberationId)
       .single()
 
-    if (fetchError || !delib) return { error: 'Deliberation introuvable' }
+    if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.publie_at) {
-      return { error: 'Impossible de modifier le titre d\'une deliberation publiee' }
+      return { error: 'Impossible de modifier le titre d\'une délibération publiée' }
     }
 
     const { error: updateError } = await supabase
@@ -688,7 +688,7 @@ export async function updateDeliberationTitle(
       .eq('id', deliberationId)
 
     if (updateError) {
-      return { error: `Erreur mise a jour du titre : ${updateError.message}` }
+      return { error: `Erreur mise à jour du titre : ${updateError.message}` }
     }
 
     revalidatePath(`/seances/${delib.seance_id}`)
@@ -712,7 +712,7 @@ export async function autoCreateDeliberationsForSeance(
 ): Promise<{ success: true; count: number } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
       return { error: 'Permissions insuffisantes' }
@@ -725,7 +725,7 @@ export async function autoCreateDeliberationsForSeance(
       .eq('id', seanceId)
       .single()
 
-    if (seanceError || !seance) return { error: 'Seance introuvable' }
+    if (seanceError || !seance) return { error: 'Séance introuvable' }
 
     // Fetch all adopted, closed votes for this seance
     const { data: votes, error: votesError } = await supabase
@@ -772,6 +772,6 @@ export async function autoCreateDeliberationsForSeance(
     return { success: true, count: createdCount }
   } catch (err) {
     console.error('autoCreateDeliberationsForSeance error:', err)
-    return { error: 'Erreur inattendue lors de la creation automatique des deliberations' }
+    return { error: 'Erreur inattendue lors de la création automatique des délibérations' }
   }
 }

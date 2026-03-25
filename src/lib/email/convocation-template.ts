@@ -23,19 +23,19 @@ interface ConvocationEmailData {
 
 function formatMode(mode: string): string {
   switch (mode) {
-    case 'PRESENTIEL': return 'en presentiel'
-    case 'HYBRIDE': return 'en hybride (presentiel + visioconference)'
-    case 'VISIO': return 'en visioconference'
+    case 'PRESENTIEL': return 'en présentiel'
+    case 'HYBRIDE': return 'en hybride (présentiel + visioconférence)'
+    case 'VISIO': return 'en visioconférence'
     default: return ''
   }
 }
 
 function formatType(type: string): string {
   switch (type) {
-    case 'DELIBERATION': return 'Deliberation'
+    case 'DELIBERATION': return 'Délibération'
     case 'INFORMATION': return 'Information'
     case 'QUESTION_DIVERSE': return 'Question diverse'
-    case 'ELECTION': return 'Election'
+    case 'ELECTION': return 'Élection'
     case 'APPROBATION_PV': return 'Approbation PV'
     default: return type
   }
@@ -67,7 +67,7 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
         </tbody>
       </table>
     `
-    : '<p style="color: #64748b; font-style: italic;">L\'ordre du jour sera communique ulterieurement.</p>'
+    : '<p style="color: #64748b; font-style: italic;">L\'ordre du jour sera communiqué ultérieurement.</p>'
 
   return `
 <!DOCTYPE html>
@@ -151,7 +151,7 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
             <td style="text-align: center;">
               <a href="${data.confirmationUrl}"
                  style="display: inline-block; padding: 12px 32px; background: #1e3a5f; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                Confirmer ma presence
+                Confirmer ma présence
               </a>
             </td>
           </tr>
@@ -163,12 +163,12 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
           <tr>
             <td style="text-align: center; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
               <p style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #1e293b;">
-                Votre QR code d'emargement
+                Votre QR code d'émargement
               </p>
               <img src="${data.qrCodeUrl}" alt="QR Code" width="200" height="200" style="display: block; margin: 0 auto;" />
               <p style="margin: 12px 0 0; font-size: 12px; color: #64748b;">
-                Presentez ce QR code a l'entree de la salle pour confirmer votre presence.
-                <br/>Ce code est personnel et a usage unique.
+                Présentez ce QR code à l'entrée de la salle pour confirmer votre présence.
+                <br/>Ce code est personnel et à usage unique.
               </p>
             </td>
           </tr>
@@ -176,8 +176,8 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
         ` : ''}
 
         <p style="margin: 16px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
-          Si vous ne pouvez pas assister a cette seance, veuillez en informer le secretariat
-          dans les meilleurs delais.
+          Si vous ne pouvez pas assister à cette séance, veuillez en informer le secrétariat
+          dans les meilleurs délais.
         </p>
       </td>
     </tr>
@@ -186,10 +186,10 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
     <tr>
       <td style="padding: 20px 32px; background: #f1f5f9; border-top: 1px solid #e2e8f0;">
         <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center;">
-          ${escapeHtml(data.institutionNom)} — Systeme de gestion des seances deliberantes
+          ${escapeHtml(data.institutionNom)} — Système de gestion des séances délibérantes
         </p>
         <p style="margin: 4px 0 0; font-size: 11px; color: #cbd5e1; text-align: center;">
-          Cet email a ete envoye automatiquement. Merci de ne pas y repondre.
+          Cet email a été envoyé automatiquement. Merci de ne pas y répondre.
         </p>
       </td>
     </tr>

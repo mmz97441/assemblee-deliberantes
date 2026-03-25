@@ -342,7 +342,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`Deliberation publiee sous le numero ${result.numero}`)
+        toast.success(`Délibération publiée sous le numéro ${result.numero}`)
         router.refresh()
       }
       setPublishDialogOpen(false)
@@ -779,11 +779,11 @@ export function DeliberationDetail({
       <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
         <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Publier cette deliberation ?</AlertDialogTitle>
+            <AlertDialogTitle>Publier cette délibération ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Un numero officiel sera attribue automatiquement. Le contenu actuel sera enregistre avant publication.
+              Un numéro officiel sera attribué automatiquement. Le contenu actuel sera enregistré avant publication.
               <br /><br />
-              <strong>Cette action est irreversible</strong> : le numero ne pourra pas etre change une fois attribue.
+              <strong>Cette action est irréversible</strong> : le numéro ne pourra pas être changé une fois attribué.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -822,10 +822,10 @@ export function DeliberationDetail({
       <AlertDialog open={annulDialogOpen} onOpenChange={setAnnulDialogOpen}>
         <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Annuler cette deliberation ?</AlertDialogTitle>
+            <AlertDialogTitle>Annuler cette délibération ?</AlertDialogTitle>
             <AlertDialogDescription>
-              La deliberation n&deg;&nbsp;{delib.numero} &laquo;&nbsp;{delib.titre}&nbsp;&raquo; sera marquee comme annulee.
-              Le numero ne sera pas reutilise.
+              La délibération n&deg;&nbsp;{delib.numero} &laquo;&nbsp;{delib.titre}&nbsp;&raquo; sera marquée comme annulée.
+              Le numéro ne sera pas réutilisé.
               <br /><br />
               <strong>Motif d&apos;annulation (obligatoire)&nbsp;:</strong>
             </AlertDialogDescription>

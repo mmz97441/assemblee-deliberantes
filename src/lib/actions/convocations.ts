@@ -22,7 +22,7 @@ async function getAuthenticatedUser() {
 }
 
 function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifie'
+  if (!user) return 'Non authentifié'
   const role = (user.user_metadata?.role as string) || ''
   if (!roles.includes(role)) return 'Permissions insuffisantes'
   return null
@@ -72,7 +72,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       .single()
 
     if (seanceError || !seance) {
-      return { error: 'Seance introuvable' }
+      return { error: 'Séance introuvable' }
     }
 
     if (seance.statut !== 'CONVOQUEE' && seance.statut !== 'BROUILLON') {
@@ -138,7 +138,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
     )
 
     if (toSend.length === 0) {
-      return { error: 'Toutes les convocations ont deja ete envoyees' }
+      return { error: 'Toutes les convocations ont déjà été envoyées' }
     }
 
     const result: SendConvocationResult = {
@@ -290,7 +290,7 @@ export async function confirmPresence(token: string): Promise<
       .maybeSingle()
 
     if (error || !conv) {
-      return { error: 'Lien de confirmation invalide ou expire' }
+      return { error: 'Lien de confirmation invalide ou expiré' }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -324,7 +324,7 @@ export async function confirmPresence(token: string): Promise<
 
     return {
       success: true,
-      seanceTitre: seance?.titre || 'Seance',
+      seanceTitre: seance?.titre || 'Séance',
       memberNom: `${member?.prenom || ''} ${member?.nom || ''}`.trim(),
     }
   } catch (err) {

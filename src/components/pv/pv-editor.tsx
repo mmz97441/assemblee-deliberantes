@@ -854,7 +854,7 @@ function StepPresences({
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-800">
-              Séance de reconvocation \u2014 elle se tient valablement sans condition de quorum.
+              Séance de reconvocation — elle se tient valablement sans condition de quorum.
             </p>
           </div>
         </div>
@@ -899,7 +899,7 @@ function StepPresences({
               {contenu.presences.presents.map((p, i) => (
                 <p key={i} className="text-sm">
                   {p.prenom} {p.nom}
-                  {p.qualite && <span className="text-muted-foreground"> \u2014 {p.qualite}</span>}
+                  {p.qualite && <span className="text-muted-foreground"> — {p.qualite}</span>}
                 </p>
               ))}
             </div>
@@ -1064,13 +1064,13 @@ function StepDiscussions({
     if (isInfoPoint || !point.vote) return null
     if (voteResultat === 'ADOPTE_UNANIMITE') return null
     if (voteResultat === 'REJETE') {
-      return { level: 'red', message: 'Ce point a été rejeté \u2014 la discussion est fortement recommandée' }
+      return { level: 'red', message: 'Ce point a été rejeté — la discussion est fortement recommandée' }
     }
     if (voteResultat === 'ADOPTE_VOIX_PREPONDERANTE') {
-      return { level: 'red', message: 'Vote départagé par la voix du président \u2014 les arguments doivent figurer au PV' }
+      return { level: 'red', message: 'Vote départagé par la voix du président — les arguments doivent figurer au PV' }
     }
     if (voteResultat === 'ADOPTE' && (point.vote?.nomsContre?.length || 0) > 0) {
-      return { level: 'amber', message: 'Ce point a eu des voix contre \u2014 la discussion est recommandée pour le PV' }
+      return { level: 'amber', message: 'Ce point a eu des voix contre — la discussion est recommandée pour le PV' }
     }
     return null
   })()
@@ -1466,7 +1466,7 @@ function StepRelecture({
           onClick={onNext}
           className="min-h-[48px] gap-2"
         >
-          Tout est correct \u2014 procéder aux signatures
+          Tout est correct — procéder aux signatures
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -2114,7 +2114,7 @@ function ReadOnlyDocument({
           Procès-verbal de carence
         </h1>
         <p className="text-center text-muted-foreground mt-2 font-sans">
-          Séance du {contenu.entete.dateSeance} \u2014 {contenu.entete.nomInstance}
+          Séance du {contenu.entete.dateSeance} — {contenu.entete.nomInstance}
         </p>
         <Separator className="my-8" />
         <div className="space-y-6 leading-relaxed">
@@ -2174,13 +2174,13 @@ function ReadOnlyDocument({
       </h1>
       <p className="text-center text-muted-foreground mt-2 font-sans">
         {contenu.entete.nomInstance}
-        {contenu.entete.lieu && <> \u2014 {contenu.entete.lieu}</>}
+        {contenu.entete.lieu && <> — {contenu.entete.lieu}</>}
       </p>
       <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground mt-2 font-sans flex-wrap">
         <span className="flex items-center gap-1">
           <Clock className="h-3.5 w-3.5" />
           <span suppressHydrationWarning>
-            {contenu.entete.heureOuverture || '...'} \u2014 {contenu.entete.heureCloture || '...'}
+            {contenu.entete.heureOuverture || '...'} — {contenu.entete.heureCloture || '...'}
           </span>
         </span>
         <span>{contenu.entete.publique ? 'Séance publique' : 'Huis clos'}</span>
@@ -2287,7 +2287,7 @@ function ReadOnlyDocument({
           <div key={idx}>
             <Separator className="my-8" />
             <h2 className="text-lg font-bold font-sans mb-1">
-              Point {point.position} \u2014 {point.titre}
+              Point {point.position} — {point.titre}
             </h2>
             <div className="flex items-center gap-3 text-sm text-muted-foreground font-sans mb-4 flex-wrap">
               <span>{TYPE_LABELS[point.type] || point.type}</span>
@@ -2299,7 +2299,7 @@ function ReadOnlyDocument({
                 </span>
               )}
               {isInfoPoint && (
-                <span className="italic">Point d&apos;information \u2014 pas de vote</span>
+                <span className="italic">Point d&apos;information — pas de vote</span>
               )}
             </div>
 

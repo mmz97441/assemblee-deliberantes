@@ -204,7 +204,7 @@ export function VoteSecret({
         </Button>
         <p className="text-xs text-muted-foreground text-center">
           {totalPresents} membre{totalPresents > 1 ? 's' : ''} present{totalPresents > 1 ? 's' : ''}
-          {voixPreponderante && ' \u2022 Voix prépondérante activée'}
+          {voixPreponderante && ' • Voix prépondérante activée'}
         </p>
       </div>
     )

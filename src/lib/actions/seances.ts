@@ -19,7 +19,7 @@ async function getAuthenticatedUser() {
 }
 
 function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifie'
+  if (!user) return 'Non authentifié'
   const role = (user.user_metadata?.role as string) || ''
   if (!roles.includes(role)) return 'Permissions insuffisantes'
   return null
@@ -53,7 +53,7 @@ export interface SeanceListItem extends SeanceRow {
 export async function getSeances(): Promise<{ data: SeanceListItem[] } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const { data, error } = await supabase
       .from('seances')
@@ -84,7 +84,7 @@ export async function getSeances(): Promise<{ data: SeanceListItem[] } | { error
     return { data: items }
   } catch (err) {
     console.error('getSeances error:', err)
-    return { error: 'Erreur inattendue lors du chargement des seances' }
+    return { error: 'Erreur inattendue lors du chargement des séances' }
   }
 }
 
@@ -93,7 +93,7 @@ export async function getSeances(): Promise<{ data: SeanceListItem[] } | { error
 export async function getSeance(id: string): Promise<{ data: SeanceWithDetails } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const { data, error } = await supabase
       .from('seances')
@@ -115,7 +115,7 @@ export async function getSeance(id: string): Promise<{ data: SeanceWithDetails }
       .eq('id', id)
       .single()
 
-    if (error) return { error: `Seance introuvable : ${error.message}` }
+    if (error) return { error: `Séance introuvable : ${error.message}` }
 
     // Sort ODJ by position
     if (data.odj_points && Array.isArray(data.odj_points)) {
@@ -181,7 +181,7 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
       .select('id')
       .single()
 
-    if (error) return { error: `Erreur de creation : ${error.message}` }
+    if (error) return { error: `Erreur de création : ${error.message}` }
 
     // Auto-add instance members as convocataires
     const autoConvoque = formData.get('auto_convoque') !== 'false'
@@ -220,7 +220,7 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
     return { success: true, id: newSeance.id }
   } catch (err) {
     console.error('createSeance error:', err)
-    return { error: 'Erreur inattendue lors de la creation' }
+    return { error: 'Erreur inattendue lors de la création' }
   }
 }
 
@@ -233,7 +233,7 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
     if (roleError) return { error: roleError }
 
     const id = formData.get('id') as string
-    if (!id) return { error: 'ID de la seance manquant' }
+    if (!id) return { error: 'ID de la séance manquant' }
 
     const titre = (formData.get('titre') as string)?.trim()
     const instanceId = formData.get('instance_id') as string
@@ -260,14 +260,14 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
       .update(payload)
       .eq('id', id)
 
-    if (error) return { error: `Erreur de mise a jour : ${error.message}` }
+    if (error) return { error: `Erreur de mise à jour : ${error.message}` }
 
     revalidatePath(ROUTES.SEANCES)
     revalidatePath(`${ROUTES.SEANCES}/${id}`)
     return { success: true }
   } catch (err) {
     console.error('updateSeance error:', err)
-    return { error: 'Erreur inattendue lors de la mise a jour' }
+    return { error: 'Erreur inattendue lors de la mise à jour' }
   }
 }
 
@@ -294,7 +294,7 @@ export async function updateSeanceStatut(
     // Validate transition
     const { data: currentSeance } = await supabase
       .from('seances')
-      .select('statut')
+      .select('statut, president_effectif_seance_id')
       .eq('id', id)
       .single()
 
@@ -303,6 +303,62 @@ export async function updateSeanceStatut(
     if (!allowed.includes(statut)) {
       return { error: `Transition impossible : ${currentStatut} → ${statut}. Transitions autorisées : ${allowed.join(', ') || 'aucune'}` }
     }
+
+    // ── CGCT Guards per transition ──────────────────────────────────────
+
+    // BROUILLON → CONVOQUEE: must have ODJ, convocataires, president
+    if (currentStatut === 'BROUILLON' && statut === 'CONVOQUEE') {
+      const { count: odjCount } = await supabase
+        .from('odj_points')
+        .select('*', { count: 'exact', head: true })
+        .eq('seance_id', id)
+
+      if (!odjCount || odjCount === 0) {
+        return { error: 'Impossible de convoquer : ajoutez au moins un point à l\'ordre du jour avant de convoquer la séance.' }
+      }
+
+      const { count: convCount } = await supabase
+        .from('convocataires')
+        .select('*', { count: 'exact', head: true })
+        .eq('seance_id', id)
+
+      if (!convCount || convCount === 0) {
+        return { error: 'Impossible de convoquer : ajoutez au moins un convocataire avant de convoquer la séance.' }
+      }
+
+      if (!currentSeance?.president_effectif_seance_id) {
+        return { error: 'Impossible de convoquer : désignez le président de séance avant de convoquer (CGCT L2121-10).' }
+      }
+    }
+
+    // CONVOQUEE → EN_COURS: convocations must have been actually sent (CGCT L2121-10)
+    if (currentStatut === 'CONVOQUEE' && statut === 'EN_COURS') {
+      const { count: sentCount } = await supabase
+        .from('convocataires')
+        .select('*', { count: 'exact', head: true })
+        .eq('seance_id', id)
+        .in('statut_convocation', ['ENVOYE', 'CONFIRME_PRESENT', 'LU'])
+
+      if (!sentCount || sentCount === 0) {
+        return { error: 'Impossible d\'ouvrir la séance : aucune convocation n\'a été effectivement envoyée. Envoyez les convocations depuis l\'onglet « Convocataires » (CGCT L2121-10).' }
+      }
+    }
+
+    // EN_COURS → CLOTUREE: all votes must be closed (no dangling open votes)
+    if (currentStatut === 'EN_COURS' && statut === 'CLOTUREE') {
+      const { data: openVotes } = await supabase
+        .from('votes')
+        .select('id, question')
+        .eq('seance_id', id)
+        .eq('statut', 'OUVERT')
+
+      if (openVotes && openVotes.length > 0) {
+        const pointName = openVotes[0].question || 'un point'
+        return { error: `Impossible de clôturer : un vote est encore ouvert sur « ${pointName} ». Clôturez ou annulez tous les votes avant de fermer la séance.` }
+      }
+    }
+
+    // ── End CGCT Guards ─────────────────────────────────────────────────
 
     const updateData: Record<string, unknown> = { statut }
 
@@ -479,7 +535,7 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
     const seanceId = formData.get('seance_id') as string
     const titre = (formData.get('titre') as string)?.trim()
 
-    if (!seanceId) return { error: 'ID de seance manquant' }
+    if (!seanceId) return { error: 'ID de séance manquant' }
     if (!titre) return { error: 'Le titre du point est requis' }
 
     // Get next position
@@ -517,7 +573,7 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
       .select('id')
       .single()
 
-    if (error) return { error: `Erreur de creation : ${error.message}` }
+    if (error) return { error: `Erreur de création : ${error.message}` }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
     return { success: true, id: data.id }
@@ -556,7 +612,7 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
       .update(payload)
       .eq('id', id)
 
-    if (error) return { error: `Erreur de mise a jour : ${error.message}` }
+    if (error) return { error: `Erreur de mise à jour : ${error.message}` }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
     return { success: true }
@@ -621,7 +677,7 @@ export async function reorderODJPoints(
         .eq('id', orderedIds[i])
         .eq('seance_id', seanceId)
 
-      if (error) return { error: `Erreur de reordonnancement : ${error.message}` }
+      if (error) return { error: `Erreur de réordonnancement : ${error.message}` }
     }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
@@ -640,7 +696,7 @@ export async function addStandardODJPoints(seanceId: string): Promise<ActionResu
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
-    if (!seanceId) return { error: 'ID de seance manquant' }
+    if (!seanceId) return { error: 'ID de séance manquant' }
 
     // Fetch existing points to check for duplicates and determine positions
     const { data: existingPoints, error: fetchError } = await supabase
@@ -656,7 +712,7 @@ export async function addStandardODJPoints(seanceId: string): Promise<ActionResu
     const hasQuestionDiverse = points.some(p => p.type_traitement === 'QUESTION_DIVERSE')
 
     if (hasApprobationPV && hasQuestionDiverse) {
-      return { error: 'Les points standards (Approbation PV et Questions diverses) existent deja' }
+      return { error: 'Les points standards (Approbation PV et Questions diverses) existent déjà' }
     }
 
     // If adding APPROBATION_PV at position 1, shift all existing points down
@@ -676,7 +732,7 @@ export async function addStandardODJPoints(seanceId: string): Promise<ActionResu
         .from('odj_points')
         .insert({
           seance_id: seanceId,
-          titre: 'Approbation du proces-verbal de la seance precedente',
+          titre: 'Approbation du procès-verbal de la séance précédente',
           description: null,
           type_traitement: 'APPROBATION_PV' as const,
           majorite_requise: 'SIMPLE' as const,
@@ -751,7 +807,7 @@ export async function duplicateSeance(
       .eq('id', sourceSeanceId)
       .single()
 
-    if (fetchError || !source) return { error: 'Seance source introuvable' }
+    if (fetchError || !source) return { error: 'Séance source introuvable' }
 
     // Compute new date: today + 7 days, same time as original
     const originalDate = new Date(source.date_seance)
@@ -842,7 +898,7 @@ export async function duplicateSeance(
 // ─── Reconvocation (quorum non atteint) ─────────────────────────────────────
 
 /**
- * Reconvoque une séance quand le quorum n'est pas atteint.
+ * Reconvoque une séance quand le quorum n\'est pas atteint.
  * Crée une nouvelle séance à J+3 (CGCT L2121-17 : pas de condition de quorum).
  * L'ancienne séance est marquée comme "CLOTUREE" avec un PV de carence.
  */
@@ -955,7 +1011,7 @@ export async function addConvocataire(seanceId: string, memberId: string): Promi
       })
 
     if (error) {
-      if (error.code === '23505') return { error: 'Ce membre est deja convoque' }
+      if (error.code === '23505') return { error: 'Ce membre est déjà convoqué' }
       return { error: `Erreur : ${error.message}` }
     }
 

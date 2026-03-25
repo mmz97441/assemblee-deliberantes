@@ -225,13 +225,13 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip: string }> = {
-  NON_ENVOYE: { label: 'Non envoy\u00e9', color: 'bg-slate-100 text-slate-600', tooltip: 'La convocation n\u2019a pas encore \u00e9t\u00e9 envoy\u00e9e' },
-  ENVOYE: { label: 'Envoy\u00e9', color: 'bg-blue-100 text-blue-700', tooltip: 'La convocation a \u00e9t\u00e9 envoy\u00e9e par email' },
-  LU: { label: 'Lu \u2713', color: 'bg-cyan-100 text-cyan-700', tooltip: 'Le membre a ouvert l\u2019email de convocation' },
-  CONFIRME_PRESENT: { label: 'Confirm\u00e9', color: 'bg-emerald-100 text-emerald-700', tooltip: 'Le membre a confirm\u00e9 sa pr\u00e9sence' },
-  ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700', tooltip: 'Le membre a donn\u00e9 procuration' },
-  ERREUR_EMAIL: { label: 'Erreur', color: 'bg-red-100 text-red-700', tooltip: 'L\u2019envoi de la convocation a \u00e9chou\u00e9' },
-  ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700', tooltip: 'Convocation envoy\u00e9e par courrier postal' },
+  NON_ENVOYE: { label: 'Non envoyé', color: 'bg-slate-100 text-slate-600', tooltip: 'La convocation n\'a pas encore été envoyée' },
+  ENVOYE: { label: 'Envoyé', color: 'bg-blue-100 text-blue-700', tooltip: 'La convocation a été envoyée par email' },
+  LU: { label: 'Lu \u2713', color: 'bg-cyan-100 text-cyan-700', tooltip: 'Le membre a ouvert l\'email de convocation' },
+  CONFIRME_PRESENT: { label: 'Confirmé', color: 'bg-emerald-100 text-emerald-700', tooltip: 'Le membre a confirmé sa présence' },
+  ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700', tooltip: 'Le membre a donné procuration' },
+  ERREUR_EMAIL: { label: 'Erreur', color: 'bg-red-100 text-red-700', tooltip: 'L\'envoi de la convocation a échoué' },
+  ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700', tooltip: 'Convocation envoyée par courrier postal' },
 }
 
 function formatDate(dateStr: string): string {
@@ -309,7 +309,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   // Warnings
   const warnings: string[] = []
   if (!seance.secretaire_seance) warnings.push('Aucun secrétaire de séance désigné')
-  if (seance.odj_points.length === 0) warnings.push("Aucun point à l'ordre du jour")
+  if (seance.odj_points.length === 0) warnings.push("Aucun point à l\'ordre du jour")
   if (seance.convocataires.length === 0) warnings.push('Aucun convocataire')
 
   // ─── Convocation stats ───────────────────────────────────────────────────
@@ -416,8 +416,8 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         id: 'convocataires',
         label: 'Convocataires',
         description: hasConvocataires
-          ? `${seance.convocataires.length} membre${seance.convocataires.length > 1 ? 's' : ''} convoque${seance.convocataires.length > 1 ? 's' : ''}`
-          : 'Ajoutez les membres a convoquer',
+          ? `${seance.convocataires.length} membre${seance.convocataires.length > 1 ? 's' : ''} convoqué${seance.convocataires.length > 1 ? 's' : ''}`
+          : 'Ajoutez les membres à convoquer',
         done: hasConvocataires,
         warning: null,
         tab: 'convocations',
@@ -485,7 +485,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
           toast.success(`${result.sent} convocation${result.sent > 1 ? 's' : ''} envoyée${result.sent > 1 ? 's' : ''} avec succès !`)
         }
         if (result.errors.length > 0) {
-          toast.error(`${result.errors.length} erreur${result.errors.length > 1 ? 's' : ''} d'envoi`)
+          toast.error(`${result.errors.length} erreur${result.errors.length > 1 ? 's' : ''} d\'envoi`)
         }
         router.refresh()
       }
@@ -1125,7 +1125,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setActiveTab('odj')}
-                    title={`Voir ${odjStats.total} point${odjStats.total !== 1 ? 's' : ''} de l'ordre du jour`}
+                    title={`Voir ${odjStats.total} point${odjStats.total !== 1 ? 's' : ''} de l\'ordre du jour`}
                     className="w-full rounded-xl border bg-card p-4 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-primary/30"
                   >
                     <p className="text-2xl font-bold">{odjStats.total}</p>
@@ -1390,7 +1390,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                               break
                             case 'ERREUR_EMAIL':
                               statusDetail = {
-                                text: "Erreur d'envoi",
+                                text: "Erreur d\'envoi",
                                 color: 'text-red-600',
                               }
                               break
@@ -2105,9 +2105,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 const member = seance.convocataires.find(c => c.member_id === removeConvocataireDialog)?.member
                 return member ? (
                   <>
-                    <strong>{member.prenom} {member.nom}</strong> ({member.email}) ne sera plus convoque pour cette seance.
+                    <strong>{member.prenom} {member.nom}</strong> ({member.email}) ne sera plus convoqué pour cette séance.
                   </>
-                ) : 'Ce membre ne sera plus convoque pour cette seance.'
+                ) : 'Ce membre ne sera plus convoqué pour cette séance.'
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2372,7 +2372,7 @@ function ODJPointCard({
         {canManage && isBrouillon && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Plus d'options">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" title="Plus d\'options">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>

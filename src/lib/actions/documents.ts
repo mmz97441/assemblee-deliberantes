@@ -17,7 +17,7 @@ async function getAuthenticatedUser() {
 }
 
 function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifie'
+  if (!user) return 'Non authentifié'
   const role = (user.user_metadata?.role as string) || ''
   if (!roles.includes(role)) return 'Permissions insuffisantes'
   return null
@@ -49,7 +49,7 @@ export async function uploadODJDocument(
     const seanceId = formData.get('seance_id') as string
 
     if (!file || !pointId || !seanceId) {
-      return { error: 'Fichier, point et seance requis' }
+      return { error: 'Fichier, point et séance requis' }
     }
 
     // Validate file size (20 MB)
@@ -109,7 +109,7 @@ export async function uploadODJDocument(
     if (updateError) {
       // Try to clean up uploaded file
       await supabase.storage.from('documents').remove([storagePath])
-      return { error: `Erreur mise a jour: ${updateError.message}` }
+      return { error: `Erreur mise à jour : ${updateError.message}` }
     }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
@@ -174,7 +174,7 @@ export async function getDocumentUrl(
 ): Promise<{ url: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const { data, error } = await supabase.storage
       .from('documents')

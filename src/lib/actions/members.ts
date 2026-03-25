@@ -17,7 +17,7 @@ async function getAuthenticatedUser() {
 }
 
 function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifie'
+  if (!user) return 'Non authentifié'
   const role = (user.user_metadata?.role as string) || ''
   if (!roles.includes(role)) return 'Permissions insuffisantes'
   return null
@@ -36,7 +36,7 @@ export interface MemberWithInstances extends MemberRow {
 export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    if (!user) return { error: 'Non authentifie' }
+    if (!user) return { error: 'Non authentifié' }
 
     const { data, error } = await supabase
       .from('members')
@@ -99,7 +99,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
       .select('id')
       .single()
 
-    if (error) return { error: `Erreur de creation : ${error.message}` }
+    if (error) return { error: `Erreur de création : ${error.message}` }
 
     // Assign instances if provided
     const instanceIds = formData.getAll('instance_ids') as string[]
@@ -167,13 +167,13 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
       .update(payload)
       .eq('id', id)
 
-    if (error) return { error: `Erreur de mise a jour : ${error.message}` }
+    if (error) return { error: `Erreur de mise à jour : ${error.message}` }
 
     revalidatePath(ROUTES.MEMBRES)
     return { success: true }
   } catch (err) {
     console.error('updateMember error:', err)
-    return { error: 'Erreur inattendue lors de la mise a jour' }
+    return { error: 'Erreur inattendue lors de la mise à jour' }
   }
 }
 
@@ -292,7 +292,7 @@ export async function sendMemberInvitation(memberId: string): Promise<ActionResu
         expires_at: expiresAt.toISOString(),
       })
 
-    if (inviteError) return { error: `Erreur de creation d'invitation : ${inviteError.message}` }
+    if (inviteError) return { error: `Erreur de création d'invitation : ${inviteError.message}` }
 
     // Email sending will be implemented later with Resend
     revalidatePath(ROUTES.MEMBRES)
