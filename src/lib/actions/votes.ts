@@ -110,6 +110,22 @@ export async function openVote(
       return { error: 'Un vote est déjà en cours sur cette séance. Clôturez-le d\'abord.' }
     }
 
+    // Block double vote: check if this point already has a completed (CLOS) vote
+    const { data: existingClosedVotes } = await supabase
+      .from('votes')
+      .select('id, statut')
+      .eq('odj_point_id', odjPointId)
+      .eq('statut', 'CLOS')
+
+    if (existingClosedVotes && existingClosedVotes.length > 0) {
+      return { error: 'Ce point a déjà fait l\'objet d\'un vote clos. Annulez le vote précédent avant d\'en ouvrir un nouveau.' }
+    }
+
+    // CGCT L2121-21: elections must use secret ballot, not main levée
+    if (point.type_traitement === 'ELECTION') {
+      return { error: 'Les élections de personnes doivent obligatoirement se dérouler par vote secret (CGCT L2121-21). Utilisez le vote à bulletin secret.' }
+    }
+
     // Calculate quorum snapshot: PRESENT + PROCURATION (without departed members)
     const { data: presences } = await supabase
       .from('presences')
@@ -331,7 +347,9 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
       .single()
 
     if (!vote) return { error: 'Vote introuvable' }
-    if (vote.statut !== 'OUVERT') return { error: 'Seul un vote ouvert peut être annulé' }
+    if (vote.statut !== 'OUVERT' && vote.statut !== 'CLOS') {
+      return { error: 'Seul un vote ouvert ou clos peut être annulé' }
+    }
 
     const { error: updateError } = await supabase
       .from('votes')
@@ -450,6 +468,17 @@ export async function openVoteSecret(
 
     if (openVotes && openVotes.length > 0) {
       return { error: 'Un vote est déjà en cours sur cette séance. Clôturez-le d\'abord.' }
+    }
+
+    // Block double vote: check if this point already has a completed (CLOS) vote
+    const { data: existingClosedVotesSecret } = await supabase
+      .from('votes')
+      .select('id, statut')
+      .eq('odj_point_id', odjPointId)
+      .eq('statut', 'CLOS')
+
+    if (existingClosedVotesSecret && existingClosedVotesSecret.length > 0) {
+      return { error: 'Ce point a déjà fait l\'objet d\'un vote clos. Annulez le vote précédent avant d\'en ouvrir un nouveau.' }
     }
 
     // Calculate quorum snapshot

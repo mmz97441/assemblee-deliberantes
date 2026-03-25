@@ -367,6 +367,17 @@ export async function savePVContent(
       return { error: 'Permissions insuffisantes' }
     }
 
+    // Check PV is not locked (signed or published)
+    const { data: pvCheck } = await supabase
+      .from('pv')
+      .select('statut')
+      .eq('id', pvId)
+      .single()
+
+    if (pvCheck && (pvCheck.statut === 'SIGNE' || pvCheck.statut === 'PUBLIE')) {
+      return { error: 'Ce procès-verbal est signé et verrouillé. Aucune modification n\'est possible.' }
+    }
+
     const { error } = await supabase
       .from('pv')
       .update({

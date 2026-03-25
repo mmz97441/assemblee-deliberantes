@@ -67,7 +67,8 @@
       "Bash(LC_ALL=C grep -oE '\\\\\\\\u00[a-fA-F0-9]{2}' /Users/niceguillaume/Desktop/assemblee-deliberantes/src/components/pv/pv-editor.tsx)",
       "Bash(while read:*)",
       "Bash(do if:*)",
-      "Bash(then sed:*)"
+      "Bash(then sed:*)",
+      "Bash(grep -rn \"CGCT\\\\|legal.*delay\\\\|delai.*legal\" /Users/niceguillaume/Desktop/assemblee-deliberantes/src/lib/actions/*.ts)"
     ]
   }
 }

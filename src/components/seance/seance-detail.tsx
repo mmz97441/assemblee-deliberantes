@@ -2064,10 +2064,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </div>
               )}
               {legalDelayWarning && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-                  <p className="text-xs text-red-700 flex items-center gap-1.5">
-                    <AlertOctagon className="h-3 w-3 shrink-0" />
-                    Attention : le delai legal de convocation ({legalDelayWarning.delai} jours) n&apos;est pas respecte.
+                <div className="rounded-lg bg-amber-50 border-2 border-amber-400 p-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                    <AlertOctagon className="h-4 w-4 shrink-0" />
+                    Délai légal non respecté (CGCT L2121-26)
+                  </p>
+                  <p className="text-xs text-amber-700">
+                    La séance est dans {legalDelayWarning.daysUntil} jour{legalDelayWarning.daysUntil > 1 ? 's' : ''} mais le délai minimum de convocation est de {legalDelayWarning.delai} jours.
+                    Les convocations envoyées dans ces conditions pourraient être contestées.
                   </p>
                 </div>
               )}
@@ -2081,9 +2085,12 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             <AlertDialogAction
               onClick={handleSendConvocationsConfirmed}
               disabled={isPending}
+              className={legalDelayWarning ? 'bg-amber-600 hover:bg-amber-700' : undefined}
             >
               {isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Envoi en cours...</>
+              ) : legalDelayWarning ? (
+                <><AlertOctagon className="h-4 w-4 mr-2" /> Envoyer malgré le délai</>
               ) : (
                 <><Send className="h-4 w-4 mr-2" /> Envoyer {convocationStats.nonEnvoyes > 0 ? `${convocationStats.nonEnvoyes} convocation${convocationStats.nonEnvoyes > 1 ? 's' : ''}` : 'les convocations'}</>
               )}

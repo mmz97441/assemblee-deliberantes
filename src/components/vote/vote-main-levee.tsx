@@ -221,13 +221,24 @@ export function VoteMainLevee({
   }
 
   function handleNewVote() {
-    setPhase('idle')
-    setVoteId(null)
-    setLastResult(null)
-    setContre(0)
-    setAbstentions(0)
-    setNomsContre([])
-    setNomsAbstention([])
+    if (!voteId) return
+    startTransition(async () => {
+      // Cancel the existing closed vote before allowing a new one
+      const result = await cancelVote(voteId)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      setPhase('idle')
+      setVoteId(null)
+      setLastResult(null)
+      setContre(0)
+      setAbstentions(0)
+      setNomsContre([])
+      setNomsAbstention([])
+      toast.success('Vote précédent annulé — vous pouvez voter à nouveau')
+      router.refresh()
+    })
   }
 
   // Name toggle helpers
@@ -308,15 +319,21 @@ export function VoteMainLevee({
           </div>
         )}
 
-        {/* Re-vote button */}
+        {/* Re-vote button — cancels the existing vote first */}
         <Button
           variant="outline"
           size="sm"
           onClick={handleNewVote}
-          className="w-full text-xs"
+          disabled={isPending}
+          className="w-full text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+          title="Annule le vote actuel et permet de voter à nouveau sur ce point"
         >
-          <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-          Voter à nouveau sur ce point
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+          ) : (
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          Annuler ce vote et voter à nouveau
         </Button>
       </div>
     )

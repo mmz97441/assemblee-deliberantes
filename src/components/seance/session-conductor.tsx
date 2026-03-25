@@ -1024,18 +1024,27 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                     return (
                       <div className="space-y-3">
                         <p className="text-sm font-medium text-muted-foreground">Type de vote :</p>
+                        {isElection && (
+                          <div className="rounded-lg bg-purple-50 border border-purple-200 p-3">
+                            <p className="text-xs text-purple-700 font-medium">
+                              Vote secret obligatoire pour les élections de personnes (CGCT L2121-21)
+                            </p>
+                          </div>
+                        )}
                         <div className="grid grid-cols-3 gap-3">
                           <Button
                             variant="outline"
-                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-blue-400 hover:bg-blue-50 transition-all"
-                            onClick={() => setSelectedVoteType('MAIN_LEVEE')}
+                            className={`h-16 flex flex-col items-center justify-center gap-1.5 border-2 transition-all ${isElection ? 'opacity-40 cursor-not-allowed' : 'hover:border-blue-400 hover:bg-blue-50'}`}
+                            onClick={() => !isElection && setSelectedVoteType('MAIN_LEVEE')}
+                            disabled={isElection}
+                            title={isElection ? 'Vote secret obligatoire pour les élections (CGCT L2121-21)' : undefined}
                           >
                             <Hand className="h-6 w-6 text-blue-600" />
                             <span className="text-sm font-medium">Main levée</span>
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                            className={`h-16 flex flex-col items-center justify-center gap-1.5 border-2 transition-all ${isElection ? 'border-purple-400 bg-purple-50 ring-2 ring-purple-300' : 'hover:border-purple-400 hover:bg-purple-50'}`}
                             onClick={() => setSelectedVoteType('SECRET')}
                           >
                             <Lock className="h-6 w-6 text-purple-600" />
@@ -1043,8 +1052,10 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-16 flex flex-col items-center justify-center gap-1.5 border-2 hover:border-orange-400 hover:bg-orange-50 transition-all"
-                            onClick={() => setSelectedVoteType('TELEVOTE')}
+                            className={`h-16 flex flex-col items-center justify-center gap-1.5 border-2 transition-all ${isElection ? 'opacity-40 cursor-not-allowed' : 'hover:border-orange-400 hover:bg-orange-50'}`}
+                            onClick={() => !isElection && setSelectedVoteType('TELEVOTE')}
+                            disabled={isElection}
+                            title={isElection ? 'Vote secret obligatoire pour les élections (CGCT L2121-21)' : undefined}
                           >
                             <Smartphone className="h-6 w-6 text-orange-600" />
                             <span className="text-sm font-medium">Télévote SMS</span>
