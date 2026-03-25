@@ -279,12 +279,13 @@ export async function calculateQuorum(seanceId: string): Promise<QuorumResult | 
       .select('*', { count: 'exact', head: true })
       .eq('instance_config_id', seance.instance_id)
 
-    // Count presents (including procurations that count)
+    // Count presents (including procurations that count), excluding departed members
     const { count: presents } = await supabase
       .from('presences')
       .select('*', { count: 'exact', head: true })
       .eq('seance_id', seanceId)
       .in('statut', ['PRESENT', 'PROCURATION'])
+      .is('heure_depart', null)
 
     const total = config?.composition_max || totalMembers || 0
     const presentsCount = presents || 0

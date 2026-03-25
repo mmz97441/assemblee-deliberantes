@@ -214,7 +214,7 @@ function calculateQuorum(
   totalMembers: number,
   config: InstanceConfig | null
 ) {
-  const presents = presences.filter(p => p.statut === 'PRESENT' || p.statut === 'PROCURATION').length
+  const presents = presences.filter(p => (p.statut === 'PRESENT' || p.statut === 'PROCURATION') && !p.heure_depart).length
   const total = config?.composition_max || totalMembers
   const quorumType = config?.quorum_type || 'MAJORITE_MEMBRES'
   const num = config?.quorum_fraction_numerateur || 1

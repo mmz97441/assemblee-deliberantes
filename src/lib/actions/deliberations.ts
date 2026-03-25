@@ -148,6 +148,17 @@ export async function createDeliberationFromVote(
       return { error: 'Permissions insuffisantes' }
     }
 
+    // Verify séance is closed before creating deliberation
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seance || seance.statut !== 'CLOTUREE') {
+      return { error: 'Les délibérations ne peuvent être créées qu\'après la clôture de la séance.' }
+    }
+
     // Verify the vote exists, is closed and adopted
     const { data: vote, error: voteError } = await supabase
       .from('votes')

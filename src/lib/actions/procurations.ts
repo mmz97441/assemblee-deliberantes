@@ -158,6 +158,18 @@ export async function revokeProcuration(
 
     if (!proc) return { error: 'Procuration introuvable' }
 
+    // Check if votes have been cast — procuration cannot be revoked after voting
+    const { data: closedVotes } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('seance_id', seanceId)
+      .in('statut', ['CLOS', 'OUVERT'])
+      .limit(1)
+
+    if (closedVotes && closedVotes.length > 0) {
+      return { error: 'La procuration ne peut plus \u00eatre r\u00e9voqu\u00e9e apr\u00e8s le d\u00e9but des votes. Le mandataire a potentiellement d\u00e9j\u00e0 vot\u00e9 au nom du mandant.' }
+    }
+
     // Invalidate the procuration (don't delete — keep trace)
     const { error: updateError } = await supabase
       .from('procurations')

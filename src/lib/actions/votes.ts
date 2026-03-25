@@ -351,6 +351,26 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
       return { error: 'Seul un vote ouvert ou clos peut être annulé' }
     }
 
+    // If vote is CLOS, check if a deliberation was created from it
+    if (vote.statut === 'CLOS') {
+      const { data: delib } = await supabase
+        .from('deliberations')
+        .select('id, numero, publie_at')
+        .eq('vote_id', voteId)
+        .maybeSingle()
+
+      if (delib) {
+        if (delib.publie_at) {
+          return { error: 'Ce vote ne peut pas être annulé car une délibération publiée (n\u00b0 ' + delib.numero + ') en découle. Annulez d\'abord la délibération.' }
+        }
+        // Delete the draft deliberation
+        await supabase
+          .from('deliberations')
+          .delete()
+          .eq('id', delib.id)
+      }
+    }
+
     const { error: updateError } = await supabase
       .from('votes')
       .update({

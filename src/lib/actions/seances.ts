@@ -145,6 +145,15 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
     if (!instanceId) return { error: "L'instance est requise" }
     if (!dateSeance) return { error: 'La date est requise' }
 
+    // Validate date is not in the past
+    const parsedDateSeance = new Date(dateSeance)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (parsedDateSeance < today) {
+      return { error: 'La date de la séance ne peut pas être dans le passé.' }
+    }
+
     const mode = (formData.get('mode') as string) || 'PRESENTIEL'
     const lieu = (formData.get('lieu') as string)?.trim() || null
     const publique = formData.get('publique') !== 'false'
@@ -344,6 +353,19 @@ export async function updateSeanceStatut(
       }
     }
 
+    // EN_COURS → SUSPENDUE: check no open votes
+    if (currentStatut === 'EN_COURS' && statut === 'SUSPENDUE') {
+      const { data: openVotesSuspend } = await supabase
+        .from('votes')
+        .select('id')
+        .eq('seance_id', id)
+        .eq('statut', 'OUVERT')
+
+      if (openVotesSuspend && openVotesSuspend.length > 0) {
+        return { error: 'Un vote est en cours \u2014 cl\u00f4turez ou annulez le vote avant de suspendre la s\u00e9ance.' }
+      }
+    }
+
     // EN_COURS → CLOTUREE: all votes must be closed (no dangling open votes)
     if (currentStatut === 'EN_COURS' && statut === 'CLOTUREE') {
       const { data: openVotes } = await supabase
@@ -354,7 +376,7 @@ export async function updateSeanceStatut(
 
       if (openVotes && openVotes.length > 0) {
         const pointName = openVotes[0].question || 'un point'
-        return { error: `Impossible de clôturer : un vote est encore ouvert sur « ${pointName} ». Clôturez ou annulez tous les votes avant de fermer la séance.` }
+        return { error: `Impossible de cl\u00f4turer : un vote est encore ouvert sur \u00ab ${pointName} \u00bb. Cl\u00f4turez ou annulez tous les votes avant de fermer la s\u00e9ance.` }
       }
     }
 
@@ -472,6 +494,40 @@ export async function archiveSeance(id: string): Promise<ActionResult> {
     }
     if (seance.statut === 'EN_COURS' || seance.statut === 'SUSPENDUE') {
       return { error: 'Impossible d\'archiver une séance en cours ou suspendue. Clôturez-la d\'abord.' }
+    }
+
+    // Check if séance had closed votes — if so, PV must be signed
+    const { count: voteCount } = await supabase
+      .from('votes')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', id)
+      .eq('statut', 'CLOS')
+
+    if (voteCount && voteCount > 0) {
+      const { data: pv } = await supabase
+        .from('pv')
+        .select('statut')
+        .eq('seance_id', id)
+        .maybeSingle()
+
+      if (!pv) {
+        return { error: 'La séance a eu des votes \u2014 un procès-verbal doit être rédigé et signé avant l\'archivage.' }
+      }
+      if (pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
+        return { error: 'Le procès-verbal doit être signé avant d\'archiver la séance. Statut actuel du PV : ' + (pv.statut === 'BROUILLON' ? 'brouillon' : pv.statut === 'EN_RELECTURE' ? 'en relecture' : pv.statut) + '.' }
+      }
+    }
+
+    // Check unpublished deliberations
+    const { count: unpublishedDelibs } = await supabase
+      .from('deliberations')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', id)
+      .is('publie_at', null)
+      .eq('annulee', false)
+
+    if (unpublishedDelibs && unpublishedDelibs > 0) {
+      return { error: unpublishedDelibs + ' délibération(s) non publiée(s). Publiez ou supprimez les brouillons avant d\'archiver.' }
     }
 
     const { error } = await supabase
@@ -593,6 +649,17 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
     const seanceId = formData.get('seance_id') as string
     if (!id) return { error: 'ID du point manquant' }
 
+    // Check if convocations have been sent — ODJ is communicated and cannot change
+    const { count: sentCount } = await supabase
+      .from('convocataires')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', seanceId)
+      .neq('statut_convocation', 'NON_ENVOYE')
+
+    if (sentCount && sentCount > 0) {
+      return { error: 'L\'ordre du jour ne peut plus être modifié après l\'envoi des convocations. L\'ODJ a été communiqué aux membres.' }
+    }
+
     const titre = (formData.get('titre') as string)?.trim()
     if (!titre) return { error: 'Le titre est requis' }
 
@@ -627,6 +694,17 @@ export async function deleteODJPoint(id: string, seanceId: string): Promise<Acti
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Check if convocations have been sent — ODJ is communicated and cannot change
+    const { count: sentCount } = await supabase
+      .from('convocataires')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', seanceId)
+      .neq('statut_convocation', 'NON_ENVOYE')
+
+    if (sentCount && sentCount > 0) {
+      return { error: 'L\'ordre du jour ne peut plus être modifié après l\'envoi des convocations. L\'ODJ a été communiqué aux membres.' }
+    }
 
     const { error } = await supabase
       .from('odj_points')
@@ -669,6 +747,17 @@ export async function reorderODJPoints(
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Check if convocations have been sent — ODJ is communicated and cannot change
+    const { count: sentCount } = await supabase
+      .from('convocataires')
+      .select('*', { count: 'exact', head: true })
+      .eq('seance_id', seanceId)
+      .neq('statut_convocation', 'NON_ENVOYE')
+
+    if (sentCount && sentCount > 0) {
+      return { error: 'L\'ordre du jour ne peut plus être modifié après l\'envoi des convocations. L\'ODJ a été communiqué aux membres.' }
+    }
 
     for (let i = 0; i < orderedIds.length; i++) {
       const { error } = await supabase
@@ -1002,6 +1091,17 @@ export async function addConvocataire(seanceId: string, memberId: string): Promi
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
+    // Block adding convocataires if séance is EN_COURS or later
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seance && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seance.statut || '')) {
+      return { error: 'La liste des convocataires ne peut plus être modifiée une fois la séance ouverte.' }
+    }
+
     const { error } = await supabase
       .from('convocataires')
       .insert({
@@ -1028,6 +1128,29 @@ export async function removeConvocataire(seanceId: string, memberId: string): Pr
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
+
+    // Check if this specific convocataire has already been sent a convocation
+    const { data: conv } = await supabase
+      .from('convocataires')
+      .select('statut_convocation')
+      .eq('seance_id', seanceId)
+      .eq('member_id', memberId)
+      .maybeSingle()
+
+    if (conv && conv.statut_convocation && conv.statut_convocation !== 'NON_ENVOYE') {
+      return { error: 'Ce membre a déjà reçu sa convocation — il ne peut plus être retiré de la liste.' }
+    }
+
+    // Block removal if séance is EN_COURS or later
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seance && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seance.statut || '')) {
+      return { error: 'La liste des convocataires ne peut plus être modifiée une fois la séance ouverte.' }
+    }
 
     const { error } = await supabase
       .from('convocataires')

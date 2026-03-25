@@ -341,6 +341,18 @@ export async function resendConvocation(seanceId: string, memberId: string): Pro
     const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
+    // Block resend if member already confirmed presence (no point)
+    const { data: conv } = await supabase
+      .from('convocataires')
+      .select('statut_convocation')
+      .eq('seance_id', seanceId)
+      .eq('member_id', memberId)
+      .maybeSingle()
+
+    if (conv && conv.statut_convocation === 'CONFIRME_PRESENT') {
+      return { error: 'Ce membre a d\u00e9j\u00e0 confirm\u00e9 sa pr\u00e9sence.' }
+    }
+
     // Reset status to NON_ENVOYE so sendConvocations picks it up
     const { error } = await supabase
       .from('convocataires')
