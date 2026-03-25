@@ -768,6 +768,16 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                   </div>
                 )}
 
+                {/* Warning: votable point without projet de délibération */}
+                {isVotable && !currentPoint.projet_deliberation && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4">
+                    <p className="text-sm text-amber-700 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      Ce point n&apos;a pas de projet de délibération. La délibération sera incomplète après le vote.
+                    </p>
+                  </div>
+                )}
+
                 {/* Documents */}
                 {currentDocuments.length > 0 && (
                   <div className="mb-4">

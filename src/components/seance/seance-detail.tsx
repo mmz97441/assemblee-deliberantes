@@ -388,6 +388,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
     const hasVotablePoints = seance.odj_points.some(
       p => !p.votes_interdits && (p.type_traitement === 'DELIBERATION' || p.type_traitement === 'ELECTION' || p.type_traitement === 'APPROBATION_PV')
     )
+    const missingDeliberationProjects = seance.odj_points.filter(
+      p => !p.votes_interdits && (p.type_traitement === 'DELIBERATION' || p.type_traitement === 'ELECTION' || p.type_traitement === 'APPROBATION_PV') && !p.projet_deliberation
+    ).length
     const convocationsSent = seance.convocataires.some(
       c => c.statut_convocation && c.statut_convocation !== 'NON_ENVOYE'
     )
@@ -403,7 +406,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
           ? `${seance.odj_points.length} point${seance.odj_points.length > 1 ? 's' : ''} dont ${odjStats.votables} soumis au vote`
           : 'Ajoutez au moins un point',
         done: hasODJ,
-        warning: hasODJ && !hasVotablePoints ? 'Aucun point soumis au vote' : null,
+        warning: missingDeliberationProjects > 0
+          ? `${missingDeliberationProjects} point${missingDeliberationProjects > 1 ? 's' : ''} soumis au vote sans projet de délibération`
+          : hasODJ && !hasVotablePoints ? 'Aucun point soumis au vote' : null,
         tab: 'odj',
       },
       {
@@ -781,7 +786,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                             {step.label}
                           </p>
                           <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
-                          {step.warning && !step.done && (
+                          {step.warning && (
                             <p className="text-xs text-amber-600 mt-0.5 flex items-center gap-1">
                               <AlertTriangle className="h-3 w-3" />
                               {step.warning}
@@ -2239,6 +2244,17 @@ function ODJPointCard({
                 <Eye className="h-3 w-3 mr-0.5" />
                 Information
               </Badge>
+            )}
+            {isVotable && !point.projet_deliberation && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="bg-amber-50 text-amber-600 border-amber-200 border text-[10px] px-2 py-0">
+                    <AlertTriangle className="h-3 w-3 mr-0.5" />
+                    Projet manquant
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>Le projet de délibération devrait être rédigé avant le vote pour que la délibération soit complète</TooltipContent>
+              </Tooltip>
             )}
             {point.huis_clos && (
               <Badge variant="outline" className="text-[11px] px-2 py-0 border-red-200 text-red-600">
