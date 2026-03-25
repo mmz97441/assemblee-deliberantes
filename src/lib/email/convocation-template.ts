@@ -18,6 +18,7 @@ interface ConvocationEmailData {
   confirmationUrl: string
   institutionNom: string
   qrCodeUrl?: string // URL de l'image QR code d'émargement
+  presidentName?: string // Nom du président qui convoque (CGCT L2121-10)
 }
 
 function formatMode(mode: string): string {
@@ -97,7 +98,8 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
         </p>
 
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b; line-height: 1.6;">
-          Vous etes convoque(e) a la seance suivante :
+          Sur convocation de <strong>${escapeHtml(data.presidentName || 'le Président')}</strong>,
+          vous êtes convoqué(e) à la séance suivante :
         </p>
 
         <!-- Session info card -->

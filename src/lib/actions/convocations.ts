@@ -76,8 +76,24 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
     }
 
     if (seance.statut !== 'CONVOQUEE' && seance.statut !== 'BROUILLON') {
-      return { error: 'Les convocations ne peuvent etre envoyees que pour une seance en brouillon ou convoquee' }
+      return { error: 'Les convocations ne peuvent être envoyées que pour une séance en brouillon ou convoquée' }
     }
+
+    // Check president is designated (CGCT L2121-10 — convocation must come from the president)
+    if (!seance.president_effectif_seance_id) {
+      return { error: 'Le président de séance doit être désigné avant l\'envoi des convocations (CGCT L2121-10). Modifiez la séance pour désigner un président.' }
+    }
+
+    // Load president name for convocation email
+    const { data: president } = await supabase
+      .from('members')
+      .select('prenom, nom, qualite_officielle')
+      .eq('id', seance.president_effectif_seance_id)
+      .single()
+
+    const presidentName = president
+      ? `${president.qualite_officielle ? president.qualite_officielle + ' ' : ''}${president.prenom} ${president.nom}`
+      : 'le Président'
 
     // Get institution name
     const { data: institution } = await supabase
@@ -178,6 +194,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
         confirmationUrl,
         institutionNom: institutionNom,
         qrCodeUrl,
+        presidentName,
       }
 
       try {

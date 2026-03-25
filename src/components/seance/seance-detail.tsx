@@ -395,6 +395,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       c => c.statut_convocation && c.statut_convocation !== 'NON_ENVOYE'
     )
     const hasSecretaire = !!seance.secretaire_seance
+    const hasPresident = !!seance.president_effectif
     const isEnCours = seance.statut === 'EN_COURS'
     const isCloturee = seance.statut === 'CLOTUREE'
 
@@ -420,6 +421,16 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         done: hasConvocataires,
         warning: null,
         tab: 'convocations',
+      },
+      {
+        id: 'president',
+        label: 'Président(e) de séance',
+        description: hasPresident
+          ? `${seance.president_effectif!.prenom} ${seance.president_effectif!.nom}`
+          : 'Obligatoire — désignez le président avant d\'envoyer les convocations',
+        done: hasPresident,
+        warning: !hasPresident ? 'Le président doit être désigné (CGCT L2121-10)' : null,
+        tab: null,
       },
       {
         id: 'secretaire',
@@ -826,6 +837,12 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </Button>
                       )}
+                      {nextIncompleteStep.id === 'president' && (
+                        <p className="text-xs text-red-600 flex items-center gap-1.5 bg-red-50 rounded-lg p-2.5">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          Modifiez la séance pour désigner un président (obligatoire — CGCT L2121-10)
+                        </p>
+                      )}
                       {nextIncompleteStep.id === 'secretaire' && (
                         <p className="text-xs text-amber-600 flex items-center gap-1.5 bg-amber-50 rounded-lg p-2.5">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -837,7 +854,12 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                           size="sm"
                           className="w-full"
                           onClick={() => setSendConvocationsDialog(true)}
-                          disabled={isPending || seance.convocataires.length === 0}
+                          disabled={isPending || seance.convocataires.length === 0 || !seance.president_effectif}
+                          title={!seance.president_effectif
+                            ? 'Désignez d\'abord le président de séance (CGCT L2121-10)'
+                            : seance.convocataires.length === 0
+                              ? 'Ajoutez d\'abord des convocataires'
+                              : undefined}
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Envoyer les convocations
@@ -1607,13 +1629,15 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <Button
                   className="w-full btn-press"
                   onClick={() => setStatusChangeDialog('CONVOQUEE')}
-                  disabled={isPending || seance.odj_points.length === 0 || seance.convocataires.length === 0}
+                  disabled={isPending || seance.odj_points.length === 0 || seance.convocataires.length === 0 || !seance.president_effectif}
                   title={
-                    seance.odj_points.length === 0
-                      ? 'Ajoutez d\'abord des points a l\'ordre du jour'
-                      : seance.convocataires.length === 0
-                        ? 'Ajoutez d\'abord des convocataires'
-                        : undefined
+                    !seance.president_effectif
+                      ? 'Désignez le président de séance avant de convoquer (CGCT L2121-10)'
+                      : seance.odj_points.length === 0
+                        ? 'Ajoutez d\'abord des points à l\'ordre du jour'
+                        : seance.convocataires.length === 0
+                          ? 'Ajoutez d\'abord des convocataires'
+                          : undefined
                   }
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -1626,8 +1650,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   className="w-full btn-press"
                   variant={isBrouillon ? 'outline' : 'default'}
                   onClick={() => setSendConvocationsDialog(true)}
-                  disabled={isPending || seance.convocataires.length === 0}
-                  title={seance.convocataires.length === 0 ? 'Ajoutez d\'abord des convocataires' : undefined}
+                  disabled={isPending || seance.convocataires.length === 0 || !seance.president_effectif}
+                  title={
+                    !seance.president_effectif
+                      ? 'Désignez d\'abord le président de séance (CGCT L2121-10)'
+                      : seance.convocataires.length === 0
+                        ? 'Ajoutez d\'abord des convocataires'
+                        : undefined
+                  }
                 >
                   {isPending ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
