@@ -25,7 +25,7 @@ export default async function PVPage({ params }: Props) {
   const { data: seance, error: seanceError } = await supabase
     .from('seances')
     .select(`
-      id, titre, date_seance, statut,
+      id, titre, date_seance, statut, reconvocation,
       president_effectif_seance_id,
       secretaire_seance_id,
       instance_config (nom)
@@ -75,6 +75,7 @@ export default async function PVPage({ params }: Props) {
           seanceId={id}
           seanceTitre={seance.titre}
           seanceStatut={seance.statut || 'BROUILLON'}
+          seanceReconvocation={seance.reconvocation ?? false}
           existingPV={pv ? {
             id: pv.id,
             contenu_json: pv.contenu_json,

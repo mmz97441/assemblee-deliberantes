@@ -401,7 +401,7 @@ export async function getPV(seanceId: string) {
 // ─── Update PV status (workflow transitions) ─────────────────────────────────
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  BROUILLON: ['EN_RELECTURE'],
+  BROUILLON: ['EN_RELECTURE', 'SIGNE'],
   EN_RELECTURE: ['BROUILLON', 'SIGNE'],
   SIGNE: ['PUBLIE'],
 }
@@ -520,8 +520,8 @@ export async function signPV(
 
     if (pvError || !pv) return { error: 'Procès-verbal introuvable' }
 
-    if (pv.statut !== 'EN_RELECTURE') {
-      return { error: 'Le procès-verbal doit être en relecture pour pouvoir être signé' }
+    if (pv.statut !== 'EN_RELECTURE' && pv.statut !== 'BROUILLON') {
+      return { error: 'Le procès-verbal doit être en brouillon ou en relecture pour pouvoir être signé' }
     }
 
     // Check if already signed with this role
