@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   headers: async () => [
@@ -18,7 +20,7 @@ const nextConfig = {
             "style-src 'self' 'unsafe-inline' https://vercel.live",
             "img-src 'self' data: blob: https://*.supabase.co https://vercel.live https://*.vercel.com",
             "font-src 'self' https://vercel.live",
-            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vercel.live wss://ws-us3.pusher.com",
+            "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vercel.live wss://ws-us3.pusher.com https://*.sentry.io https://*.ingest.sentry.io",
             "frame-src 'self' https://vercel.live",
             "frame-ancestors 'none'",
             "base-uri 'self'",
@@ -30,4 +32,21 @@ const nextConfig = {
   ],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  // Sentry build options
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Suppress logs during build
+  silent: true,
+
+  // Don't upload source maps in dev
+  disableServerWebpackPlugin: process.env.NODE_ENV !== 'production',
+  disableClientWebpackPlugin: process.env.NODE_ENV !== 'production',
+
+  // Hide source maps from users
+  hideSourceMaps: true,
+
+  // Automatically instrument server actions
+  autoInstrumentServerFunctions: true,
+});

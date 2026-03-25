@@ -1,5 +1,6 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,7 +13,7 @@ export default function ErrorPage({
   reset: () => void
 }) {
   useEffect(() => {
-    // TODO Phase 1 Etape 12 : envoyer a Sentry
+    Sentry.captureException(error)
     console.error('Erreur application:', error.message, error.digest, error.stack)
   }, [error])
 
