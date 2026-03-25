@@ -61,7 +61,10 @@
       "Bash(npm audit:*)",
       "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes -path *deliberations* -o -path *deliberation*)",
       "Bash(ls -la /Users/niceguillaume/Desktop/assemblee-deliberantes/src/app/\\\\\\(app\\\\\\)/deliberations/)",
-      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/src -name *pdf* -o -name *PDF*)"
+      "Bash(find /Users/niceguillaume/Desktop/assemblee-deliberantes/src -name *pdf* -o -name *PDF*)",
+      "Bash(LC_ALL=C grep -c '\\\\\\\\u00' /Users/niceguillaume/Desktop/assemblee-deliberantes/src/components/pv/pv-editor.tsx)",
+      "Bash(LC_ALL=C grep -n '\\\\\\\\u00' /Users/niceguillaume/Desktop/assemblee-deliberantes/src/components/pv/pv-editor.tsx)",
+      "Bash(LC_ALL=C grep -oE '\\\\\\\\u00[a-fA-F0-9]{2}' /Users/niceguillaume/Desktop/assemblee-deliberantes/src/components/pv/pv-editor.tsx)"
     ]
   }
 }

@@ -80,16 +80,16 @@ interface PVEditorProps {
 }
 
 const RESULTAT_LABELS: Record<string, { label: string; icon: typeof CheckCircle2; colorClass: string }> = {
-  ADOPTE: { label: 'Adopt\u00e9', icon: CheckCircle2, colorClass: 'text-emerald-700' },
-  ADOPTE_UNANIMITE: { label: 'Unanimit\u00e9', icon: Sparkles, colorClass: 'text-emerald-700' },
-  ADOPTE_VOIX_PREPONDERANTE: { label: 'Voix pr\u00e9pond\u00e9rante', icon: Scale, colorClass: 'text-blue-700' },
-  REJETE: { label: 'Rejet\u00e9', icon: XCircle, colorClass: 'text-red-700' },
+  ADOPTE: { label: 'Adopté', icon: CheckCircle2, colorClass: 'text-emerald-700' },
+  ADOPTE_UNANIMITE: { label: 'Unanimité', icon: Sparkles, colorClass: 'text-emerald-700' },
+  ADOPTE_VOIX_PREPONDERANTE: { label: 'Voix prépondérante', icon: Scale, colorClass: 'text-blue-700' },
+  REJETE: { label: 'Rejeté', icon: XCircle, colorClass: 'text-red-700' },
   NUL: { label: 'Nul', icon: Ban, colorClass: 'text-amber-700' },
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  DELIBERATION: 'D\u00e9lib\u00e9ration',
-  ELECTION: '\u00c9lection',
+  DELIBERATION: 'Délibération',
+  ELECTION: 'Élection',
   APPROBATION_PV: 'Approbation PV',
   INFORMATION: 'Information',
   QUESTION_DIVERSE: 'Question diverse',
@@ -102,7 +102,7 @@ const AUTO_SAVE_INTERVAL_MS = 30_000
 type StepId = 'presences' | 'discussions' | 'observations' | 'relecture' | 'signatures' | 'carence'
 
 const STEP_LABELS: Record<StepId, string> = {
-  presences: 'Pr\u00e9sences',
+  presences: 'Présences',
   discussions: 'Discussions',
   observations: 'Observations',
   relecture: 'Relecture',
@@ -228,7 +228,7 @@ export function PVEditor({
       setCurrentStep(0)
       setCurrentPointIndex(0)
       setCompletedSteps(new Set())
-      toast.success('Brouillon du proc\u00e8s-verbal g\u00e9n\u00e9r\u00e9 avec succ\u00e8s')
+      toast.success('Brouillon du procès-verbal généré avec succès')
       router.refresh()
     })
   }
@@ -260,7 +260,7 @@ export function PVEditor({
       } else {
         setLastSaved(new Date())
         setIsDirty(false)
-        toast.success('Proc\u00e8s-verbal sauvegard\u00e9')
+        toast.success('Procès-verbal sauvegardé')
       }
     } finally {
       setIsSaving(false)
@@ -292,9 +292,9 @@ export function PVEditor({
 
       if (result.bothSigned) {
         setPvStatut('SIGNE')
-        toast.success('Proc\u00e8s-verbal sign\u00e9 par les deux parties ! Le PV est d\u00e9sormais verrouill\u00e9.')
+        toast.success('Procès-verbal signé par les deux parties ! Le PV est désormais verrouillé.')
       } else {
-        toast.success('Votre signature a \u00e9t\u00e9 enregistr\u00e9e. En attente de la seconde signature.')
+        toast.success('Votre signature a été enregistrée. En attente de la seconde signature.')
       }
       router.refresh()
     })
@@ -309,7 +309,7 @@ export function PVEditor({
         return
       }
       setPvStatut('PUBLIE')
-      toast.success('Proc\u00e8s-verbal publi\u00e9')
+      toast.success('Procès-verbal publié')
       router.refresh()
     })
   }
@@ -337,9 +337,9 @@ export function PVEditor({
         return
       }
       updatePointDiscussion(pointIndex, result.improvedText)
-      toast.success(currentText ? 'Texte reformul\u00e9' : 'Texte sugg\u00e9r\u00e9')
+      toast.success(currentText ? 'Texte reformulé' : 'Texte suggéré')
     } catch {
-      toast.error('Erreur lors de la g\u00e9n\u00e9ration IA')
+      toast.error('Erreur lors de la génération IA')
     } finally {
       setAiLoadingPoint(null)
     }
@@ -360,9 +360,9 @@ export function PVEditor({
         return
       }
       updateContenu({ conclusionLibre: result.improvedText })
-      toast.success(contenu.conclusionLibre ? 'Texte reformul\u00e9' : 'Texte sugg\u00e9r\u00e9')
+      toast.success(contenu.conclusionLibre ? 'Texte reformulé' : 'Texte suggéré')
     } catch {
-      toast.error('Erreur lors de la g\u00e9n\u00e9ration IA')
+      toast.error('Erreur lors de la génération IA')
     } finally {
       setAiLoadingObservations(false)
     }
@@ -484,12 +484,12 @@ export function PVEditor({
       <div className="max-w-3xl mx-auto">
         <div className="text-center py-16 rounded-xl border border-dashed">
           <FileText className="h-12 w-12 mx-auto text-muted-foreground/40 mb-4" />
-          <h2 className="text-lg font-semibold mb-2">Proc\u00e8s-verbal</h2>
+          <h2 className="text-lg font-semibold mb-2">Procès-verbal</h2>
           {canGenerate ? (
             <>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                La s\u00e9ance est cl\u00f4tur\u00e9e. G\u00e9n\u00e9rez le brouillon du proc\u00e8s-verbal automatiquement
-                \u00e0 partir des donn\u00e9es de la s\u00e9ance.
+                La séance est clôturée. Générez le brouillon du procès-verbal automatiquement
+                à partir des données de la séance.
               </p>
               <Button
                 size="lg"
@@ -498,20 +498,20 @@ export function PVEditor({
                 className="gap-2 min-h-[44px]"
               >
                 {isPending ? (
-                  <><Loader2 className="h-5 w-5 animate-spin" /> G\u00e9n\u00e9ration en cours...</>
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Génération en cours...</>
                 ) : (
-                  <><Sparkles className="h-5 w-5" /> G\u00e9n\u00e9rer le proc\u00e8s-verbal</>
+                  <><Sparkles className="h-5 w-5" /> Générer le procès-verbal</>
                 )}
               </Button>
             </>
           ) : (
             <>
               <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-                Le proc\u00e8s-verbal pourra \u00eatre g\u00e9n\u00e9r\u00e9 une fois la s\u00e9ance cl\u00f4tur\u00e9e.
+                Le procès-verbal pourra être généré une fois la séance clôturée.
               </p>
               <div className="flex items-center justify-center gap-2 text-amber-600">
                 <AlertTriangle className="h-4 w-4" />
-                <span className="text-sm">S\u00e9ance en statut : {seanceStatut}</span>
+                <span className="text-sm">Séance en statut : {seanceStatut}</span>
               </div>
             </>
           )}
@@ -534,7 +534,7 @@ export function PVEditor({
                   : 'bg-purple-100 text-purple-700 border-0 font-medium'
                 }>
                   <Lock className="h-3 w-3 mr-1" />
-                  {pvStatut === 'SIGNE' ? 'Sign\u00e9' : 'Publi\u00e9'}
+                  {pvStatut === 'SIGNE' ? 'Signé' : 'Publié'}
                 </Badge>
               </div>
               <div className="flex items-center gap-2">
@@ -545,13 +545,13 @@ export function PVEditor({
                       <span className="hidden sm:inline ml-1.5">Imprimer</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Imprimer le proc\u00e8s-verbal</TooltipContent>
+                  <TooltipContent>Imprimer le procès-verbal</TooltipContent>
                 </Tooltip>
                 {pdfUrl && (
                   <Button size="sm" asChild className="min-h-[36px] gap-1.5">
                     <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
                       <Download className="h-4 w-4" />
-                      T\u00e9l\u00e9charger PDF
+                      Télécharger PDF
                     </a>
                   </Button>
                 )}
@@ -565,16 +565,16 @@ export function PVEditor({
                     </AlertDialogTrigger>
                     <AlertDialogContent aria-describedby={undefined}>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Publier le proc\u00e8s-verbal ?</AlertDialogTitle>
+                        <AlertDialogTitle>Publier le procès-verbal ?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Le proc\u00e8s-verbal sign\u00e9 sera publi\u00e9 et accessible \u00e0 tous les membres.
-                          Cette action est d\u00e9finitive.
+                          Le procès-verbal signé sera publié et accessible à tous les membres.
+                          Cette action est définitive.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction onClick={handlePublish}>
-                          Publier d\u00e9finitivement
+                          Publier définitivement
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -621,11 +621,11 @@ export function PVEditor({
               {!isSaving && lastSaved && !isDirty && (
                 <span className="text-xs text-emerald-600 flex items-center gap-1" suppressHydrationWarning>
                   <Check className="h-3 w-3" />
-                  Sauvegard\u00e9
+                  Sauvegardé
                 </span>
               )}
               {!isSaving && isDirty && (
-                <span className="text-xs text-amber-600">Non sauvegard\u00e9</span>
+                <span className="text-xs text-amber-600">Non sauvegardé</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -649,7 +649,7 @@ export function PVEditor({
                     <Printer className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>Imprimer le proc\u00e8s-verbal complet</TooltipContent>
+                <TooltipContent>Imprimer le procès-verbal complet</TooltipContent>
               </Tooltip>
               {pdfUrl && (
                 <Tooltip>
@@ -660,7 +660,7 @@ export function PVEditor({
                       </a>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>T\u00e9l\u00e9charger le PDF</TooltipContent>
+                  <TooltipContent>Télécharger le PDF</TooltipContent>
                 </Tooltip>
               )}
               {canEdit && pvStatut === 'BROUILLON' && (
@@ -673,21 +673,21 @@ export function PVEditor({
                         </Button>
                       </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent>Reg\u00e9n\u00e9rer le brouillon depuis les donn\u00e9es de la s\u00e9ance</TooltipContent>
+                    <TooltipContent>Regénérer le brouillon depuis les données de la séance</TooltipContent>
                   </Tooltip>
                   <AlertDialogContent aria-describedby={undefined}>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Reg\u00e9n\u00e9rer le brouillon ?</AlertDialogTitle>
+                      <AlertDialogTitle>Regénérer le brouillon ?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Le contenu actuel sera remplac\u00e9 par un nouveau brouillon
-                        g\u00e9n\u00e9r\u00e9 \u00e0 partir des donn\u00e9es actuelles de la s\u00e9ance.
+                        Le contenu actuel sera remplacé par un nouveau brouillon
+                        généré à partir des données actuelles de la séance.
                         Toutes les modifications manuelles seront perdues.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Annuler</AlertDialogCancel>
                       <AlertDialogAction onClick={handleGenerate}>
-                        Reg\u00e9n\u00e9rer le brouillon
+                        Regénérer le brouillon
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -828,9 +828,9 @@ function StepPresences({
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold mb-2">V\u00e9rifiez les pr\u00e9sences</h2>
+        <h2 className="text-xl font-semibold mb-2">Vérifiez les présences</h2>
         <p className="text-muted-foreground text-sm">
-          Confirmez que la liste des pr\u00e9sents, excus\u00e9s et absents est correcte.
+          Confirmez que la liste des présents, excusés et absents est correcte.
         </p>
       </div>
 
@@ -840,7 +840,7 @@ function StepPresences({
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-sm text-amber-800">
-              S\u00e9ance de reconvocation \u2014 elle se tient valablement sans condition de quorum.
+              Séance de reconvocation \u2014 elle se tient valablement sans condition de quorum.
             </p>
           </div>
         </div>
@@ -867,7 +867,7 @@ function StepPresences({
             <p className={`text-xs ${
               contenu.presences.quorum.atteint ? 'text-emerald-600' : 'text-red-600'
             }`}>
-              {contenu.presences.quorum.presents} pr\u00e9sent{contenu.presences.quorum.presents > 1 ? 's' : ''}
+              {contenu.presences.quorum.presents} présent{contenu.presences.quorum.presents > 1 ? 's' : ''}
               {' '}sur {contenu.presences.quorum.requis} requis
             </p>
           </div>
@@ -879,7 +879,7 @@ function StepPresences({
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Pr\u00e9sents ({contenu.presences.presents.length})
+              Présents ({contenu.presences.presents.length})
             </p>
             <div className="space-y-1">
               {contenu.presences.presents.map((p, i) => (
@@ -898,7 +898,7 @@ function StepPresences({
         <Card>
           <CardContent className="p-4">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Excus\u00e9s ({contenu.presences.excuses.length})
+              Excusés ({contenu.presences.excuses.length})
             </p>
             <div className="space-y-1">
               {contenu.presences.excuses.map((p, i) => (
@@ -935,7 +935,7 @@ function StepPresences({
             <div className="space-y-1">
               {contenu.presences.procurations.map((p, i) => (
                 <p key={i} className="text-sm">
-                  {p.mandant} a donn\u00e9 pouvoir \u00e0 <strong>{p.mandataire}</strong>
+                  {p.mandant} a donné pouvoir à <strong>{p.mandataire}</strong>
                 </p>
               ))}
             </div>
@@ -947,16 +947,16 @@ function StepPresences({
       <Card>
         <CardContent className="p-4">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Bureau de s\u00e9ance
+            Bureau de séance
           </p>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="text-muted-foreground text-xs">Pr\u00e9sident(e)</p>
-              <p className="font-medium">{contenu.bureau.president || 'Non d\u00e9sign\u00e9'}</p>
+              <p className="text-muted-foreground text-xs">Président(e)</p>
+              <p className="font-medium">{contenu.bureau.president || 'Non désigné'}</p>
             </div>
             <div>
-              <p className="text-muted-foreground text-xs">Secr\u00e9taire</p>
-              <p className="font-medium">{contenu.bureau.secretaire || 'Non d\u00e9sign\u00e9'}</p>
+              <p className="text-muted-foreground text-xs">Secrétaire</p>
+              <p className="font-medium">{contenu.bureau.secretaire || 'Non désigné'}</p>
             </div>
           </div>
         </CardContent>
@@ -979,7 +979,7 @@ function StepPresences({
         >
           <a href={`/seances/${seanceId}`}>
             <ArrowLeft className="h-4 w-4" />
-            Modifier les pr\u00e9sences
+            Modifier les présences
           </a>
         </Button>
         <Button
@@ -1023,9 +1023,9 @@ function StepDiscussions({
     return (
       <div className="text-center py-12">
         <FileText className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-        <p className="text-muted-foreground">Aucun point \u00e0 l&apos;ordre du jour.</p>
+        <p className="text-muted-foreground">Aucun point à l&apos;ordre du jour.</p>
         <Button onClick={onNextPoint} className="mt-4 min-h-[44px]">
-          \u00c9tape suivante <ChevronRight className="h-4 w-4 ml-1" />
+          Étape suivante <ChevronRight className="h-4 w-4 ml-1" />
         </Button>
       </div>
     )
@@ -1050,13 +1050,13 @@ function StepDiscussions({
     if (isInfoPoint || !point.vote) return null
     if (voteResultat === 'ADOPTE_UNANIMITE') return null
     if (voteResultat === 'REJETE') {
-      return { level: 'red', message: 'Ce point a \u00e9t\u00e9 rejet\u00e9 \u2014 la discussion est fortement recommand\u00e9e' }
+      return { level: 'red', message: 'Ce point a été rejeté \u2014 la discussion est fortement recommandée' }
     }
     if (voteResultat === 'ADOPTE_VOIX_PREPONDERANTE') {
-      return { level: 'red', message: 'Vote d\u00e9partag\u00e9 par la voix du pr\u00e9sident \u2014 les arguments doivent figurer au PV' }
+      return { level: 'red', message: 'Vote départagé par la voix du président \u2014 les arguments doivent figurer au PV' }
     }
     if (voteResultat === 'ADOPTE' && (point.vote?.nomsContre?.length || 0) > 0) {
-      return { level: 'amber', message: 'Ce point a eu des voix contre \u2014 la discussion est recommand\u00e9e pour le PV' }
+      return { level: 'amber', message: 'Ce point a eu des voix contre \u2014 la discussion est recommandée pour le PV' }
     }
     return null
   })()
@@ -1066,7 +1066,7 @@ function StepDiscussions({
       {/* Header */}
       <div className="text-center mb-4">
         <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
-          R\u00e9digez les discussions
+          Rédigez les discussions
         </p>
         <h2 className="text-xl font-semibold">
           Point {currentPointIndex + 1}/{totalPoints}
@@ -1165,7 +1165,7 @@ function StepDiscussions({
           {point.description && (
             <div className="rounded-lg bg-muted/30 p-3 mb-4">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                Expos\u00e9
+                Exposé
               </p>
               <p className="text-sm text-muted-foreground whitespace-pre-line">{point.description}</p>
             </div>
@@ -1174,7 +1174,7 @@ function StepDiscussions({
           {/* Projet de deliberation (read-only context) */}
           {point.projetDeliberation && (
             <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
-              <p className="text-xs font-semibold text-blue-700 mb-1">R\u00e9solution propos\u00e9e :</p>
+              <p className="text-xs font-semibold text-blue-700 mb-1">Résolution proposée :</p>
               <p className="text-sm text-blue-800 whitespace-pre-line">{point.projetDeliberation}</p>
             </div>
           )}
@@ -1193,7 +1193,7 @@ function StepDiscussions({
                 <Textarea
                   value={point.discussion}
                   onChange={(e) => onDiscussionChange(currentPointIndex, e.target.value)}
-                  placeholder="R\u00e9sumez les interventions principales, les arguments avanc\u00e9s et les questions pos\u00e9es par les membres."
+                  placeholder="Résumez les interventions principales, les arguments avancés et les questions posées par les membres."
                   rows={4}
                   className="text-sm resize-y min-h-[100px]"
                 />
@@ -1209,7 +1209,7 @@ function StepDiscussions({
                   ) : point.discussion ? (
                     <><Sparkles className="h-3 w-3" /> Reformuler avec l&apos;IA</>
                   ) : (
-                    <><Sparkles className="h-3 w-3" /> Sugg\u00e9rer un texte</>
+                    <><Sparkles className="h-3 w-3" /> Suggérer un texte</>
                   )}
                 </Button>
               </div>
@@ -1217,7 +1217,7 @@ function StepDiscussions({
               point.discussion ? (
                 <p className="text-sm leading-relaxed whitespace-pre-line">{point.discussion}</p>
               ) : (
-                <p className="text-sm text-muted-foreground italic">Aucune discussion not\u00e9e.</p>
+                <p className="text-sm text-muted-foreground italic">Aucune discussion notée.</p>
               )
             )}
 
@@ -1250,7 +1250,7 @@ function StepDiscussions({
           className="min-h-[44px] gap-1.5"
         >
           <ChevronLeft className="h-4 w-4" />
-          {currentPointIndex > 0 ? 'Point pr\u00e9c\u00e9dent' : '\u00c9tape pr\u00e9c\u00e9dente'}
+          {currentPointIndex > 0 ? 'Point précédent' : 'Étape précédente'}
         </Button>
         <Button
           onClick={onNextPoint}
@@ -1258,7 +1258,7 @@ function StepDiscussions({
         >
           {isLastPoint ? (
             <>
-              \u00c9tape suivante
+              Étape suivante
               <ChevronRight className="h-4 w-4" />
             </>
           ) : (
@@ -1297,9 +1297,9 @@ function StepObservations({
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold mb-2">Observations compl\u00e9mentaires</h2>
+        <h2 className="text-xl font-semibold mb-2">Observations complémentaires</h2>
         <p className="text-muted-foreground text-sm">
-          Ajoutez des remarques g\u00e9n\u00e9rales sur la s\u00e9ance si n\u00e9cessaire. Cette \u00e9tape est facultative.
+          Ajoutez des remarques générales sur la séance si nécessaire. Cette étape est facultative.
         </p>
       </div>
 
@@ -1310,7 +1310,7 @@ function StepObservations({
               <Textarea
                 value={contenu.conclusionLibre}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder="Ajoutez des remarques ou observations g\u00e9n\u00e9rales sur la s\u00e9ance (facultatif)"
+                placeholder="Ajoutez des remarques ou observations générales sur la séance (facultatif)"
                 rows={4}
                 className="text-sm resize-y min-h-[100px]"
               />
@@ -1322,9 +1322,9 @@ function StepObservations({
                 className="gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
               >
                 {aiLoading ? (
-                  <><Loader2 className="h-3 w-3 animate-spin" /> G\u00e9n\u00e9ration en cours...</>
+                  <><Loader2 className="h-3 w-3 animate-spin" /> Génération en cours...</>
                 ) : (
-                  <><Sparkles className="h-3 w-3" /> Sugg\u00e9rer</>
+                  <><Sparkles className="h-3 w-3" /> Suggérer</>
                 )}
               </Button>
             </div>
@@ -1344,7 +1344,7 @@ function StepObservations({
           className="min-h-[44px] gap-1.5"
         >
           <ChevronLeft className="h-4 w-4" />
-          \u00c9tape pr\u00e9c\u00e9dente
+          Étape précédente
         </Button>
         <div className="flex items-center gap-2">
           {!contenu.conclusionLibre?.trim() && (
@@ -1353,7 +1353,7 @@ function StepObservations({
               onClick={onSkip}
               className="min-h-[44px] text-muted-foreground"
             >
-              Passer cette \u00e9tape
+              Passer cette étape
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           )}
@@ -1362,7 +1362,7 @@ function StepObservations({
               onClick={onNext}
               className="min-h-[44px] gap-1.5"
             >
-              \u00c9tape suivante
+              Étape suivante
               <ChevronRight className="h-4 w-4" />
             </Button>
           )}
@@ -1390,9 +1390,9 @@ function StepRelecture({
   return (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold mb-2">Relisez le proc\u00e8s-verbal</h2>
+        <h2 className="text-xl font-semibold mb-2">Relisez le procès-verbal</h2>
         <p className="text-muted-foreground text-sm">
-          V\u00e9rifiez que tout est correct avant de passer aux signatures.
+          Vérifiez que tout est correct avant de passer aux signatures.
         </p>
       </div>
 
@@ -1408,14 +1408,14 @@ function StepRelecture({
 
       {/* Quick-fix links */}
       <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-        <span>Quelque chose \u00e0 corriger ?</span>
+        <span>Quelque chose à corriger ?</span>
         {steps.includes('presences') && (
           <button
             type="button"
             onClick={() => onGoToStep(steps.indexOf('presences'))}
             className="underline hover:text-foreground transition-colors"
           >
-            Pr\u00e9sences
+            Présences
           </button>
         )}
         {steps.includes('discussions') && (
@@ -1452,7 +1452,7 @@ function StepRelecture({
           onClick={onNext}
           className="min-h-[48px] gap-2"
         >
-          Tout est correct \u2014 proc\u00e9der aux signatures
+          Tout est correct \u2014 procéder aux signatures
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -1495,8 +1495,8 @@ function StepSignatures({
         <h2 className="text-xl font-semibold mb-2">Signatures</h2>
         <p className="text-muted-foreground text-sm">
           {bothSigned
-            ? 'Le proc\u00e8s-verbal est sign\u00e9 et verrouill\u00e9.'
-            : 'Le proc\u00e8s-verbal doit \u00eatre sign\u00e9 par le pr\u00e9sident et le secr\u00e9taire.'}
+            ? 'Le procès-verbal est signé et verrouillé.'
+            : 'Le procès-verbal doit être signé par le président et le secrétaire.'}
         </p>
       </div>
 
@@ -1505,24 +1505,24 @@ function StepSignatures({
         <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-6 text-center">
           <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-emerald-700 mb-1">
-            Proc\u00e8s-verbal sign\u00e9 et verrouill\u00e9
+            Procès-verbal signé et verrouillé
           </h3>
           <p className="text-sm text-emerald-600 mb-4">
-            Le proc\u00e8s-verbal ne peut plus \u00eatre modifi\u00e9.
+            Le procès-verbal ne peut plus être modifié.
           </p>
           <div className="flex items-center justify-center gap-3">
             {pdfUrl && (
               <Button asChild className="min-h-[44px] gap-1.5">
                 <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
                   <Download className="h-4 w-4" />
-                  T\u00e9l\u00e9charger le PDF
+                  Télécharger le PDF
                 </a>
               </Button>
             )}
             <Button variant="outline" asChild className="min-h-[44px] gap-1.5">
               <a href={`/seances/${seanceId}`}>
                 <ArrowLeft className="h-4 w-4" />
-                Revenir \u00e0 la s\u00e9ance
+                Revenir à la séance
               </a>
             </Button>
           </div>
@@ -1535,7 +1535,7 @@ function StepSignatures({
         <Card className={presidentSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
           <CardContent className="p-6 text-center">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
-              Le/La Pr\u00e9sident(e)
+              Le/La Président(e)
             </p>
             <p className="font-medium text-sm mb-4">
               {contenu.bureau.president || '...'}
@@ -1544,11 +1544,11 @@ function StepSignatures({
               <div className="flex items-center justify-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="text-xs" suppressHydrationWarning>
-                  Sign\u00e9 le{' '}
+                  Signé le{' '}
                   {new Date(presidentSignature.timestamp).toLocaleDateString('fr-FR', {
                     day: 'numeric', month: 'long', year: 'numeric',
                   })}
-                  {' '}\u00e0{' '}
+                  {' '}à{' '}
                   {new Date(presidentSignature.timestamp).toLocaleTimeString('fr-FR', {
                     hour: '2-digit', minute: '2-digit',
                   })}
@@ -1571,16 +1571,16 @@ function StepSignatures({
                 </AlertDialogTrigger>
                 <AlertDialogContent aria-describedby={undefined}>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Signer le proc\u00e8s-verbal ?</AlertDialogTitle>
+                    <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      \u00cates-vous s\u00fbr(e) de vouloir signer ce proc\u00e8s-verbal en tant que Pr\u00e9sident(e) ?
-                      Cette action est d\u00e9finitive.
+                      Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Président(e) ?
+                      Cette action est définitive.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Annuler</AlertDialogCancel>
                     <AlertDialogAction onClick={onSign}>
-                      Signer d\u00e9finitivement
+                      Signer définitivement
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1597,7 +1597,7 @@ function StepSignatures({
         <Card className={secretaireSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
           <CardContent className="p-6 text-center">
             <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">
-              Le/La Secr\u00e9taire
+              Le/La Secrétaire
             </p>
             <p className="font-medium text-sm mb-4">
               {contenu.bureau.secretaire || '...'}
@@ -1606,11 +1606,11 @@ function StepSignatures({
               <div className="flex items-center justify-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-5 w-5" />
                 <span className="text-xs" suppressHydrationWarning>
-                  Sign\u00e9 le{' '}
+                  Signé le{' '}
                   {new Date(secretaireSignature.timestamp).toLocaleDateString('fr-FR', {
                     day: 'numeric', month: 'long', year: 'numeric',
                   })}
-                  {' '}\u00e0{' '}
+                  {' '}à{' '}
                   {new Date(secretaireSignature.timestamp).toLocaleTimeString('fr-FR', {
                     hour: '2-digit', minute: '2-digit',
                   })}
@@ -1633,16 +1633,16 @@ function StepSignatures({
                 </AlertDialogTrigger>
                 <AlertDialogContent aria-describedby={undefined}>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Signer le proc\u00e8s-verbal ?</AlertDialogTitle>
+                    <AlertDialogTitle>Signer le procès-verbal ?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      \u00cates-vous s\u00fbr(e) de vouloir signer ce proc\u00e8s-verbal en tant que Secr\u00e9taire de s\u00e9ance ?
-                      Cette action est d\u00e9finitive.
+                      Êtes-vous sûr(e) de vouloir signer ce procès-verbal en tant que Secrétaire de séance ?
+                      Cette action est définitive.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Annuler</AlertDialogCancel>
                     <AlertDialogAction onClick={onSign}>
-                      Signer d\u00e9finitivement
+                      Signer définitivement
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -1665,7 +1665,7 @@ function StepSignatures({
             className="min-h-[44px] gap-1.5"
           >
             <ChevronLeft className="h-4 w-4" />
-            \u00c9tape pr\u00e9c\u00e9dente
+            Étape précédente
           </Button>
         </div>
       )}
@@ -1689,23 +1689,23 @@ function StepCarence({
       <div className="text-center mb-8">
         <h2 className="text-xl font-semibold mb-2">Constat de carence</h2>
         <p className="text-muted-foreground text-sm">
-          Le quorum n&apos;\u00e9tant pas atteint, la s\u00e9ance ne peut valablement d\u00e9lib\u00e9rer.
+          Le quorum n&apos;étant pas atteint, la séance ne peut valablement délibérer.
         </p>
       </div>
 
       <Card>
         <CardContent className="p-6 font-serif space-y-4 leading-relaxed">
           <p>
-            Le quorum n&apos;\u00e9tant pas atteint ({contenu.presences.quorum.presents} pr\u00e9sent{contenu.presences.quorum.presents > 1 ? 's' : ''}{' '}
-            sur {contenu.presences.quorum.requis} requis), le/la Pr\u00e9sident(e){' '}
+            Le quorum n&apos;étant pas atteint ({contenu.presences.quorum.presents} présent{contenu.presences.quorum.presents > 1 ? 's' : ''}{' '}
+            sur {contenu.presences.quorum.requis} requis), le/la Président(e){' '}
             {contenu.bureau.president ? <strong>{contenu.bureau.president}</strong> : 'M./Mme ...'}{' '}
-            constate la carence et prononce l&apos;ajournement de la s\u00e9ance.
+            constate la carence et prononce l&apos;ajournement de la séance.
           </p>
 
           {contenu.presences.presents.length > 0 && (
             <div>
               <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-1">
-                \u00c9taient pr\u00e9sents
+                Étaient présents
               </p>
               <p>{contenu.presences.presents.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
@@ -1714,7 +1714,7 @@ function StepCarence({
           {contenu.presences.excuses.length > 0 && (
             <div>
               <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-1">
-                \u00c9taient excus\u00e9s
+                Étaient excusés
               </p>
               <p>{contenu.presences.excuses.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
@@ -1723,19 +1723,19 @@ function StepCarence({
           {contenu.presences.absents.length > 0 && (
             <div>
               <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-1">
-                \u00c9taient absents
+                Étaient absents
               </p>
               <p>{contenu.presences.absents.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
           )}
 
           <p>
-            Une reconvocation sera adress\u00e9e aux membres dans les meilleurs d\u00e9lais,
-            conform\u00e9ment aux dispositions de l&apos;article L2121-17 du Code g\u00e9n\u00e9ral des collectivit\u00e9s territoriales.
+            Une reconvocation sera adressée aux membres dans les meilleurs délais,
+            conformément aux dispositions de l&apos;article L2121-17 du Code général des collectivités territoriales.
           </p>
 
           <p className="text-muted-foreground">
-            Fait \u00e0 {contenu.entete.lieu || '...'}, le {contenu.entete.dateSeance}
+            Fait à {contenu.entete.lieu || '...'}, le {contenu.entete.dateSeance}
           </p>
         </CardContent>
       </Card>
@@ -1748,13 +1748,13 @@ function StepCarence({
           className="min-h-[44px] gap-1.5"
         >
           <ChevronLeft className="h-4 w-4" />
-          \u00c9tape pr\u00e9c\u00e9dente
+          Étape précédente
         </Button>
         <Button
           onClick={onNext}
           className="min-h-[44px] gap-1.5"
         >
-          Proc\u00e9der aux signatures
+          Procéder aux signatures
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -1811,7 +1811,7 @@ function RelectureRecapCard({
         <AlertTriangle className={`h-5 w-5 ${
           missingImportant > 0 ? 'text-amber-600' : 'text-emerald-600'
         }`} />
-        V\u00e9rification avant signature
+        Vérification avant signature
       </h3>
 
       <div className="space-y-2">
@@ -1833,7 +1833,7 @@ function RelectureRecapCard({
               </Badge>
             )}
             {!pa.hasDiscussion && !pa.hasOpposition && !pa.isInfo && pa.voteResultat && (
-              <span className="text-xs text-muted-foreground">(adopt\u00e9 sans d\u00e9bat)</span>
+              <span className="text-xs text-muted-foreground">(adopté sans débat)</span>
             )}
             {!pa.hasDiscussion && pa.isInfo && (
               <span className="text-xs text-muted-foreground">(information)</span>
@@ -1843,7 +1843,7 @@ function RelectureRecapCard({
             )}
             {pa.hasDiscussion && (
               <Badge className="bg-emerald-100 text-emerald-700 text-[10px] border-0 shrink-0">
-                Compl\u00e8te
+                Complète
               </Badge>
             )}
           </div>
@@ -1857,10 +1857,10 @@ function RelectureRecapCard({
           </p>
           <div className="flex gap-2 mt-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={onGoToDiscussions} className="min-h-[44px]">
-              Compl\u00e9ter les discussions
+              Compléter les discussions
             </Button>
             <Button size="sm" onClick={onGoToSignatures} className="min-h-[44px]">
-              Continuer quand m\u00eame
+              Continuer quand même
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -1871,7 +1871,7 @@ function RelectureRecapCard({
         <div className="mt-4 pt-3 border-t border-emerald-200">
           <p className="text-sm text-emerald-700 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" />
-            Toutes les discussions importantes sont compl\u00e8tes
+            Toutes les discussions importantes sont complètes
           </p>
         </div>
       )}
@@ -1903,42 +1903,42 @@ function ReadOnlyDocument({
           {contenu.entete.institution}
         </p>
         <h1 className="text-2xl font-bold text-center uppercase tracking-wide mt-4">
-          Proc\u00e8s-verbal de carence
+          Procès-verbal de carence
         </h1>
         <p className="text-center text-muted-foreground mt-2 font-sans">
-          S\u00e9ance du {contenu.entete.dateSeance} \u2014 {contenu.entete.nomInstance}
+          Séance du {contenu.entete.dateSeance} \u2014 {contenu.entete.nomInstance}
         </p>
         <Separator className="my-8" />
         <div className="space-y-6 leading-relaxed">
           <p>
-            Le quorum n&apos;\u00e9tant pas atteint ({contenu.presences.quorum.presents} pr\u00e9sent{contenu.presences.quorum.presents > 1 ? 's' : ''}{' '}
-            sur {contenu.presences.quorum.requis} requis), le/la Pr\u00e9sident(e){' '}
+            Le quorum n&apos;étant pas atteint ({contenu.presences.quorum.presents} présent{contenu.presences.quorum.presents > 1 ? 's' : ''}{' '}
+            sur {contenu.presences.quorum.requis} requis), le/la Président(e){' '}
             {contenu.bureau.president ? <strong>{contenu.bureau.president}</strong> : 'M./Mme ...'}{' '}
-            constate la carence et prononce l&apos;ajournement de la s\u00e9ance.
+            constate la carence et prononce l&apos;ajournement de la séance.
           </p>
           {contenu.presences.presents.length > 0 && (
             <div>
-              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">\u00c9taient pr\u00e9sents</p>
+              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">Étaient présents</p>
               <p>{contenu.presences.presents.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
           )}
           {contenu.presences.excuses.length > 0 && (
             <div>
-              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">\u00c9taient excus\u00e9s</p>
+              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">Étaient excusés</p>
               <p>{contenu.presences.excuses.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
           )}
           {contenu.presences.absents.length > 0 && (
             <div>
-              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">\u00c9taient absents</p>
+              <p className="font-semibold text-sm font-sans uppercase tracking-wider text-muted-foreground mb-2">Étaient absents</p>
               <p>{contenu.presences.absents.map(p => `${p.prenom} ${p.nom}`).join(', ')}</p>
             </div>
           )}
           <p>
-            Une reconvocation sera adress\u00e9e aux membres dans les meilleurs d\u00e9lais.
+            Une reconvocation sera adressée aux membres dans les meilleurs délais.
           </p>
           <p className="text-muted-foreground">
-            Fait \u00e0 {contenu.entete.lieu || '...'}, le {contenu.entete.dateSeance}
+            Fait à {contenu.entete.lieu || '...'}, le {contenu.entete.dateSeance}
           </p>
         </div>
         <Separator className="my-8" />
@@ -1962,7 +1962,7 @@ function ReadOnlyDocument({
         {contenu.entete.institution}
       </p>
       <h1 className="text-2xl font-bold text-center uppercase tracking-wide mt-4">
-        Proc\u00e8s-verbal de la s\u00e9ance du {contenu.entete.dateSeance}
+        Procès-verbal de la séance du {contenu.entete.dateSeance}
       </h1>
       <p className="text-center text-muted-foreground mt-2 font-sans">
         {contenu.entete.nomInstance}
@@ -1975,15 +1975,15 @@ function ReadOnlyDocument({
             {contenu.entete.heureOuverture || '...'} \u2014 {contenu.entete.heureCloture || '...'}
           </span>
         </span>
-        <span>{contenu.entete.publique ? 'S\u00e9ance publique' : 'Huis clos'}</span>
-        <span>{contenu.entete.mode === 'VISIOCONFERENCE' ? 'Visioconf\u00e9rence' : 'Pr\u00e9sentiel'}</span>
+        <span>{contenu.entete.publique ? 'Séance publique' : 'Huis clos'}</span>
+        <span>{contenu.entete.mode === 'VISIOCONFERENCE' ? 'Visioconférence' : 'Présentiel'}</span>
       </div>
 
       {/* Reconvocation */}
       {(contenu.entete.reconvocation || seanceReconvocation) && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
           <p className="text-sm text-amber-800">
-            Cette s\u00e9ance fait suite \u00e0 une reconvocation.
+            Cette séance fait suite à une reconvocation.
           </p>
         </div>
       )}
@@ -1991,10 +1991,10 @@ function ReadOnlyDocument({
       {/* Bureau */}
       <div className="mt-6 text-sm">
         <p>
-          Sous la pr\u00e9sidence de{' '}
+          Sous la présidence de{' '}
           <strong>{contenu.bureau.president || '...'}</strong>
           {contenu.bureau.secretaire && (
-            <>, {contenu.bureau.secretaire} assure le secr\u00e9tariat de s\u00e9ance</>
+            <>, {contenu.bureau.secretaire} assure le secrétariat de séance</>
           )}.
         </p>
       </div>
@@ -2002,11 +2002,11 @@ function ReadOnlyDocument({
       <Separator className="my-8" />
 
       {/* Presences */}
-      <h2 className="text-lg font-bold uppercase tracking-wider font-sans mb-4">Pr\u00e9sences</h2>
+      <h2 className="text-lg font-bold uppercase tracking-wider font-sans mb-4">Présences</h2>
       <div className="space-y-3 text-sm">
         {contenu.presences.presents.length > 0 && (
           <p>
-            <strong className="font-sans">Pr\u00e9sents ({contenu.presences.presents.length}) :</strong>{' '}
+            <strong className="font-sans">Présents ({contenu.presences.presents.length}) :</strong>{' '}
             {contenu.presences.presents.map((p, i) => (
               <span key={i}>
                 {p.prenom} {p.nom}
@@ -2018,7 +2018,7 @@ function ReadOnlyDocument({
         )}
         {contenu.presences.excuses.length > 0 && (
           <p>
-            <strong className="font-sans">Excus\u00e9s ({contenu.presences.excuses.length}) :</strong>{' '}
+            <strong className="font-sans">Excusés ({contenu.presences.excuses.length}) :</strong>{' '}
             {contenu.presences.excuses.map(p => `${p.prenom} ${p.nom}`).join(', ')}
           </p>
         )}
@@ -2033,7 +2033,7 @@ function ReadOnlyDocument({
             <strong className="font-sans">Procurations :</strong>{' '}
             {contenu.presences.procurations.map((p, i) => (
               <span key={i}>
-                {p.mandant} a donn\u00e9 pouvoir \u00e0 {p.mandataire}
+                {p.mandant} a donné pouvoir à {p.mandataire}
                 {i < contenu.presences.procurations.length - 1 ? ' ; ' : ''}
               </span>
             ))}
@@ -2054,7 +2054,7 @@ function ReadOnlyDocument({
               contenu.presences.quorum.atteint ? 'text-emerald-700' : 'text-red-700'
             }`}>
               Quorum {contenu.presences.quorum.atteint ? 'atteint' : 'non atteint'} :
-              {' '}{contenu.presences.quorum.presents} pr\u00e9sent{contenu.presences.quorum.presents > 1 ? 's' : ''}
+              {' '}{contenu.presences.quorum.presents} présent{contenu.presences.quorum.presents > 1 ? 's' : ''}
               {' '}sur {contenu.presences.quorum.requis} requis
             </span>
           </div>
@@ -2101,7 +2101,7 @@ function ReadOnlyDocument({
 
             {point.projetDeliberation && (
               <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 mb-4">
-                <p className="text-xs font-semibold text-blue-700 mb-1 font-sans">R\u00e9solution propos\u00e9e :</p>
+                <p className="text-xs font-semibold text-blue-700 mb-1 font-sans">Résolution proposée :</p>
                 <p className="text-sm text-blue-800 whitespace-pre-line">{point.projetDeliberation}</p>
               </div>
             )}
@@ -2169,7 +2169,7 @@ function ReadOnlyDocument({
 
       {/* Cloture */}
       <Separator className="my-8" />
-      <h2 className="text-lg font-bold uppercase tracking-wider font-sans mb-4">Cl\u00f4ture</h2>
+      <h2 className="text-lg font-bold uppercase tracking-wider font-sans mb-4">Clôture</h2>
       <p className="text-sm italic leading-relaxed text-muted-foreground">
         {contenu.cloture.texte}
       </p>
@@ -2208,7 +2208,7 @@ function SignatureDisplay({
           <div className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-emerald-600" />
             <p className="text-sm font-semibold text-emerald-700 font-sans">
-              Proc\u00e8s-verbal sign\u00e9 et verrouill\u00e9
+              Procès-verbal signé et verrouillé
             </p>
           </div>
         </div>
@@ -2217,14 +2217,14 @@ function SignatureDisplay({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
         <Card className={presidentSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Le/La Pr\u00e9sident(e)</p>
+            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Le/La Président(e)</p>
             <p className="font-medium text-sm mb-3">{bureau.president || '...'}</p>
             {presidentSignature ? (
               <div className="flex items-center justify-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" />
                 <span className="text-xs" suppressHydrationWarning>
-                  Sign\u00e9 le {new Date(presidentSignature.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  {' '}\u00e0 {new Date(presidentSignature.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  Signé le {new Date(presidentSignature.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {' '}à {new Date(presidentSignature.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ) : (
@@ -2234,14 +2234,14 @@ function SignatureDisplay({
         </Card>
         <Card className={secretaireSignature ? 'border-emerald-200 bg-emerald-50/50' : ''}>
           <CardContent className="p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Le/La Secr\u00e9taire</p>
+            <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wider">Le/La Secrétaire</p>
             <p className="font-medium text-sm mb-3">{bureau.secretaire || '...'}</p>
             {secretaireSignature ? (
               <div className="flex items-center justify-center gap-1.5 text-emerald-600">
                 <CheckCircle2 className="h-4 w-4" />
                 <span className="text-xs" suppressHydrationWarning>
-                  Sign\u00e9 le {new Date(secretaireSignature.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  {' '}\u00e0 {new Date(secretaireSignature.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  Signé le {new Date(secretaireSignature.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {' '}à {new Date(secretaireSignature.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             ) : (
