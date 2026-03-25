@@ -1270,8 +1270,9 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   <div className="px-5 pb-2 flex flex-wrap gap-1.5">
                     {[
                       { key: null, label: 'Tous', count: seance.convocataires.length, color: 'bg-slate-100 text-slate-700 hover:bg-slate-200', activeColor: 'bg-slate-700 text-white' },
+                      { key: 'envoyes', label: 'Envoyées', count: convocationStats.totalEnvoyes, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100', activeColor: 'bg-blue-600 text-white' },
+                      { key: 'lus', label: 'Lu', count: convocationStats.lus, color: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100', activeColor: 'bg-cyan-600 text-white' },
                       { key: 'confirmes', label: 'Confirmées', count: convocationStats.confirmes, color: 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100', activeColor: 'bg-emerald-600 text-white' },
-                      { key: 'lus', label: 'Lu ✓', count: convocationStats.lus, color: 'bg-cyan-50 text-cyan-700 hover:bg-cyan-100', activeColor: 'bg-cyan-600 text-white' },
                       { key: 'en_attente', label: 'En attente', count: convocationStats.enAttente, color: 'bg-amber-50 text-amber-700 hover:bg-amber-100', activeColor: 'bg-amber-500 text-white' },
                       { key: 'erreurs', label: 'Erreurs', count: convocationStats.erreurs, color: 'bg-red-50 text-red-700 hover:bg-red-100', activeColor: 'bg-red-600 text-white' },
                       { key: 'non_envoyes', label: 'Non envoyées', count: convocationStats.nonEnvoyes, color: 'bg-slate-50 text-slate-600 hover:bg-slate-100', activeColor: 'bg-slate-600 text-white' },
