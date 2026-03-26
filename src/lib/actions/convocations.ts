@@ -8,6 +8,8 @@ import { resend, FROM_EMAIL, FROM_NAME } from '@/lib/email/resend'
 import {
   generateConvocationHTML,
   generateConvocationSubject,
+  generateReminderHTML,
+  generateReminderSubject,
 } from '@/lib/email/convocation-template'
 
 type ActionResult = { success: true } | { error: string }
@@ -378,5 +380,110 @@ export async function resendConvocation(seanceId: string, memberId: string): Pro
   } catch (err) {
     console.error('resendConvocation error:', err)
     return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Envoi de rappels aux membres non confirmés ─────────────────────────────
+
+export async function sendReminders(seanceId: string): Promise<{ sent: number; error?: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { sent: 0, error: roleError }
+
+    // Rate limiting: max 3 rappels par séance par heure
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: `send_reminders_${seanceId}`,
+      maxAttempts: 3,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { sent: 0, error: rateCheck.error! }
+
+    // Load séance
+    const { data: seance, error: seanceError } = await supabase
+      .from('seances')
+      .select('id, titre, date_seance, statut, instance_config(nom)')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceError || !seance) return { sent: 0, error: 'Séance introuvable' }
+    if (seance.statut !== 'CONVOQUEE') return { sent: 0, error: 'Les rappels ne peuvent être envoyés que pour les séances convoquées' }
+
+    // Get institution name
+    const { data: institution } = await supabase
+      .from('institution_config')
+      .select('nom_officiel')
+      .limit(1)
+      .maybeSingle()
+
+    const institutionNom = institution?.nom_officiel
+      || process.env.NEXT_PUBLIC_INSTITUTION_NAME
+      || 'Institution'
+
+    // Get convocataires who haven't confirmed
+    const { data: convocataires } = await supabase
+      .from('convocataires')
+      .select('member_id, statut_convocation, member:members(prenom, nom, email)')
+      .eq('seance_id', seanceId)
+      .in('statut_convocation', ['ENVOYE', 'LU'])
+
+    if (!convocataires || convocataires.length === 0) {
+      return { sent: 0, error: 'Tous les membres ont déjà confirmé ou sont en erreur' }
+    }
+
+    // Format date
+    const dateObj = new Date(seance.date_seance)
+    const dateFormatted = dateObj.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+    const heureFormatted = seance.date_seance.includes('T')
+      ? dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+      : ''
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const instanceNom = (seance.instance_config as any)?.nom || ''
+
+    // Send reminder emails
+    let sent = 0
+    for (const conv of convocataires) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const member = conv.member as any
+      if (!member?.email) continue
+
+      const emailData = {
+        memberName: `${member.prenom} ${member.nom}`,
+        seanceTitre: seance.titre,
+        seanceDate: dateFormatted,
+        seanceHeure: heureFormatted,
+        instanceNom,
+        institutionNom,
+      }
+
+      try {
+        const { error: emailError } = await resend.emails.send({
+          from: `${FROM_NAME} <${FROM_EMAIL}>`,
+          to: [member.email],
+          subject: generateReminderSubject(emailData),
+          html: generateReminderHTML(emailData),
+        })
+
+        if (!emailError) {
+          sent++
+        } else {
+          console.error(`Reminder failed for ${member.email}:`, emailError.message)
+        }
+      } catch (err) {
+        console.error(`Reminder failed for ${member.email}:`, err)
+      }
+    }
+
+    revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
+    return { sent }
+  } catch (err) {
+    console.error('sendReminders error:', err)
+    return { sent: 0, error: 'Erreur inattendue lors de l\'envoi des rappels' }
   }
 }

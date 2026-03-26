@@ -199,10 +199,111 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
   `.trim()
 }
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+// ─── Reminder email template ────────────────────────────────────────────────
+
+interface ReminderEmailData {
+  memberName: string
+  seanceTitre: string
+  seanceDate: string
+  seanceHeure: string
+  instanceNom: string
+  institutionNom: string
+}
+
+export function generateReminderSubject(data: ReminderEmailData): string {
+  return `Rappel — ${data.seanceTitre} le ${data.seanceDate}`
+}
+
+export function generateReminderHTML(data: ReminderEmailData): string {
+  const { memberName, seanceTitre, seanceDate, seanceHeure, instanceNom, institutionNom } = data
+
+  return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 0 auto; background: #ffffff;">
+    <!-- Header -->
+    <tr>
+      <td style="background: #f59e0b; padding: 24px 32px; text-align: center;">
+        <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 600;">
+          Rappel de séance
+        </h1>
+        <p style="margin: 4px 0 0; color: rgba(255,255,255,0.8); font-size: 13px;">
+          ${escapeHtml(institutionNom)}
+        </p>
+      </td>
+    </tr>
+
+    <!-- Body -->
+    <tr>
+      <td style="padding: 32px;">
+        <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b;">
+          Madame, Monsieur <strong>${escapeHtml(memberName)}</strong>,
+        </p>
+
+        <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b; line-height: 1.6;">
+          Nous vous rappelons que vous êtes convoqué(e) à la séance suivante :
+        </p>
+
+        <!-- Session info card -->
+        <table cellpadding="0" cellspacing="0" style="width: 100%; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; margin: 16px 0;">
+          <tr>
+            <td style="padding: 20px;">
+              <h2 style="margin: 0 0 12px; font-size: 17px; color: #1e293b;">
+                ${escapeHtml(seanceTitre)}
+              </h2>
+              <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                  <td style="padding: 4px 0; font-size: 14px; color: #64748b; width: 100px;">Instance</td>
+                  <td style="padding: 4px 0; font-size: 14px; color: #1e293b; font-weight: 500;">${escapeHtml(instanceNom)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; font-size: 14px; color: #64748b;">Date</td>
+                  <td style="padding: 4px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${escapeHtml(seanceDate)}</td>
+                </tr>
+                ${seanceHeure ? `
+                <tr>
+                  <td style="padding: 4px 0; font-size: 14px; color: #64748b;">Heure</td>
+                  <td style="padding: 4px 0; font-size: 14px; color: #1e293b; font-weight: 600;">${escapeHtml(seanceHeure)}</td>
+                </tr>
+                ` : ''}
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <p style="margin: 16px 0 0; font-size: 14px; color: #64748b; line-height: 1.6;">
+          Si vous ne pouvez pas assister à cette séance, veuillez en informer le secrétariat
+          et, le cas échéant, établir une procuration.
+        </p>
+      </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+      <td style="padding: 20px 32px; background: #f1f5f9; border-top: 1px solid #e2e8f0;">
+        <p style="margin: 0; font-size: 12px; color: #94a3b8; text-align: center;">
+          ${escapeHtml(institutionNom)} — Système de gestion des séances délibérantes
+        </p>
+        <p style="margin: 4px 0 0; font-size: 11px; color: #cbd5e1; text-align: center;">
+          Cet email de rappel a été envoyé automatiquement. Merci de ne pas y répondre.
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim()
 }

@@ -120,6 +120,7 @@ import {
   XCircle,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Copy,
+  Bell,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -132,7 +133,7 @@ import {
   addStandardODJPoints,
   duplicateSeance,
 } from '@/lib/actions/seances'
-import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
+import { sendConvocations, resendConvocation, sendReminders } from '@/lib/actions/convocations'
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow } from '@/lib/supabase/types'
@@ -852,6 +853,29 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                       </div>
                     </div>
                   )}
+
+                  {/* Reminder suggestion if séance is CONVOQUEE and < 3 days away */}
+                  {seance.statut === 'CONVOQUEE' && (() => {
+                    const now = new Date()
+                    const dateSeance = new Date(seance.date_seance)
+                    const daysUntil = Math.ceil((dateSeance.getTime() - now.getTime()) / 86400000)
+                    const unconfirmedCount = seance.convocataires.filter(c => {
+                      const s = c.statut_convocation || 'NON_ENVOYE'
+                      return s === 'ENVOYE' || s === 'LU'
+                    }).length
+                    if (daysUntil <= 3 && unconfirmedCount > 0) {
+                      return (
+                        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mt-3">
+                          <p className="text-xs text-amber-700 flex items-center gap-1.5">
+                            <Bell className="h-3.5 w-3.5 shrink-0" />
+                            {unconfirmedCount} membre{unconfirmedCount > 1 ? 's' : ''} n&apos;{unconfirmedCount > 1 ? 'ont' : 'a'} pas encore confirmé.
+                            Envoyez un rappel depuis le panneau Actions.
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
               )}
 
@@ -1074,6 +1098,100 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   )}
                 </div>
               )}
+
+              {/* Quorum prediction */}
+              {seance.instance_config && seance.convocataires.length > 0 && (() => {
+                const config = seance.instance_config
+                const totalMembers = config.composition_max || seance.convocataires.length
+
+                // Calculate quorum required
+                let quorumRequired: number
+                if (config.quorum_type === 'TIERS_MEMBRES') {
+                  quorumRequired = Math.ceil(totalMembers / 3)
+                } else if (config.quorum_type === 'DEUX_TIERS') {
+                  quorumRequired = Math.ceil((totalMembers * 2) / 3)
+                } else if (config.quorum_fraction_numerateur && config.quorum_fraction_denominateur) {
+                  quorumRequired = Math.ceil((totalMembers * config.quorum_fraction_numerateur) / config.quorum_fraction_denominateur)
+                } else {
+                  // MAJORITE_MEMBRES (default)
+                  quorumRequired = Math.floor(totalMembers / 2) + 1
+                }
+
+                // Count confirmed (CONFIRME_PRESENT + ABSENT_PROCURATION count for quorum)
+                const confirmed = seance.convocataires.filter(c =>
+                  c.statut_convocation === 'CONFIRME_PRESENT'
+                ).length
+                const procurations = seance.convocataires.filter(c =>
+                  c.statut_convocation === 'ABSENT_PROCURATION'
+                ).length
+                const presentExpected = confirmed + procurations
+
+                // Calculate percentage
+                const percentage = Math.min(100, Math.round((presentExpected / quorumRequired) * 100))
+
+                // Status
+                const isAchieved = presentExpected >= quorumRequired
+                const isClose = presentExpected >= quorumRequired * 0.7
+
+                return (
+                  <div className="rounded-xl border bg-card p-5">
+                    <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-muted-foreground" />
+                      Prévision du quorum
+                    </h3>
+
+                    <div className="space-y-3">
+                      {/* Progress bar */}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className={`font-bold ${isAchieved ? 'text-emerald-600' : isClose ? 'text-amber-600' : 'text-red-600'}`}>
+                          {presentExpected} confirmé{presentExpected > 1 ? 's' : ''}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {quorumRequired} requis sur {totalMembers} membres
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-muted rounded-full h-3 relative">
+                        <div
+                          className={`h-3 rounded-full transition-all duration-500 ${isAchieved ? 'bg-emerald-500' : isClose ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${percentage}%` }}
+                        />
+                        {/* Quorum threshold marker */}
+                        <div
+                          className="absolute top-0 h-3 w-0.5 bg-foreground/50"
+                          style={{ left: `${Math.min(100, Math.round((quorumRequired / totalMembers) * 100))}%` }}
+                          title={`Seuil de quorum : ${quorumRequired} membres`}
+                        />
+                      </div>
+
+                      {/* Status message */}
+                      {isAchieved ? (
+                        <p className="text-sm text-emerald-600 flex items-center gap-1.5 font-medium">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Quorum atteint — la séance pourra se tenir
+                        </p>
+                      ) : isClose ? (
+                        <p className="text-sm text-amber-600 flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4" />
+                          Quorum presque atteint — {quorumRequired - presentExpected} confirmation{quorumRequired - presentExpected > 1 ? 's' : ''} manquante{quorumRequired - presentExpected > 1 ? 's' : ''}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-red-600 flex items-center gap-1.5">
+                          <AlertOctagon className="h-4 w-4" />
+                          Quorum non atteint — {quorumRequired - presentExpected} confirmation{quorumRequired - presentExpected > 1 ? 's' : ''} manquante{quorumRequired - presentExpected > 1 ? 's' : ''}
+                        </p>
+                      )}
+
+                      {/* Detail breakdown */}
+                      <div className="flex gap-4 text-xs text-muted-foreground">
+                        <span>{confirmed} présent{confirmed > 1 ? 's' : ''} confirmé{confirmed > 1 ? 's' : ''}</span>
+                        {procurations > 0 && <span>{procurations} procuration{procurations > 1 ? 's' : ''}</span>}
+                        <span>{seance.convocataires.length - confirmed - procurations} en attente</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Quick stats: ODJ */}
               <div>
@@ -1624,6 +1742,33 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                     <Send className="h-4 w-4 mr-2" />
                   )}
                   Envoyer les convocations
+                </Button>
+              )}
+
+              {seance.statut === 'CONVOQUEE' && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => {
+                    startTransition(async () => {
+                      const result = await sendReminders(seance.id)
+                      if (result.error) {
+                        toast.error(result.error)
+                      } else {
+                        toast.success(`${result.sent} rappel${result.sent > 1 ? 's' : ''} envoyé${result.sent > 1 ? 's' : ''}`)
+                        router.refresh()
+                      }
+                    })
+                  }}
+                  disabled={isPending}
+                  title="Envoyer un email de rappel aux membres qui n'ont pas encore confirmé"
+                >
+                  {isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Bell className="h-4 w-4 mr-2" />
+                  )}
+                  Envoyer un rappel
                 </Button>
               )}
 
