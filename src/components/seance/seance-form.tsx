@@ -88,6 +88,9 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
   const [presidentId, setPresidentId] = useState(seance?.president_effectif_seance_id || '')
   const [secretaireId, setSecretaireId] = useState(seance?.secretaire_seance_id || '')
   const [autoConvoque, setAutoConvoque] = useState(true)
+  const [urgence, setUrgence] = useState(
+    seance?.notes?.includes('Séance convoquée en urgence') ?? false
+  )
 
   // Inline validation errors (shown on blur)
   const [errors, setErrors] = useState<Record<string, string | null>>({})
@@ -130,6 +133,7 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
     setPresidentId(seance?.president_effectif_seance_id || '')
     setSecretaireId(seance?.secretaire_seance_id || '')
     setAutoConvoque(true)
+    setUrgence(seance?.notes?.includes('Séance convoquée en urgence') ?? false)
     setErrors({})
   }
 
@@ -190,7 +194,15 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
       formData.set('mode', mode)
       formData.set('lieu', lieu.trim())
       formData.set('publique', publique ? 'true' : 'false')
-      formData.set('notes', notes.trim())
+      // Append urgence mention to notes if toggled
+      let finalNotes = notes.trim()
+      const urgenceMention = 'Séance convoquée en urgence'
+      if (urgence && !finalNotes.includes(urgenceMention)) {
+        finalNotes = finalNotes ? `${urgenceMention}\n${finalNotes}` : urgenceMention
+      } else if (!urgence && finalNotes.includes(urgenceMention)) {
+        finalNotes = finalNotes.replace(urgenceMention, '').trim()
+      }
+      formData.set('notes', finalNotes)
       if (presidentId && presidentId !== '_none') formData.set('president_effectif_seance_id', presidentId)
       if (secretaireId && secretaireId !== '_none') formData.set('secretaire_seance_id', secretaireId)
       formData.set('auto_convoque', autoConvoque ? 'true' : 'false')
@@ -406,6 +418,16 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                 </p>
               </div>
               <Switch checked={publique} onCheckedChange={setPublique} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div>
+                <Label className="font-medium">Convocation en urgence</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Délai de convocation réduit (CGCT L2121-11)
+                </p>
+              </div>
+              <Switch checked={urgence} onCheckedChange={setUrgence} />
             </div>
 
             {!isEditing && (

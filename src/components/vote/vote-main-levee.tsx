@@ -592,6 +592,11 @@ export function VoteMainLevee({
               )}
             </div>
 
+            {/* Informational note: abstention vs vote blanc */}
+            <p className="text-xs text-muted-foreground mt-1">
+              L&apos;abstention n&apos;est pas un suffrage exprimé. Le vote blanc est compté dans les suffrages exprimés mais n&apos;est applicable qu&apos;au scrutin secret.
+            </p>
+
             {/* Overflow warning */}
             {isOverflow && (
               <div className="rounded-lg bg-red-50 border border-red-200 p-3">

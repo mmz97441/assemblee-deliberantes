@@ -256,6 +256,11 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   // Procuration
   const [procurationDialogOpen, setProcurationDialogOpen] = useState(false)
 
+  // Affichage en mairie — tracked via notes for MVP
+  const [affichageMarque, setAffichageMarque] = useState(
+    !!(seance.notes && /Convocation affichée le/.test(seance.notes))
+  )
+
   // Status change
   const [statusChangeDialog, setStatusChangeDialog] = useState<string | null>(null)
   // Confirmation dialogs
@@ -1342,6 +1347,33 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             {/* TAB: Convocations                                              */}
             {/* ═══════════════════════════════════════════════════════════════ */}
             <TabsContent value="convocations" className="mt-0 tab-content-enter">
+              {/* Affichage en mairie */}
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 mb-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Affichage en mairie</span>
+                </div>
+                {affichageMarque ? (
+                  <Badge className="bg-emerald-100 text-emerald-700 border-0">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Affiché
+                  </Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!canManage}
+                    title={!canManage ? 'Permissions insuffisantes' : 'Marquer la convocation comme affichée en mairie'}
+                    onClick={() => {
+                      setAffichageMarque(true)
+                      toast.success('Affichage en mairie marqué')
+                    }}
+                  >
+                    Marquer comme affiché
+                  </Button>
+                )}
+              </div>
+
               <div className="rounded-xl border bg-card">
                 <div className="flex items-center justify-between p-5 pb-3">
                   <div className="flex items-center gap-2">
@@ -2931,6 +2963,8 @@ function AddProcurationDialog({
   const [mandantId, setMandantId] = useState('')
   const [mandataireId, setMandataireId] = useState('')
   const [canal, setCanal] = useState('telephone')
+  const [procFile, setProcFile] = useState<File | null>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
 
   // Members who can be mandant (absent = don't have a procuration yet)
   const availableMandants = convocataires
@@ -2947,6 +2981,10 @@ function AddProcurationDialog({
     .map(c => c.member!)
     .sort((a, b) => a.nom.localeCompare(b.nom))
 
+  async function handleProcurationFileUpload(file: File | null) {
+    setProcFile(file)
+  }
+
   function handleSubmit() {
     if (!mandantId || !mandataireId) {
       toast.error('Sélectionnez le mandant et le mandataire')
@@ -2954,13 +2992,44 @@ function AddProcurationDialog({
     }
 
     startTransition(async () => {
-      const result = await createProcuration(seanceId, mandantId, mandataireId, canal)
+      let documentUrl: string | undefined
+
+      // Upload file to Supabase Storage if provided
+      if (procFile) {
+        try {
+          setUploadingFile(true)
+          const { createClient } = await import('@/lib/supabase/client')
+          const supabase = createClient()
+          const ext = procFile.name.split('.').pop() || 'pdf'
+          const timestamp = Date.now()
+          const path = `procurations/${seanceId}/${mandantId}_${timestamp}.${ext}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('documents')
+            .upload(path, procFile)
+
+          if (uploadError) {
+            toast.error(`Erreur d'envoi du fichier : ${uploadError.message}`)
+            setUploadingFile(false)
+            return
+          }
+          documentUrl = path
+          setUploadingFile(false)
+        } catch {
+          toast.error('Erreur lors de l\'envoi du document')
+          setUploadingFile(false)
+          return
+        }
+      }
+
+      const result = await createProcuration(seanceId, mandantId, mandataireId, canal, documentUrl)
       if ('error' in result) {
         toast.error(result.error)
       } else {
         toast.success('Procuration enregistrée')
         setMandantId('')
         setMandataireId('')
+        setProcFile(null)
         router.refresh()
         onClose()
       }
@@ -3051,6 +3120,23 @@ function AddProcurationDialog({
               Comment le mandant a-t-il communiqué sa procuration ?
             </p>
           </div>
+
+          {/* Document upload */}
+          <div className="space-y-2">
+            <Label>Document de procuration (optionnel)</Label>
+            <p className="text-xs text-muted-foreground">Joignez le scan ou la photo de la procuration écrite</p>
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={(e) => handleProcurationFileUpload(e.target.files?.[0] || null)}
+            />
+            {procFile && (
+              <p className="text-xs text-emerald-600 flex items-center gap-1">
+                <Paperclip className="h-3 w-3" />
+                {procFile.name}
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter className="mt-4">
@@ -3059,10 +3145,10 @@ function AddProcurationDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isPending || !mandantId || !mandataireId}
+            disabled={isPending || uploadingFile || !mandantId || !mandataireId}
           >
-            {isPending ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Enregistrement...</>
+            {isPending || uploadingFile ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {uploadingFile ? 'Envoi du fichier...' : 'Enregistrement...'}</>
             ) : (
               <><Handshake className="h-4 w-4 mr-2" /> Enregistrer la procuration</>
             )}

@@ -22,7 +22,8 @@ export async function createProcuration(
   seanceId: string,
   mandantId: string,
   mandataireId: string,
-  canal: string = 'email'
+  canal: string = 'email',
+  documentUrl?: string
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
@@ -101,6 +102,7 @@ export async function createProcuration(
         canal_communication: canal,
         validee_par: user.id,
         validee_at: new Date().toISOString(),
+        ...(documentUrl ? { document_url: documentUrl } : {}),
       })
 
     if (insertError) {

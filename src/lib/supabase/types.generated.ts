@@ -706,6 +706,7 @@ export type Database = {
       }
       odj_points: {
         Row: {
+          ajout_en_seance: boolean | null
           created_at: string | null
           description: string | null
           documents: Json | null
@@ -729,6 +730,7 @@ export type Database = {
           votes_interdits: boolean | null
         }
         Insert: {
+          ajout_en_seance?: boolean | null
           created_at?: string | null
           description?: string | null
           documents?: Json | null
@@ -752,6 +754,7 @@ export type Database = {
           votes_interdits?: boolean | null
         }
         Update: {
+          ajout_en_seance?: boolean | null
           created_at?: string | null
           description?: string | null
           documents?: Json | null

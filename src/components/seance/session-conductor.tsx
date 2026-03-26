@@ -32,6 +32,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -70,8 +72,9 @@ import {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Smartphone,
   Info,
+  ListPlus,
 } from 'lucide-react'
-import { updateSeanceStatut, reconvoquerSeance } from '@/lib/actions/seances'
+import { updateSeanceStatut, reconvoquerSeance, addODJPoint } from '@/lib/actions/seances'
 import { recuseFromPoint, cancelRecusation } from '@/lib/actions/recusations'
 import { activateHuisClos, deactivateHuisClos } from '@/lib/actions/recusations'
 import type { ODJPointRow } from '@/lib/supabase/types'
@@ -258,6 +261,17 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
   // Huis clos dialog state
   const [showHuisClosDialog, setShowHuisClosDialog] = useState(false)
   const [isTogglingHuisClos, setIsTogglingHuisClos] = useState(false)
+  // Ajout point en séance dialog state
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showAjoutPointDialog, setShowAjoutPointDialog] = useState(false)
+  const [ajoutPointTitre, setAjoutPointTitre] = useState('')
+  const [ajoutPointDescription, setAjoutPointDescription] = useState('')
+  const [ajoutPointType, setAjoutPointType] = useState<string>('DELIBERATION')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isAddingPoint, setIsAddingPoint] = useState(false)
+
+  // Track if quorum was ever met (stays true once reached)
+  const [quorumWasMet, setQuorumWasMet] = useState(false)
 
   // Live clock (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -311,6 +325,13 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
       })
       .filter((m): m is { id: string; prenom: string; nom: string } => m !== null)
   }, [seance.presences, seance.convocataires])
+
+  // Track quorum reaching — once met, stays true
+  useEffect(() => {
+    if (quorum.reached && !quorumWasMet) {
+      setQuorumWasMet(true)
+    }
+  }, [quorum.reached, quorumWasMet])
 
   // Session duration
   const sessionDuration = useMemo(() => {
@@ -408,6 +429,42 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
       toast.error('Erreur lors du changement de huis clos. Réessayez.')
     } finally {
       setIsTogglingHuisClos(false)
+    }
+  }
+
+  // ─── Ajout point en séance handler ───────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleAddUrgentPoint = async () => {
+    if (!ajoutPointTitre.trim()) return
+    setIsAddingPoint(true)
+    try {
+      const formData = new FormData()
+      formData.set('seance_id', seance.id)
+      formData.set('titre', ajoutPointTitre.trim())
+      formData.set('description', ajoutPointDescription.trim())
+      formData.set('type_traitement', ajoutPointType)
+      formData.set('ajout_en_seance', 'true')
+      formData.set('majorite_requise', 'SIMPLE')
+
+      const result = await addODJPoint(formData)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Point ajouté à l\'ordre du jour', {
+          description: 'N\'oubliez pas de soumettre l\'ajout au vote de l\'assemblée via un vote à main levée.',
+        })
+        // Navigate to the newly added point (last one)
+        setCurrentPointIndex(sortedPoints.length) // will be the new last index after refresh
+        setShowAjoutPointDialog(false)
+        setAjoutPointTitre('')
+        setAjoutPointDescription('')
+        setAjoutPointType('DELIBERATION')
+        router.refresh()
+      }
+    } catch {
+      toast.error('Erreur lors de l\'ajout du point. Réessayez.')
+    } finally {
+      setIsAddingPoint(false)
     }
   }
 
@@ -637,6 +694,22 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
         </div>
       )}
 
+      {/* ═══ Quorum LOST alert — quorum was met but now lost due to departures ═══ */}
+      {quorumWasMet && !quorum.reached && seance.statut === 'EN_COURS' && (
+        <div className="mx-6 mt-4">
+          <div className="rounded-lg bg-red-100 border-2 border-red-300 p-4 animate-pulse">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="h-5 w-5" />
+              <strong>Quorum perdu !</strong>
+            </div>
+            <p className="text-sm text-red-700 mt-1">
+              Des départs ont fait passer le nombre de présents en dessous du quorum requis.
+              Les votes en cours ne sont plus valides. Suspendez la séance ou attendez de nouvelles arrivées.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ═══ PV banner — shown when séance is clôturée ═══ */}
       {seance.statut === 'CLOTUREE' && (
         <div className="mx-6 mt-4">
@@ -753,6 +826,16 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
                 <Separator className="my-4" />
 
+                {/* Ajout en séance banner */}
+                {currentPoint.ajout_en_seance && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 mb-4 flex items-center gap-2">
+                    <ListPlus className="h-4 w-4 text-amber-600 shrink-0" />
+                    <p className="text-sm text-amber-800">
+                      <strong>Point ajouté en séance</strong> — sur proposition du président et avec l&apos;accord de l&apos;assemblée.
+                    </p>
+                  </div>
+                )}
+
                 {/* Rapporteur */}
                 {currentRapporteur && (
                   <div className="flex items-center gap-2 mb-4 text-sm">
@@ -868,6 +951,19 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                       </TooltipTrigger>
                       <TooltipContent>Exclure le public et neutraliser la Grande Scène</TooltipContent>
                     </Tooltip>
+                  </div>
+                )}
+
+                {/* ═══ Compte administratif — président doit quitter ═══ */}
+                {currentPoint && /compte\s+(administratif|de\s+gestion)/i.test(currentPoint.titre) && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 mb-2">
+                    <p className="text-sm text-amber-800 font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      Compte administratif — Le président doit quitter la salle pendant ce vote (CGCT L1612-12)
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      Le plus âgé des adjoints préside ce vote.
+                    </p>
                   </div>
                 )}
 
@@ -1340,7 +1436,27 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
           {/* ODJ overview */}
           <div className="rounded-xl border p-4">
-            <h3 className="text-sm font-semibold mb-2">Ordre du jour</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold">Ordre du jour</h3>
+              {!isObserver && seance.statut === 'EN_COURS' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-400"
+                      onClick={() => setShowAjoutPointDialog(true)}
+                    >
+                      <ListPlus className="h-3.5 w-3.5 mr-1" />
+                      Ajouter
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[240px]">
+                    <p>Ajouter un point à l&apos;ordre du jour en cours de séance. L&apos;ajout nécessite un vote favorable de l&apos;assemblée.</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {sortedPoints.map((point, idx) => {
                 const isActive = idx === currentPointIndex
@@ -1364,6 +1480,16 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                       {point.position}
                     </span>
                     <span className="truncate">{point.titre}</span>
+                    {point.ajout_en_seance && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="shrink-0 text-[9px] bg-amber-100 text-amber-700 rounded px-1 py-0.5 font-medium">
+                            +
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>Ajouté en cours de séance</TooltipContent>
+                      </Tooltip>
+                    )}
                     {pointIsVotable && !isActive && (
                       <Vote className="h-3 w-3 text-blue-500 shrink-0 ml-auto" />
                     )}
@@ -1646,6 +1772,93 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ═══ Ajout point en séance dialog ═══ */}
+      <Dialog open={showAjoutPointDialog} onOpenChange={setShowAjoutPointDialog}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ListPlus className="h-5 w-5 text-amber-600" />
+              Ajouter un point en séance
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+              <p className="text-sm text-amber-800 font-medium mb-1">Action exceptionnelle</p>
+              <p className="text-xs text-amber-700">
+                L&apos;ajout d&apos;un point en cours de séance nécessite l&apos;accord de l&apos;assemblée.
+                Après l&apos;ajout, ouvrez un vote à main levée pour faire approuver l&apos;ajout.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ajout-point-titre">Titre du point <span className="text-red-500">*</span></Label>
+              <Input
+                id="ajout-point-titre"
+                placeholder="Ex : Demande de subvention urgente..."
+                value={ajoutPointTitre}
+                onChange={e => setAjoutPointTitre(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ajout-point-description">Description (facultatif)</Label>
+              <Textarea
+                id="ajout-point-description"
+                placeholder="Contexte ou détails complémentaires..."
+                value={ajoutPointDescription}
+                onChange={e => setAjoutPointDescription(e.target.value)}
+                className="min-h-[60px]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ajout-point-type">Type</Label>
+              <Select value={ajoutPointType} onValueChange={setAjoutPointType}>
+                <SelectTrigger id="ajout-point-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DELIBERATION">Délibération</SelectItem>
+                  <SelectItem value="INFORMATION">Information</SelectItem>
+                  <SelectItem value="QUESTION_DIVERSE">Question diverse</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 space-y-1 text-xs text-blue-700">
+              <p className="font-medium">Après l&apos;ajout :</p>
+              <p className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                Le point sera ajouté en fin d&apos;ordre du jour
+              </p>
+              <p className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                Vous pourrez ouvrir un vote pour valider l&apos;ajout
+              </p>
+              <p className="flex items-center gap-1.5">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                Le PV mentionnera que ce point a été ajouté en séance
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAjoutPointDialog(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={handleAddUrgentPoint}
+              disabled={!ajoutPointTitre.trim() || isAddingPoint}
+              className="bg-amber-600 hover:bg-amber-700"
+              title={!ajoutPointTitre.trim() ? 'Saisissez un titre pour le point' : undefined}
+            >
+              {isAddingPoint && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Ajouter le point
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </TooltipProvider>
   )

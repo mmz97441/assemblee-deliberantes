@@ -632,6 +632,25 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
     if (!seanceId) return { error: 'ID de séance manquant' }
     if (!titre) return { error: 'Le titre du point est requis' }
 
+    // Check séance status — block modifications during or after séance unless ajout_en_seance
+    const isAjoutEnSeance = formData.get('ajout_en_seance') === 'true'
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceCheck?.statut) {
+      // During EN_COURS: allow only if explicitly flagged as ajout_en_seance
+      if (seanceCheck.statut === 'EN_COURS' && !isAjoutEnSeance) {
+        return { error: 'Pour ajouter un point en cours de séance, utilisez la fonction « Ajouter un point en séance ».' }
+      }
+      // Block completely for other locked states
+      if (['SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seanceCheck.statut)) {
+        return { error: 'L\'ordre du jour ne peut pas être modifié après la séance.' }
+      }
+    }
+
     // Get next position
     const { data: existingPoints } = await supabase
       .from('odj_points')
@@ -659,6 +678,10 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
       projet_deliberation: (formData.get('projet_deliberation') as string)?.trim() || null,
       position: nextPosition,
       statut: 'A_TRAITER',
+      // Points ajoutés en cours de séance : marqués pour mention dans le PV
+      // "Le point suivant a été ajouté à l'ordre du jour en cours de séance,
+      // sur proposition du président et avec l'accord de l'assemblée."
+      ajout_en_seance: isAjoutEnSeance || false,
     }
 
     const { data, error } = await supabase

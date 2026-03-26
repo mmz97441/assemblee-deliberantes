@@ -39,6 +39,8 @@ import {
   Clock,
   Send,
   Megaphone,
+  BookOpen,
+  Loader2,
 } from 'lucide-react'
 import {
   publishDeliberation,
@@ -158,6 +160,7 @@ export function DeliberationsList({
   const [annulingDelib, setAnnulingDelib] = useState<DeliberationItem | null>(null)
   const [annulMotif, setAnnulMotif] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [registerLoading, setRegisterLoading] = useState(false)
   const ITEMS_PER_PAGE = 20
 
   const deliberations = rawDeliberations as DeliberationItem[]
@@ -173,6 +176,21 @@ export function DeliberationsList({
     })
     return Array.from(years).sort((a, b) => b - a)
   }, [deliberations])
+
+  // Years with published deliberations (for register export)
+  const publishedYears = useMemo(() => {
+    const years = new Set<number>()
+    deliberations.forEach(d => {
+      if (d.publie_at) {
+        years.add(new Date(d.publie_at).getFullYear())
+      }
+    })
+    return Array.from(years).sort((a, b) => b - a)
+  }, [deliberations])
+
+  const [registerYear, setRegisterYear] = useState<string>(
+    () => String(new Date().getFullYear())
+  )
 
   // Filtered list
   const filtered = useMemo(() => {
@@ -309,6 +327,52 @@ export function DeliberationsList({
           <span>
             <strong>{draftCount} deliberation{draftCount > 1 ? 's' : ''}</strong> en attente de publication
           </span>
+        </div>
+      )}
+
+      {/* Register export */}
+      {canManage && publishedYears.length > 0 && (
+        <div className="flex items-center gap-2 mb-4">
+          <Select value={registerYear} onValueChange={setRegisterYear}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Année" />
+            </SelectTrigger>
+            <SelectContent>
+              {publishedYears.map(y => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-10"
+                disabled={registerLoading}
+                onClick={() => {
+                  setRegisterLoading(true)
+                  const url = `/api/pdf/registre/${registerYear}`
+                  const w = window.open(url, '_blank')
+                  // Reset loading after a delay (PDF generation can be slow)
+                  setTimeout(() => setRegisterLoading(false), 5000)
+                  if (!w) {
+                    toast.error('Impossible d\'ouvrir le PDF. Vérifiez que les popups sont autorisées.')
+                    setRegisterLoading(false)
+                  }
+                }}
+              >
+                {registerLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <BookOpen className="h-4 w-4 mr-2" />
+                )}
+                Registre {registerYear}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Télécharger le registre officiel des délibérations pour cette année</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       )}
 
