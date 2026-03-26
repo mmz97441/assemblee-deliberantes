@@ -165,20 +165,20 @@ const SEVERITY_STYLES = {
 
 const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
   BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquee', color: 'bg-blue-100 text-blue-700' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
   EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
   SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Cloturee', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivee', color: 'bg-gray-100 text-gray-500' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
 }
 
 const ROLE_LABELS: Record<string, string> = {
   super_admin: 'Super Admin',
   gestionnaire: 'Gestionnaire',
-  president: 'President(e)',
-  secretaire_seance: 'Secretaire',
-  elu: 'Elu(e)',
-  preparateur: 'Preparateur',
+  president: 'Président(e)',
+  secretaire_seance: 'Secrétaire',
+  elu: 'Élu(e)',
+  preparateur: 'Préparateur',
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -384,7 +384,7 @@ export function GestionnaireDashboard({
                           <TooltipContent>
                             {seance.has_convocataires
                               ? "Convocataires ajoutes"
-                              : "Convocataires a ajouter"}
+                              : "Convocataires à ajouter"}
                           </TooltipContent>
                         </Tooltip>
                         <Tooltip>
@@ -676,7 +676,7 @@ export function GestionnaireDashboard({
                     </div>
                     {delib.statut && (
                       <Badge className={`border-0 text-xs ${delib.statut === 'PUBLIEE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                        {delib.statut === 'PUBLIEE' ? 'Publiee' : delib.statut}
+                        {delib.statut === 'PUBLIEE' ? 'Publiée' : delib.statut}
                       </Badge>
                     )}
                   </div>

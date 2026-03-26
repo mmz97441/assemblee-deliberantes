@@ -510,12 +510,14 @@ export function VoteTelevote({
 
       {/* Members without phone warning */}
       {membersWithoutPhone.length > 0 && (
-        <div className="flex items-start gap-2 p-2 rounded-lg bg-orange-50 text-orange-700 text-xs">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-medium">Sans numéro de téléphone :</span>{' '}
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
+          <p className="text-sm text-amber-700 font-medium flex items-center gap-1.5 mb-1">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            {membersWithoutPhone.length} membre{membersWithoutPhone.length > 1 ? 's' : ''} sans numéro de téléphone ne pourr{membersWithoutPhone.length > 1 ? 'ont' : 'a'} pas participer au télévote.
+          </p>
+          <p className="text-xs text-amber-600 ml-5.5">
             {membersWithoutPhone.map(m => `${m.prenom} ${m.nom}`).join(', ')}
-          </div>
+          </p>
         </div>
       )}
 

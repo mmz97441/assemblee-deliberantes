@@ -167,7 +167,7 @@ export async function revokeProcuration(
       .limit(1)
 
     if (closedVotes && closedVotes.length > 0) {
-      return { error: 'La procuration ne peut plus \u00eatre r\u00e9voqu\u00e9e apr\u00e8s le d\u00e9but des votes. Le mandataire a potentiellement d\u00e9j\u00e0 vot\u00e9 au nom du mandant.' }
+      return { error: 'La procuration ne peut plus être révoquée après le début des votes. Le mandataire a potentiellement déjà voté au nom du mandant.' }
     }
 
     // Invalidate the procuration (don't delete — keep trace)

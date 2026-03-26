@@ -203,6 +203,7 @@ export function VoteSecret({
         <Button
           onClick={handleOpenVote}
           disabled={isPending}
+          title={isPending ? 'Traitement en cours...' : undefined}
           className="w-full h-14 text-base gap-3 btn-press bg-purple-600 hover:bg-purple-700"
           size="lg"
         >
@@ -350,6 +351,7 @@ export function VoteSecret({
           <Button
             onClick={requestClose}
             disabled={isPending}
+            title={isPending ? 'Traitement en cours...' : undefined}
             className="w-full h-12 text-base gap-2 bg-emerald-600 hover:bg-emerald-700"
           >
             <CheckCircle2 className="h-5 w-5" />
@@ -360,6 +362,7 @@ export function VoteSecret({
             variant="outline"
             onClick={requestClose}
             disabled={isPending}
+            title={isPending ? 'Traitement en cours...' : undefined}
             className="w-full h-12 text-base gap-2"
           >
             <Vote className="h-5 w-5" />

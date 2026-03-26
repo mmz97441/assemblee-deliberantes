@@ -197,10 +197,10 @@ const CHOIX_CONFIG: Record<string, { label: string; color: string }> = {
 }
 
 const CONVOCATION_CONFIG: Record<string, { label: string; color: string }> = {
-  CONFIRME_PRESENT: { label: 'Presence confirmee', color: 'bg-emerald-100 text-emerald-700' },
-  ENVOYE: { label: 'Convocation envoyee', color: 'bg-blue-100 text-blue-700' },
+  CONFIRME_PRESENT: { label: 'Présence confirmée', color: 'bg-emerald-100 text-emerald-700' },
+  ENVOYE: { label: 'Convocation envoyée', color: 'bg-blue-100 text-blue-700' },
   LU: { label: 'Convocation lue', color: 'bg-sky-100 text-sky-700' },
-  NON_ENVOYE: { label: 'Non envoyee', color: 'bg-slate-100 text-slate-600' },
+  NON_ENVOYE: { label: 'Non envoyée', color: 'bg-slate-100 text-slate-600' },
   ABSENT_PROCURATION: { label: 'Procuration', color: 'bg-amber-100 text-amber-700' },
   ERREUR_EMAIL: { label: 'Erreur d\'envoi', color: 'bg-red-100 text-red-700' },
 }

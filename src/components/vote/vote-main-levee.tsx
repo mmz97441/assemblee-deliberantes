@@ -129,6 +129,7 @@ export function VoteMainLevee({
 
   // Confirmation dialog
   const [confirmType, setConfirmType] = useState<'unanimite' | 'standard' | null>(null)
+  const [reVoteConfirm, setReVoteConfirm] = useState(false)
 
   // Result display
   const [lastResult, setLastResult] = useState<{
@@ -323,7 +324,7 @@ export function VoteMainLevee({
         <Button
           variant="outline"
           size="sm"
-          onClick={handleNewVote}
+          onClick={() => setReVoteConfirm(true)}
           disabled={isPending}
           className="w-full text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
           title="Annule le vote actuel et permet de voter à nouveau sur ce point"
@@ -335,6 +336,23 @@ export function VoteMainLevee({
           )}
           Annuler ce vote et voter à nouveau
         </Button>
+
+        <AlertDialog open={reVoteConfirm} onOpenChange={setReVoteConfirm}>
+          <AlertDialogContent aria-describedby={undefined}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Annuler ce vote et revoter ?</AlertDialogTitle>
+              <div className="text-sm text-muted-foreground mt-2">
+                Le résultat actuel sera annulé. Un nouveau vote sera ouvert sur ce point.
+              </div>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annuler</AlertDialogCancel>
+              <AlertDialogAction onClick={handleNewVote} className="bg-amber-600 hover:bg-amber-700">
+                Annuler le vote et revoter
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     )
   }

@@ -145,6 +145,17 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
     if (!instanceId) return { error: "L'instance est requise" }
     if (!dateSeance) return { error: 'La date est requise' }
 
+    // Check if instance is active
+    const { data: instanceCheck } = await supabase
+      .from('instance_config')
+      .select('actif')
+      .eq('id', instanceId)
+      .single()
+
+    if (instanceCheck && instanceCheck.actif === false) {
+      return { error: 'Cette instance est désactivée. Réactivez-la dans la configuration avant de créer une séance.' }
+    }
+
     // Validate date is not in the past
     const parsedDateSeance = new Date(dateSeance)
     const today = new Date()
@@ -389,7 +400,7 @@ export async function updateSeanceStatut(
         .eq('statut', 'OUVERT')
 
       if (openVotesSuspend && openVotesSuspend.length > 0) {
-        return { error: 'Un vote est en cours \u2014 cl\u00f4turez ou annulez le vote avant de suspendre la s\u00e9ance.' }
+        return { error: 'Un vote est en cours — clôturez ou annulez le vote avant de suspendre la séance.' }
       }
     }
 
@@ -403,7 +414,7 @@ export async function updateSeanceStatut(
 
       if (openVotes && openVotes.length > 0) {
         const pointName = openVotes[0].question || 'un point'
-        return { error: `Impossible de cl\u00f4turer : un vote est encore ouvert sur \u00ab ${pointName} \u00bb. Cl\u00f4turez ou annulez tous les votes avant de fermer la s\u00e9ance.` }
+        return { error: `Impossible de clôturer : un vote est encore ouvert sur « ${pointName} ». Clôturez ou annulez tous les votes avant de fermer la séance.` }
       }
     }
 
@@ -538,7 +549,7 @@ export async function archiveSeance(id: string): Promise<ActionResult> {
         .maybeSingle()
 
       if (!pv) {
-        return { error: 'La séance a eu des votes \u2014 un procès-verbal doit être rédigé et signé avant l\'archivage.' }
+        return { error: 'La séance a eu des votes — un procès-verbal doit être rédigé et signé avant l\'archivage.' }
       }
       if (pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
         return { error: 'Le procès-verbal doit être signé avant d\'archiver la séance. Statut actuel du PV : ' + (pv.statut === 'BROUILLON' ? 'brouillon' : pv.statut === 'EN_RELECTURE' ? 'en relecture' : pv.statut) + '.' }
@@ -1160,6 +1171,19 @@ export async function addConvocataire(seanceId: string, memberId: string): Promi
 
     if (seance && ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seance.statut || '')) {
       return { error: 'La liste des convocataires ne peut plus être modifiée une fois la séance ouverte.' }
+    }
+
+    // For CONVOQUEE séances: block if convocations have been sent
+    if (seance && seance.statut === 'CONVOQUEE') {
+      const { count: sentCount } = await supabase
+        .from('convocataires')
+        .select('*', { count: 'exact', head: true })
+        .eq('seance_id', seanceId)
+        .not('statut_convocation', 'eq', 'NON_ENVOYE')
+
+      if (sentCount && sentCount > 0) {
+        return { error: 'Les convocations ont déjà été envoyées. Vous ne pouvez plus ajouter de convocataires.' }
+      }
     }
 
     const { error } = await supabase

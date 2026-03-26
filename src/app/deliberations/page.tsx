@@ -58,11 +58,11 @@ export default async function DeliberationsPage() {
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title="Deliberations"
-        description="Registre des deliberations adoptees en seance"
+        title="Délibérations"
+        description="Registre des délibérations adoptées en séance"
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: 'Deliberations' },
+          { label: 'Délibérations' },
         ]}
       />
 

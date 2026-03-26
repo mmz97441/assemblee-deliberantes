@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,14 @@ export async function publishDeliberation(
       return { error: 'Permissions insuffisantes' }
     }
 
+    // Rate limiting
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: `publish_delib_${deliberationId}`,
+      maxAttempts: 20,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
+
     // Verify deliberation exists and is not already published
     const { data: delib, error: fetchError } = await supabase
       .from('deliberations')
@@ -453,7 +462,7 @@ export async function markAffichage(
     if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.affiche_at) {
-      return { error: 'La date d\'affichage est deja enregistree' }
+      return { error: 'La date d\'affichage est déjà enregistrée' }
     }
 
     const { error: updateError } = await supabase
@@ -499,7 +508,7 @@ export async function markTransmissionPrefecture(
     if (fetchError || !delib) return { error: 'Délibération introuvable' }
 
     if (delib.transmis_prefecture_at) {
-      return { error: 'La date de transmission en prefecture est deja enregistree' }
+      return { error: 'La date de transmission en préfecture est déjà enregistrée' }
     }
 
     const { error: updateError } = await supabase

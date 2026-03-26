@@ -144,12 +144,12 @@ interface Step {
 function getSteps(d: DeliberationData): Step[] {
   const steps: Step[] = [
     {
-      label: 'Creee',
+      label: 'Créée',
       status: 'done',
       date: d.created_at,
     },
     {
-      label: 'Redigee',
+      label: 'Rédigée',
       status: d.contenu_articles ? 'done' : 'current',
       date: d.updated_at,
     },
@@ -315,7 +315,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Modifications enregistrees')
+        toast.success('Modifications enregistrées')
         setHasUnsavedChanges(false)
         router.refresh()
       }
@@ -355,7 +355,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Brouillon supprime')
+        toast.success('Brouillon supprimé')
         router.push('/deliberations')
       }
       setDeleteDialogOpen(false)
@@ -369,7 +369,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Deliberation annulee')
+        toast.success('Délibération annulée')
         router.refresh()
       }
       setAnnulDialogOpen(false)
@@ -383,7 +383,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Affichage enregistre')
+        toast.success('Affichage enregistré')
         router.refresh()
       }
     })
@@ -395,7 +395,7 @@ export function DeliberationDetail({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Transmission en prefecture enregistree')
+        toast.success('Transmission en préfecture enregistrée')
         router.refresh()
       }
     })
@@ -408,7 +408,7 @@ export function DeliberationDetail({
         <div className="mb-6 rounded-lg border border-red-300 bg-red-50 px-5 py-4 text-red-800">
           <div className="flex items-center gap-2 font-semibold mb-1">
             <Ban className="h-5 w-5" />
-            Deliberation annulee
+            Délibération annulée
           </div>
           <p className="text-sm">
             Annulee le {delib.updated_at ? formatDateTime(delib.updated_at) : 'date inconnue'}.
@@ -684,7 +684,7 @@ export function DeliberationDetail({
                       className="w-full"
                     >
                       <Send className="h-4 w-4 mr-2" />
-                      {isPending ? 'Enregistrement...' : 'Marquer transmission prefecture'}
+                      {isPending ? 'Enregistrement...' : 'Marquer transmission préfecture'}
                     </Button>
                   )}
                   <Tooltip>
@@ -742,7 +742,7 @@ export function DeliberationDetail({
                 highlight={!!delib.publie_at && !delib.affiche_at && !isAnnulee}
               />
               <TimelineItem
-                label="Transmission prefecture"
+                label="Transmission préfecture"
                 date={delib.transmis_prefecture_at}
                 highlight={!!delib.affiche_at && !delib.transmis_prefecture_at && !isAnnulee}
               />

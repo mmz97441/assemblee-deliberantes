@@ -188,6 +188,48 @@ export async function toggleMemberStatus(
 
     if (!id) return { error: 'ID du membre manquant' }
 
+    const memberId = id
+    const newStatut = statut
+
+    // Check if member holds active bureau roles
+    const { data: bureauRoles } = await supabase
+      .from('instance_members')
+      .select('bureau_role, instance_config(nom)')
+      .eq('member_id', memberId)
+      .not('bureau_role', 'is', null)
+
+    if (bureauRoles && bureauRoles.length > 0 && ['SUSPENDU', 'FIN_DE_MANDAT', 'DECEDE'].includes(newStatut)) {
+      const roles = bureauRoles.map(r => `${r.bureau_role} de ${(r.instance_config as { nom: string } | null)?.nom || 'une instance'}`).join(', ')
+      return { error: `Ce membre occupe des rôles actifs : ${roles}. Désignez un remplaçant dans le bureau avant de modifier son statut.` }
+    }
+
+    // Check if member is president/secretary of future séances
+    const { data: futureSeances } = await supabase
+      .from('seances')
+      .select('titre, president_effectif_seance_id, secretaire_seance_id')
+      .or(`president_effectif_seance_id.eq.${memberId},secretaire_seance_id.eq.${memberId}`)
+      .in('statut', ['BROUILLON', 'CONVOQUEE', 'EN_COURS'])
+
+    if (futureSeances && futureSeances.length > 0) {
+      return { error: `Ce membre est désigné comme président ou secrétaire de ${futureSeances.length} séance(s) à venir. Modifiez ces séances avant de changer son statut.` }
+    }
+
+    // Check if member is currently present in an active séance
+    const { data: activePresence } = await supabase
+      .from('presences')
+      .select('seance_id, seance:seances(titre, statut)')
+      .eq('member_id', memberId)
+      .eq('statut', 'PRESENT')
+
+    const inActiveSeance = activePresence?.filter(p => {
+      const seanceData = p.seance as { titre: string; statut: string } | null
+      return seanceData?.statut === 'EN_COURS' || seanceData?.statut === 'SUSPENDUE'
+    })
+    if (inActiveSeance && inActiveSeance.length > 0) {
+      const seanceData = inActiveSeance[0].seance as { titre: string; statut: string } | null
+      return { error: `Ce membre est actuellement présent dans une séance en cours (${seanceData?.titre || 'séance'}). Attendez la clôture de la séance.` }
+    }
+
     const { error } = await supabase
       .from('members')
       .update({ statut })
@@ -273,7 +315,7 @@ export async function sendMemberInvitation(memberId: string): Promise<ActionResu
       .maybeSingle()
 
     if (existing) {
-      return { error: 'Une invitation est deja en cours pour ce membre' }
+      return { error: 'Une invitation est déjà en cours pour ce membre' }
     }
 
     // Create invitation record

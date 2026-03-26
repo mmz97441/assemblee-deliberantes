@@ -150,31 +150,31 @@ function formatTime(dateStr: string): string {
 
 const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
   BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquee', color: 'bg-blue-100 text-blue-700' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
   EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
   SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Cloturee', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivee', color: 'bg-gray-100 text-gray-500' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
 }
 
 const RESULTAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   ADOPTE: {
-    label: 'Adopte',
+    label: 'Adopté',
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
     color: 'bg-emerald-100 text-emerald-700',
   },
   ADOPTE_UNANIMITE: {
-    label: 'Unanimite',
+    label: 'Unanimité',
     icon: <Star className="h-3.5 w-3.5" />,
     color: 'bg-amber-100 text-amber-700',
   },
   ADOPTE_VOIX_PREPONDERANTE: {
-    label: 'Voix prep.',
+    label: 'Voix prép.',
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
     color: 'bg-emerald-100 text-emerald-700',
   },
   REJETE: {
-    label: 'Rejete',
+    label: 'Rejeté',
     icon: <XCircle className="h-3.5 w-3.5" />,
     color: 'bg-red-100 text-red-700',
   },

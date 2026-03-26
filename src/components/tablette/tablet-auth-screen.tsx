@@ -175,13 +175,13 @@ export function TabletAuthScreen({
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSubmitToken()
                 }}
-                placeholder="Entrez ou scannez votre code..."
+                placeholder="Entrez le code de votre convocation"
                 className="h-14 text-lg text-center tracking-wider font-mono"
                 autoFocus
                 autoComplete="off"
               />
               <p className="text-xs text-muted-foreground text-center">
-                Ce code se trouve dans votre email de convocation
+                Vous trouverez ce code dans votre email de convocation
               </p>
             </div>
 

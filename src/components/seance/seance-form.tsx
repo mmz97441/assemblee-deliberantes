@@ -366,6 +366,12 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
 
           {/* Tab: Options */}
           <TabsContent value="options" className="space-y-4 mt-4">
+            {members.length === 0 && (
+              <p className="text-xs text-amber-600 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                Aucun membre enregistré. Ajoutez des membres dans la section Membres avant de désigner un président ou un secrétaire.
+              </p>
+            )}
+
             <div className="space-y-2">
               <Label>Président(e) de séance</Label>
               <MemberCombobox

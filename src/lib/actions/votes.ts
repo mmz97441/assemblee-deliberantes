@@ -208,6 +208,14 @@ export async function closeVoteMainLevee(
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteMainLevee on vote ${voteId}`)
     }
 
+    // Rate limiting
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: `close_vote_${voteId}`,
+      maxAttempts: 30,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
+
     // Fetch the open vote
     const { data: vote } = await supabase
       .from('votes')
@@ -348,6 +356,14 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
       return { error: 'Permissions insuffisantes' }
     }
 
+    // Rate limiting
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: `cancel_vote_${voteId}`,
+      maxAttempts: 30,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
+
     const { data: vote } = await supabase
       .from('votes')
       .select('id, statut, seance_id')
@@ -369,7 +385,7 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
 
       if (delib) {
         if (delib.publie_at) {
-          return { error: 'Ce vote ne peut pas être annulé car une délibération publiée (n\u00b0 ' + delib.numero + ') en découle. Annulez d\'abord la délibération.' }
+          return { error: 'Ce vote ne peut pas être annulé car une délibération publiée (n° ' + delib.numero + ') en découle. Annulez d\'abord la délibération.' }
         }
         // Delete the draft deliberation
         await supabase
@@ -1028,7 +1044,7 @@ export async function openVoteTelevote(
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut ouvrir un t\u00e9l\u00e9vote' }
+      return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
     }
 
     if (role === 'super_admin') {
@@ -1404,7 +1420,7 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
 
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut clore un t\u00e9l\u00e9vote' }
+      return { error: 'Seul le gestionnaire peut clore un télévote' }
     }
 
     if (role === 'super_admin') {
@@ -1419,7 +1435,7 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
 
     if (!vote) return { error: 'Vote introuvable' }
     if (vote.statut !== 'OUVERT') return { error: 'Ce vote n\'est pas ouvert' }
-    if (vote.type_vote !== 'TELEVOTE') return { error: 'Ce n\'est pas un t\u00e9l\u00e9vote' }
+    if (vote.type_vote !== 'TELEVOTE') return { error: 'Ce n\'est pas un télévote' }
 
     const { data: otps } = await televoteOtps(supabase)
       .select('member_id, used, choix')

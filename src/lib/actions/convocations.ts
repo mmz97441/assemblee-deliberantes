@@ -350,7 +350,7 @@ export async function resendConvocation(seanceId: string, memberId: string): Pro
       .maybeSingle()
 
     if (conv && conv.statut_convocation === 'CONFIRME_PRESENT') {
-      return { error: 'Ce membre a d\u00e9j\u00e0 confirm\u00e9 sa pr\u00e9sence.' }
+      return { error: 'Ce membre a déjà confirmé sa présence.' }
     }
 
     // Reset status to NON_ENVOYE so sendConvocations picks it up

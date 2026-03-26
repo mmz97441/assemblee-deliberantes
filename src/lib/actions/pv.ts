@@ -11,6 +11,7 @@ import {
   generatePVSignedBySubject,
   generatePVSignedByHTML,
 } from '@/lib/email/pv-signature-template'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -111,6 +112,17 @@ export async function generatePVBrouillon(seanceId: string): Promise<
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Permissions insuffisantes' }
+    }
+
+    // Check séance is closed before generating PV
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (seanceCheck && !['CLOTUREE', 'ARCHIVEE'].includes(seanceCheck.statut || '')) {
+      return { error: 'Le procès-verbal ne peut être généré qu\'après la clôture de la séance.' }
     }
 
     // Load all seance data
@@ -438,7 +450,7 @@ export async function getPV(seanceId: string) {
     const role = (user.user_metadata?.role as string) || ''
     const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
     if (!isManager && data && data.statut !== 'SIGNE' && data.statut !== 'PUBLIE') {
-      return { error: 'Le proc\u00e8s-verbal n\'est pas encore disponible.' }
+      return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
 
     return { data }
@@ -528,6 +540,14 @@ export async function signPV(
   try {
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
+
+    // Rate limiting
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: `sign_pv_${pvId}`,
+      maxAttempts: 10,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     // Find the member record for the current user
     const { data: member, error: memberError } = await supabase
@@ -759,13 +779,13 @@ export async function getPVWithComments(seanceId: string): Promise<
       .maybeSingle()
 
     if (pvError) return { error: pvError.message }
-    if (!pv) return { error: 'Aucun proc\u00e8s-verbal trouv\u00e9 pour cette s\u00e9ance' }
+    if (!pv) return { error: 'Aucun procès-verbal trouvé pour cette séance' }
 
-    // \u00c9lus can only see PV that has been signed or published
+    // Élus can only see PV that has been signed or published
     const role = (user.user_metadata?.role as string) || ''
     const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
     if (!isManager && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
-      return { error: 'Le proc\u00e8s-verbal n\'est pas encore disponible.' }
+      return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
 
     // Fetch comments

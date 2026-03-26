@@ -53,11 +53,11 @@ export default async function DeliberationDetailPage({ params }: Props) {
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title={delib.numero ? `Deliberation n\u00b0\u00a0${delib.numero}` : 'Deliberation (brouillon)'}
+        title={delib.numero ? `Délibération n°\u00a0${delib.numero}` : 'Délibération (brouillon)'}
         description={delib.titre}
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: 'Deliberations', href: ROUTES.DELIBERATIONS },
+          { label: 'Délibérations', href: ROUTES.DELIBERATIONS },
           { label: delib.numero || 'Brouillon' },
         ]}
       />

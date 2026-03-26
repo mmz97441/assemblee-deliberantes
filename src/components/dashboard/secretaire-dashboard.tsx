@@ -83,11 +83,11 @@ function formatShortDate(dateStr: string): string {
 
 const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
   BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquee', color: 'bg-blue-100 text-blue-700' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
   EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
   SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Cloturee', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivee', color: 'bg-gray-100 text-gray-500' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ export function SecretaireDashboard({
                                 : 'bg-amber-100 text-amber-700'
                             }`}
                           >
-                            {isNew ? 'A creer' : isBrouillon ? 'Brouillon' : pv.pv_statut}
+                            {isNew ? 'À créer' : isBrouillon ? 'Brouillon' : pv.pv_statut}
                           </Badge>
                         </div>
                         <h3 className="text-base font-semibold text-foreground">

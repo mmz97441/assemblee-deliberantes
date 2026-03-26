@@ -194,9 +194,9 @@ const styles = StyleSheet.create({
 
 function formatModeLabel(mode: string): string {
   switch (mode) {
-    case 'PRESENTIEL': return 'Pr\u00e9sentiel'
-    case 'VISIOCONFERENCE': return 'Visioconf\u00e9rence'
-    case 'MIXTE': return 'Mixte (pr\u00e9sentiel + visio)'
+    case 'PRESENTIEL': return 'Présentiel'
+    case 'VISIOCONFERENCE': return 'Visioconférence'
+    case 'MIXTE': return 'Mixte (présentiel + visio)'
     default: return mode
   }
 }
@@ -204,7 +204,7 @@ function formatModeLabel(mode: string): string {
 function formatPresenceList(
   members: { prenom: string; nom: string; qualite?: string | null }[]
 ): string {
-  if (members.length === 0) return 'N\u00e9ant'
+  if (members.length === 0) return 'Néant'
   return members
     .map(m => {
       const name = `${m.prenom} ${m.nom}`
@@ -214,7 +214,7 @@ function formatPresenceList(
 }
 
 function formatSimpleList(members: { prenom: string; nom: string }[]): string {
-  if (members.length === 0) return 'N\u00e9ant'
+  if (members.length === 0) return 'Néant'
   return members.map(m => `${m.prenom} ${m.nom}`).join(', ')
 }
 
@@ -229,29 +229,29 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
 
   return (
     <Document
-      title={`Proc\u00e8s-verbal - ${entete.dateSeance}`}
+      title={`Procès-verbal - ${entete.dateSeance}`}
       author={entete.institution}
-      subject="Proc\u00e8s-verbal de s\u00e9ance d\u00e9lib\u00e9rante"
+      subject="Procès-verbal de séance délibérante"
     >
       <Page size="A4" style={styles.page} wrap>
         {/* ═══ Header ═══ */}
         <Text style={styles.headerInstitution}>{entete.institution}</Text>
         {entete.typeInstance && (
           <Text style={styles.headerInstance}>
-            {entete.typeInstance}{entete.nomInstance ? ` \u2014 ${entete.nomInstance}` : ''}
+            {entete.typeInstance}{entete.nomInstance ? ` — ${entete.nomInstance}` : ''}
           </Text>
         )}
         <Text style={styles.headerRef}>
-          S\u00e9ance du {entete.dateSeance}
-          {entete.lieu ? ` \u2014 ${entete.lieu}` : ''}
-          {' \u2014 '}{formatModeLabel(entete.mode)}
-          {!entete.publique ? ' \u2014 Huis clos' : ''}
-          {entete.reconvocation ? ' \u2014 Reconvocation' : ''}
+          Séance du {entete.dateSeance}
+          {entete.lieu ? ` — ${entete.lieu}` : ''}
+          {' — '}{formatModeLabel(entete.mode)}
+          {!entete.publique ? ' — Huis clos' : ''}
+          {entete.reconvocation ? ' — Reconvocation' : ''}
         </Text>
 
         {/* ═══ Title ═══ */}
         <Text style={styles.title}>
-          PROC\u00c8S-VERBAL DE LA S\u00c9ANCE DU {entete.dateSeance.toUpperCase()}
+          PROCÈS-VERBAL DE LA SÉANCE DU {entete.dateSeance.toUpperCase()}
         </Text>
 
         {/* ═══ Introduction libre ═══ */}
@@ -276,14 +276,14 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
         </View>
 
         {/* ═══ Presences ═══ */}
-        <Text style={styles.sectionHeader}>\u00c9taient pr\u00e9sents :</Text>
+        <Text style={styles.sectionHeader}>Étaient présents :</Text>
         <Text style={styles.bodyText}>
           {formatPresenceList(presences.presents)}
         </Text>
 
         {presences.excuses.length > 0 && (
           <>
-            <Text style={styles.sectionSubHeader}>Excus\u00e9s :</Text>
+            <Text style={styles.sectionSubHeader}>Excusés :</Text>
             <Text style={styles.bodyText}>{formatSimpleList(presences.excuses)}</Text>
           </>
         )}
@@ -300,7 +300,7 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
             <Text style={styles.sectionSubHeader}>Procurations :</Text>
             {presences.procurations.map((p, i) => (
               <Text key={i} style={styles.listItem}>
-                {'\u2022 '}{p.mandant} donne procuration \u00e0 {p.mandataire}
+                {'• '}{p.mandant} donne procuration à {p.mandataire}
               </Text>
             ))}
           </>
@@ -310,14 +310,14 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
         <Text style={styles.quorumStatement}>{presences.quorumStatement}</Text>
 
         {/* ═══ Bureau ═══ */}
-        <Text style={styles.sectionHeader}>Bureau de la s\u00e9ance</Text>
+        <Text style={styles.sectionHeader}>Bureau de la séance</Text>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Pr\u00e9sident(e) :</Text>
-          <Text style={styles.infoValue}>{bureau.president || 'Non d\u00e9sign\u00e9(e)'}</Text>
+          <Text style={styles.infoLabel}>Président(e) :</Text>
+          <Text style={styles.infoValue}>{bureau.president || 'Non désigné(e)'}</Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Secr\u00e9taire :</Text>
-          <Text style={styles.infoValue}>{bureau.secretaire || 'Non d\u00e9sign\u00e9(e)'}</Text>
+          <Text style={styles.infoLabel}>Secrétaire :</Text>
+          <Text style={styles.infoValue}>{bureau.secretaire || 'Non désigné(e)'}</Text>
         </View>
         {bureau.mentionRemplacement && (
           <Text style={{ fontSize: 9, fontStyle: 'italic', marginTop: 4 }}>
@@ -331,7 +331,7 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
         {points.map((point, idx) => (
           <View key={idx} wrap={false}>
             <Text style={styles.pointTitle}>
-              POINT N\u00b0 {point.position} : {point.titre}
+              POINT N° {point.position} : {point.titre}
             </Text>
 
             {point.rapporteur && (
@@ -340,7 +340,7 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
 
             {point.type !== 'DELIBERATION' && (
               <Text style={[styles.bodyText, { fontFamily: 'Helvetica-Oblique', color: '#666666' }]}>
-                Type : {point.type === 'INFORMATION' ? 'Information' : point.type === 'ELECTION' ? '\u00c9lection' : point.type === 'APPROBATION_PV' ? 'Approbation de PV' : point.type}
+                Type : {point.type === 'INFORMATION' ? 'Information' : point.type === 'ELECTION' ? 'Élection' : point.type === 'APPROBATION_PV' ? 'Approbation de PV' : point.type}
               </Text>
             )}
 
@@ -353,21 +353,21 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
 
             {point.considerant ? (
               <>
-                <Text style={styles.pointLabel}>Consid\u00e9rant :</Text>
+                <Text style={styles.pointLabel}>Considérant :</Text>
                 <Text style={styles.bodyText}>{point.considerant}</Text>
               </>
             ) : null}
 
             {point.description ? (
               <>
-                <Text style={styles.pointLabel}>Expos\u00e9 :</Text>
+                <Text style={styles.pointLabel}>Exposé :</Text>
                 <Text style={styles.bodyText}>{point.description}</Text>
               </>
             ) : null}
 
             {point.projetDeliberation ? (
               <>
-                <Text style={styles.pointLabel}>Projet de d\u00e9lib\u00e9ration :</Text>
+                <Text style={styles.pointLabel}>Projet de délibération :</Text>
                 <Text style={styles.bodyText}>{point.projetDeliberation}</Text>
               </>
             ) : null}
@@ -387,7 +387,7 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
             {/* Articles */}
             {point.articles.length > 0 && (
               <>
-                <Text style={styles.pointLabel}>D\u00e9cide :</Text>
+                <Text style={styles.pointLabel}>Décide :</Text>
                 {point.articles.map((article, aIdx) => (
                   <Text key={aIdx} style={styles.articleText}>
                     Article {aIdx + 1} : {article}
@@ -413,12 +413,12 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
         {/* ═══ Signatures ═══ */}
         <View style={styles.signatureBlock}>
           <View style={styles.signatureColumn}>
-            <Text style={styles.signatureRole}>Le/La Pr\u00e9sident(e)</Text>
+            <Text style={styles.signatureRole}>Le/La Président(e)</Text>
             <Text style={styles.signatureName}>{bureau.president || '...'}</Text>
             <Text style={styles.signatureLabel}>Signature</Text>
           </View>
           <View style={styles.signatureColumn}>
-            <Text style={styles.signatureRole}>Le/La Secr\u00e9taire</Text>
+            <Text style={styles.signatureRole}>Le/La Secrétaire</Text>
             <Text style={styles.signatureName}>{bureau.secretaire || '...'}</Text>
             <Text style={styles.signatureLabel}>Signature</Text>
           </View>
@@ -428,7 +428,7 @@ export function PVPDFDocument({ contenu }: PVPDFDocumentProps) {
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `${entete.institution} \u2014 PV du ${entete.dateSeance} \u2014 Page ${pageNumber} / ${totalPages}`
+            `${entete.institution} — PV du ${entete.dateSeance} — Page ${pageNumber} / ${totalPages}`
           }
           fixed
         />

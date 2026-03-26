@@ -370,7 +370,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
         router.refresh()
       }
     } catch {
-      toast.error('Erreur inattendue')
+      toast.error('Erreur lors de la récusation. Réessayez ou rechargez la page.')
     } finally {
       setIsRecusing(false)
     }
@@ -405,7 +405,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
         router.refresh()
       }
     } catch {
-      toast.error('Erreur inattendue')
+      toast.error('Erreur lors du changement de huis clos. Réessayez.')
     } finally {
       setIsTogglingHuisClos(false)
     }
@@ -426,10 +426,10 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
         if (currentPointIndex > 0) setCurrentPointIndex(i => i - 1)
         break
       case 'escape':
-        // Cancel / go back
+        router.push(`/seances/${seance.id}`)
         break
     }
-  }, [currentPointIndex, totalPoints])
+  }, [currentPointIndex, totalPoints, router, seance.id])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

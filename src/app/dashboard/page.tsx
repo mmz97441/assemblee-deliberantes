@@ -1058,7 +1058,7 @@ export default async function DashboardPage() {
       id: 'delibs-affichage',
       severity: 'amber',
       icon: <Eye className="h-5 w-5" />,
-      label: `${delibsSansAffichage} d\u00e9lib\u00e9ration(s) publi\u00e9e(s) > 24h sans affichage`,
+      label: `${delibsSansAffichage} délibération(s) publiée(s) > 24h sans affichage`,
       action_label: 'Afficher',
       href: ROUTES.DELIBERATIONS,
     })

@@ -190,6 +190,7 @@ export function VoteSecretBallot({
               key={choice}
               onClick={() => handleChoiceSelect(choice)}
               disabled={isPending}
+              title={isPending ? 'Traitement en cours...' : undefined}
               className={`
                 w-full h-20 rounded-2xl flex items-center justify-center gap-4
                 text-2xl font-bold transition-all duration-150

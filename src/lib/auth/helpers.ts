@@ -31,11 +31,11 @@ export function hasRole(userRole: UserRole, allowedRoles: UserRole[]): boolean {
  */
 export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super-administrateur',
-  president: 'President de seance',
+  president: 'Président de séance',
   gestionnaire: 'Gestionnaire',
-  secretaire_seance: 'Secretaire de seance',
-  elu: 'Elu / Membre votant',
-  preparateur: 'Agent preparateur',
+  secretaire_seance: 'Secrétaire de séance',
+  elu: 'Élu / Membre votant',
+  preparateur: 'Agent préparateur',
 }
 
 /**

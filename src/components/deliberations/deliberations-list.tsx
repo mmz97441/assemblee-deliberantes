@@ -109,32 +109,32 @@ const STATUS_CONFIG: Record<DelibStatus, { label: string; color: string; descrip
     description: 'En attente de publication',
   },
   PUBLIEE: {
-    label: 'Publiee',
+    label: 'Publiée',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
-    description: 'Publiee et numerotee',
+    description: 'Publiée et numérotée',
   },
   AFFICHEE: {
-    label: 'Affichee',
+    label: 'Affichée',
     color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    description: 'Affichee en mairie',
+    description: 'Affichée en mairie',
   },
   TRANSMISE: {
     label: 'Transmise',
     color: 'bg-purple-100 text-purple-700 border-purple-200',
-    description: 'Transmise a la prefecture',
+    description: 'Transmise à la préfecture',
   },
   ANNULEE: {
-    label: 'Annulee',
+    label: 'Annulée',
     color: 'bg-red-100 text-red-700 border-red-200',
-    description: 'Deliberation annulee',
+    description: 'Délibération annulée',
   },
 }
 
 const RESULTAT_CONFIG: Record<string, { label: string; color: string }> = {
-  ADOPTE: { label: 'Adopte', color: 'bg-green-100 text-green-700' },
-  ADOPTE_UNANIMITE: { label: 'Adopte a l\'unanimite', color: 'bg-green-100 text-green-800' },
-  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopte (voix preponderante)', color: 'bg-amber-100 text-amber-800' },
-  REJETE: { label: 'Rejete', color: 'bg-red-100 text-red-700' },
+  ADOPTE: { label: 'Adopté', color: 'bg-green-100 text-green-700' },
+  ADOPTE_UNANIMITE: { label: 'Adopté à l\'unanimité', color: 'bg-green-100 text-green-800' },
+  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopté (voix prépondérante)', color: 'bg-amber-100 text-amber-800' },
+  REJETE: { label: 'Rejeté', color: 'bg-red-100 text-red-700' },
   NUL: { label: 'Nul', color: 'bg-gray-100 text-gray-700' },
 }
 
@@ -276,7 +276,7 @@ export function DeliberationsList({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Deliberation annulee')
+        toast.success('Délibération annulée')
         router.refresh()
       }
       setAnnulDialogOpen(false)
@@ -291,7 +291,7 @@ export function DeliberationsList({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Affichage enregistre')
+        toast.success('Affichage enregistré')
         router.refresh()
       }
     })
@@ -303,7 +303,7 @@ export function DeliberationsList({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Transmission en prefecture enregistree')
+        toast.success('Transmission en préfecture enregistrée')
         router.refresh()
       }
     })
@@ -354,8 +354,8 @@ export function DeliberationsList({
           <SelectContent>
             <SelectItem value="all">Tous les statuts</SelectItem>
             <SelectItem value="BROUILLON">Brouillons</SelectItem>
-            <SelectItem value="PUBLIEE">Publiees</SelectItem>
-            <SelectItem value="ANNULEE">Annulees</SelectItem>
+            <SelectItem value="PUBLIEE">Publiées</SelectItem>
+            <SelectItem value="ANNULEE">Annulées</SelectItem>
           </SelectContent>
         </Select>
         {instances.length > 1 && (
@@ -584,13 +584,13 @@ function DeliberationCard({
               {delib.publie_at && (
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                  Publiee le {formatDateShort(delib.publie_at)}
+                  Publiée le {formatDateShort(delib.publie_at)}
                 </span>
               )}
               {delib.affiche_at && (
                 <span className="flex items-center gap-1">
                   <Megaphone className="h-3.5 w-3.5 text-emerald-600" />
-                  Affichee le {formatDateShort(delib.affiche_at)}
+                  Affichée le {formatDateShort(delib.affiche_at)}
                 </span>
               )}
               {delib.transmis_prefecture_at && (
@@ -618,7 +618,7 @@ function DeliberationCard({
             {/* Annulation */}
             {delib.annulee && delib.motif_annulation && (
               <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
-                Annulee : {delib.motif_annulation}
+                Annulée : {delib.motif_annulation}
               </div>
             )}
           </div>
@@ -667,7 +667,7 @@ function DeliberationCard({
                 </Tooltip>
               )}
 
-              {/* Published/Affichee: transmission */}
+              {/* Published/Affichée: transmission */}
               {(status === 'PUBLIEE' || status === 'AFFICHEE') && (
                 <Tooltip>
                   <TooltipTrigger asChild>

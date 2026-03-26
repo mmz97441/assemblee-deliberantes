@@ -217,21 +217,21 @@ function getInstanceLabel(typeLegal: string): string {
   if (upper.includes('CONSEIL COMMUNAUTAIRE')) return 'LE CONSEIL COMMUNAUTAIRE'
   if (upper.includes("CONSEIL D'ADMINISTRATION") || upper.includes('CONSEIL D\'ADMINISTRATION')) return "LE CONSEIL D'ADMINISTRATION"
   if (upper.includes('BUREAU')) return 'LE BUREAU'
-  if (upper.includes('COMIT\u00c9 SYNDICAL') || upper.includes('COMITE SYNDICAL')) return 'LE COMIT\u00c9 SYNDICAL'
+  if (upper.includes('COMITÉ SYNDICAL') || upper.includes('COMITE SYNDICAL')) return 'LE COMITÉ SYNDICAL'
   if (upper.includes('COMMISSION')) return 'LA COMMISSION'
-  if (upper.includes('ASSEMBL\u00c9E') || upper.includes('ASSEMBLEE')) return "L'ASSEMBL\u00c9E G\u00c9N\u00c9RALE"
-  if (upper.includes('CONSEIL D\u00c9PARTEMENTAL') || upper.includes('CONSEIL DEPARTEMENTAL')) return 'LE CONSEIL D\u00c9PARTEMENTAL'
+  if (upper.includes('ASSEMBLÉE') || upper.includes('ASSEMBLEE')) return "L'ASSEMBLÉE GÉNÉRALE"
+  if (upper.includes('CONSEIL DÉPARTEMENTAL') || upper.includes('CONSEIL DEPARTEMENTAL')) return 'LE CONSEIL DÉPARTEMENTAL'
   // Fallback: use the raw type with article
   return `LE ${upper}`
 }
 
 function getDecisionVerb(resultat?: string | null): string {
-  if (!resultat) return 'D\u00c9CIDE :'
+  if (!resultat) return 'DÉCIDE :'
   const r = resultat.toUpperCase()
-  if (r.includes('ADOPTE') || r.includes('UNANIMIT\u00c9') || r.includes('UNANIMITE') || r.includes('VOIX_PREPONDERANTE')) {
+  if (r.includes('ADOPTE') || r.includes('UNANIMITÉ') || r.includes('UNANIMITE') || r.includes('VOIX_PREPONDERANTE')) {
     return 'ADOPTE :'
   }
-  return 'D\u00c9CIDE :'
+  return 'DÉCIDE :'
 }
 
 /**
@@ -244,7 +244,7 @@ function splitLegalLines(text: string, prefix: string): string[] {
   // Ensure each line starts with the prefix
   return raw.map(line => {
     const lower = line.toLowerCase()
-    if (lower.startsWith('vu ') || lower.startsWith('consid\u00e9rant ') || lower.startsWith('considerant ')) {
+    if (lower.startsWith('vu ') || lower.startsWith('considérant ') || lower.startsWith('considerant ')) {
       return line
     }
     return `${prefix} ${line}`
@@ -264,32 +264,32 @@ export function DeliberationPDFDocument({ data }: DeliberationPDFDocumentProps) 
   const decisionVerb = getDecisionVerb(vote?.resultat)
 
   const vuLines = point?.vu ? splitLegalLines(point.vu, 'Vu') : []
-  const considerantLines = point?.considerant ? splitLegalLines(point.considerant, 'Consid\u00e9rant') : []
+  const considerantLines = point?.considerant ? splitLegalLines(point.considerant, 'Considérant') : []
 
   return (
     <Document
-      title={`D\u00e9lib\u00e9ration ${deliberation.numero}`}
+      title={`Délibération ${deliberation.numero}`}
       author={institution.nom}
-      subject={`D\u00e9lib\u00e9ration ${deliberation.numero} \u2014 ${deliberation.titre}`}
+      subject={`Délibération ${deliberation.numero} — ${deliberation.titre}`}
     >
       <Page size="A4" style={styles.page} wrap>
         {/* ═══ Watermark if annulée ═══ */}
         {deliberation.annulee && (
-          <Text style={styles.watermark}>ANNUL\u00c9E</Text>
+          <Text style={styles.watermark}>ANNULÉE</Text>
         )}
 
         {/* ═══ Header ═══ */}
         <Text style={styles.headerInstitution}>{institution.nom}</Text>
         <Text style={styles.headerInstance}>
-          {instance.typeLegal}{instance.nom ? ` \u2014 ${instance.nom}` : ''}
+          {instance.typeLegal}{instance.nom ? ` — ${instance.nom}` : ''}
         </Text>
 
         {/* ═══ Reference ═══ */}
         <Text style={styles.refLine}>
-          D\u00e9lib\u00e9ration n\u00b0 {deliberation.numero || '...'}
+          Délibération n° {deliberation.numero || '...'}
         </Text>
         <Text style={styles.dateLine}>
-          S\u00e9ance du {seance.date}
+          Séance du {seance.date}
         </Text>
 
         {/* ═══ Objet ═══ */}
@@ -329,7 +329,7 @@ export function DeliberationPDFDocument({ data }: DeliberationPDFDocumentProps) 
 
         {/* ═══ Après en avoir délibéré ═══ */}
         <Text style={styles.delibereStatement}>
-          APR\u00c8S EN AVOIR D\u00c9LIB\u00c9R\u00c9,
+          APRÈS EN AVOIR DÉLIBÉRÉ,
         </Text>
 
         {/* ═══ Formule PV (vote result) ═══ */}
@@ -359,7 +359,7 @@ export function DeliberationPDFDocument({ data }: DeliberationPDFDocumentProps) 
         {deliberation.annulee && deliberation.motifAnnulation && (
           <View style={{ marginTop: 16 }}>
             <Text style={[styles.sectionLabel, { color: '#cc0000' }]}>
-              D\u00e9lib\u00e9ration annul\u00e9e
+              Délibération annulée
             </Text>
             <Text style={[styles.vuLine, { color: '#cc0000' }]}>
               Motif : {deliberation.motifAnnulation}
@@ -369,19 +369,19 @@ export function DeliberationPDFDocument({ data }: DeliberationPDFDocumentProps) 
 
         {/* ═══ Fait à ═══ */}
         <Text style={styles.faitA}>
-          Fait \u00e0 {seance.lieu || '...'}, le{' '}
+          Fait à {seance.lieu || '...'}, le{' '}
           {deliberation.publieeAt || seance.date}
         </Text>
 
         {/* ═══ Signatures ═══ */}
         <View style={styles.signatureBlock}>
           <View style={styles.signatureColumn}>
-            <Text style={styles.signatureRole}>Le/La Pr\u00e9sident(e)</Text>
+            <Text style={styles.signatureRole}>Le/La Président(e)</Text>
             <Text style={styles.signatureName}>{signatures.president || '...'}</Text>
             <Text style={styles.signatureLabel}>Signature</Text>
           </View>
           <View style={styles.signatureColumn}>
-            <Text style={styles.signatureRole}>Le/La Secr\u00e9taire</Text>
+            <Text style={styles.signatureRole}>Le/La Secrétaire</Text>
             <Text style={styles.signatureName}>{signatures.secretaire || '...'}</Text>
             <Text style={styles.signatureLabel}>Signature</Text>
           </View>
@@ -391,7 +391,7 @@ export function DeliberationPDFDocument({ data }: DeliberationPDFDocumentProps) 
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `${institution.nom} \u2014 D\u00e9lib\u00e9ration n\u00b0 ${deliberation.numero || '...'} \u2014 Page ${pageNumber} / ${totalPages}`
+            `${institution.nom} — Délibération n° ${deliberation.numero || '...'} — Page ${pageNumber} / ${totalPages}`
           }
           fixed
         />

@@ -20,10 +20,10 @@ interface RoleSwitcherProps {
 const SWITCHABLE_ROLES: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super-administrateur' },
   { value: 'gestionnaire', label: 'Gestionnaire' },
-  { value: 'president', label: 'President(e)' },
-  { value: 'secretaire_seance', label: 'Secretaire de seance' },
-  { value: 'elu', label: 'Elu(e) / Membre votant' },
-  { value: 'preparateur', label: 'Preparateur(trice)' },
+  { value: 'president', label: 'Président(e)' },
+  { value: 'secretaire_seance', label: 'Secrétaire de séance' },
+  { value: 'elu', label: 'Élu(e) / Membre votant' },
+  { value: 'preparateur', label: 'Préparateur(trice)' },
 ]
 
 export function RoleSwitcher({ realRole }: RoleSwitcherProps) {

@@ -116,11 +116,11 @@ export default async function SeancesPage() {
   return (
     <AuthenticatedLayout>
       <PageHeader
-        title={isEluView ? 'Mes s\u00e9ances' : 'S\u00e9ances'}
-        description={isEluView ? 'S\u00e9ances auxquelles vous \u00eates convoqu\u00e9' : 'Planification et suivi des s\u00e9ances d\u00e9lib\u00e9rantes'}
+        title={isEluView ? 'Mes séances' : 'Séances'}
+        description={isEluView ? 'Séances auxquelles vous êtes convoqué' : 'Planification et suivi des séances délibérantes'}
         breadcrumbs={[
           { label: 'Tableau de bord', href: ROUTES.DASHBOARD },
-          { label: isEluView ? 'Mes s\u00e9ances' : 'S\u00e9ances' },
+          { label: isEluView ? 'Mes séances' : 'Séances' },
         ]}
       />
 

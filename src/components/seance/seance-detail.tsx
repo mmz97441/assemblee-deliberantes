@@ -2680,7 +2680,7 @@ function AddConvocataireDialog({
         else addedCount++
       }
       if (addedCount > 0) {
-        toast.success(`${addedCount} convocataire${addedCount > 1 ? 's' : ''} ajoute${addedCount > 1 ? 's' : ''}`)
+        toast.success(`${addedCount} convocataire${addedCount > 1 ? 's' : ''} ajouté${addedCount > 1 ? 's' : ''}`)
       }
       if (errorCount > 0) {
         toast.error(`${errorCount} erreur${errorCount > 1 ? 's' : ''}`)
@@ -3132,7 +3132,7 @@ function DocumentUploadButton({
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`"${result.document.name}" ajoute`)
+        toast.success(`"${result.document.name}" ajouté`)
         router.refresh()
       }
     })

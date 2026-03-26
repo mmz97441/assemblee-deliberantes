@@ -655,6 +655,15 @@ export function PVEditor({
             <div className="flex items-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" onClick={() => router.push(`/seances/${seanceId}`)} className="min-h-[36px] h-8" title="Retour à la séance">
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    Quitter
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Retour à la séance</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
