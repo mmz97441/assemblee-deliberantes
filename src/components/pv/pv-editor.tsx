@@ -527,6 +527,9 @@ export function PVEditor({
                   <><Sparkles className="h-5 w-5" /> Générer le procès-verbal</>
                 )}
               </Button>
+              <p className="text-xs text-muted-foreground mt-3 max-w-md mx-auto">
+                L&apos;assistant va générer automatiquement le procès-verbal à partir des présences, votes et délibérations. Vous pourrez le modifier ensuite.
+              </p>
             </>
           ) : (
             <>

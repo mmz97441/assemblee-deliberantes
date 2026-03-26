@@ -33,7 +33,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { ROUTES } from '@/lib/constants'
+import { ROUTES, SEANCE_STATUT_CONFIG } from '@/lib/constants'
+import { formatDate, formatShortDate, formatTime } from '@/lib/utils/format-date'
 
 // ────────────────────────────────────────────────────────────────
 // Types
@@ -111,51 +112,6 @@ export interface PresidentDashboardProps {
 // ────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatShortDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatTime(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
-}
-
-const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
-  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
-  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
-  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
-}
 
 const RESULTAT_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   ADOPTE: {
@@ -484,7 +440,7 @@ export function PresidentDashboard({
           ) : (
             <div className="space-y-3">
               {upcoming.map((seance) => {
-                const statut = STATUT_CONFIG[seance.statut || 'BROUILLON']
+                const statut = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
                 return (
                   <Link
                     key={seance.id}
@@ -495,6 +451,7 @@ export function PresidentDashboard({
                       <div className="flex items-center gap-2 mb-1.5">
                         <Badge
                           className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs font-medium`}
+                          title={statut?.description}
                         >
                           {statut?.label || seance.statut}
                         </Badge>
@@ -592,7 +549,7 @@ export function PresidentDashboard({
           <div className="space-y-2 mt-2">
             {seances.length > 0 ? (
               seances.map((seance) => {
-                const statut = STATUT_CONFIG[seance.statut || 'BROUILLON']
+                const statut = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
                 return (
                   <Link
                     key={seance.id}
@@ -610,7 +567,7 @@ export function PresidentDashboard({
                             )}
                           </div>
                         </div>
-                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`}>
+                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`} title={statut?.description}>
                           {statut?.label || seance.statut}
                         </Badge>
                       </div>

@@ -269,7 +269,9 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
             <Users className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold">Aucun membre</h3>
+          <h3 className="text-lg font-semibold">
+            {members.length === 0 ? 'Aucun membre enregistré' : 'Aucun résultat'}
+          </h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm">
             {members.length === 0
               ? "Ajoutez vos premiers membres ou importez-les depuis un fichier CSV pour commencer."

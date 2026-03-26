@@ -536,6 +536,20 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
             Émargement
           </Button>
 
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                <Info className="h-4 w-4" />
+                <span className="sr-only">Raccourcis clavier</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-sm">
+              <p className="font-medium mb-1">Raccourcis clavier</p>
+              <p>← → ou J/K pour naviguer entre les points.</p>
+              <p>Échap pour quitter.</p>
+            </TooltipContent>
+          </Tooltip>
+
           <Separator orientation="vertical" className="h-6" />
 
           {/* Session controls — hidden for observers (president) */}

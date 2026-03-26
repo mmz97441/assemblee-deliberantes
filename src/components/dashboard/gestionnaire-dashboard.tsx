@@ -34,6 +34,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ROUTES } from '@/lib/constants'
+import { formatDateWeekdayShort, formatTime } from '@/lib/utils/format-date'
 
 // ────────────────────────────────────────────────────────────────
 // Types
@@ -116,29 +117,6 @@ export interface GestionnaireDashboardProps {
 // Helpers
 // ────────────────────────────────────────────────────────────────
 
-function formatShortDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatTime(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
-}
-
 const SEVERITY_STYLES = {
   red: {
     bg: 'bg-red-50',
@@ -163,13 +141,13 @@ const SEVERITY_STYLES = {
   },
 }
 
-const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
-  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
-  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
-  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
+const STATUT_CONFIG: Record<string, { label: string; color: string; description: string }> = {
+  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700', description: 'En cours de préparation' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700', description: 'Les convocations ont été envoyées' },
+  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700', description: 'La séance est en cours' },
+  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700', description: 'La séance est temporairement suspendue' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700', description: 'La séance est terminée' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500', description: 'Classée dans les archives' },
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -324,7 +302,7 @@ export function GestionnaireDashboard({
                     </h3>
                     <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                       <CalendarDays className="h-3 w-3" />
-                      <span>{formatShortDate(seance.date_seance)}</span>
+                      <span>{formatDateWeekdayShort(seance.date_seance)}</span>
                       <Clock className="h-3 w-3 ml-1" />
                       <span>{formatTime(seance.date_seance)}</span>
                     </div>
@@ -619,13 +597,13 @@ export function GestionnaireDashboard({
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground truncate">{seance.titre}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">{formatShortDate(seance.date_seance)}</span>
+                            <span className="text-xs text-muted-foreground">{formatDateWeekdayShort(seance.date_seance)}</span>
                             {seance.instance_nom && (
                               <Badge variant="outline" className="text-xs">{seance.instance_nom}</Badge>
                             )}
                           </div>
                         </div>
-                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`}>
+                        <Badge className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs shrink-0`} title={statut?.description}>
                           {statut?.label || seance.statut}
                         </Badge>
                       </div>
@@ -671,7 +649,7 @@ export function GestionnaireDashboard({
                         <p className="text-sm font-medium text-foreground truncate">{delib.titre}</p>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatShortDate(delib.created_at)}
+                        {formatDateWeekdayShort(delib.created_at)}
                       </p>
                     </div>
                     {delib.statut && (
@@ -755,7 +733,7 @@ export function GestionnaireDashboard({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-foreground truncate">{pv.seance_titre}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{formatShortDate(pv.seance_date)}</span>
+                      <span className="text-xs text-muted-foreground">{formatDateWeekdayShort(pv.seance_date)}</span>
                       <Badge className={`border-0 text-xs ${pv.pv_statut === 'EN_RELECTURE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
                         {pv.pv_statut === 'EN_RELECTURE' ? 'En relecture' : 'Brouillon'}
                       </Badge>

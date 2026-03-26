@@ -11,7 +11,8 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { ROUTES } from '@/lib/constants'
+import { ROUTES, SEANCE_STATUT_CONFIG } from '@/lib/constants'
+import { formatDate, formatTime, formatShortDate } from '@/lib/utils/format-date'
 
 // ────────────────────────────────────────────────────────────────
 // Types
@@ -39,55 +40,6 @@ export interface SecretaireDashboardProps {
   greeting: string
   pvToRedact: PVToRedact[]
   upcomingSeances: SeanceSummary[]
-}
-
-// ────────────────────────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatTime(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
-}
-
-function formatShortDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
-  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
-  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
-  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -225,7 +177,7 @@ export function SecretaireDashboard({
           ) : (
             <div className="space-y-3">
               {upcomingSeances.map((seance) => {
-                const statut = STATUT_CONFIG[seance.statut || 'BROUILLON']
+                const statut = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
                 return (
                   <Link
                     key={seance.id}
@@ -236,6 +188,7 @@ export function SecretaireDashboard({
                       <div className="flex items-center gap-2 mb-1.5">
                         <Badge
                           className={`${statut?.color || 'bg-slate-100 text-slate-700'} border-0 text-xs font-medium`}
+                          title={statut?.description}
                         >
                           {statut?.label || seance.statut}
                         </Badge>
@@ -302,7 +255,7 @@ export function SecretaireDashboard({
                 </div>
               </div>
             </Link>
-            <Link href={ROUTES.MEMBRES} className="block group">
+            <Link href={ROUTES.SEANCES} className="block group">
               <div className="rounded-xl border bg-card p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-institutional-blue/30">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -310,7 +263,7 @@ export function SecretaireDashboard({
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">Mes PV</h3>
-                    <p className="text-xs text-muted-foreground">Proces-verbaux a gerer</p>
+                    <p className="text-xs text-muted-foreground">Procès-verbaux à gérer</p>
                   </div>
                 </div>
               </div>

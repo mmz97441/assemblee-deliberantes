@@ -136,6 +136,8 @@ import { sendConvocations, resendConvocation } from '@/lib/actions/convocations'
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow } from '@/lib/supabase/types'
+import { SEANCE_STATUT_CONFIG } from '@/lib/constants'
+import { formatDate, formatTime, formatRelativeDate } from '@/lib/utils/format-date'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -207,15 +209,6 @@ interface SeanceDetailProps {
   canManage: boolean
 }
 
-const STATUT_CONFIG: Record<string, { label: string; color: string }> = {
-  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700' },
-  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700' },
-  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700' },
-  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700' },
-  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700' },
-  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500' },
-}
-
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   DELIBERATION: { label: 'Délibération', color: 'bg-blue-50 text-blue-700' },
   INFORMATION: { label: 'Information', color: 'bg-slate-50 text-slate-600' },
@@ -234,46 +227,12 @@ const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip
   ENVOYE_COURRIER: { label: 'Courrier', color: 'bg-indigo-100 text-indigo-700', tooltip: 'Convocation envoyée par courrier postal' },
 }
 
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    })
-  } catch { return dateStr }
-}
-
-function formatTime(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleTimeString('fr-FR', {
-      hour: '2-digit', minute: '2-digit',
-    })
-  } catch { return '' }
-}
-
-function formatRelativeDate(dateStr: string | null): string {
-  if (!dateStr) return ''
-  try {
-    const date = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMinutes = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
-
-    if (diffMinutes < 1) return "à l'instant"
-    if (diffMinutes < 60) return `il y a ${diffMinutes} min`
-    if (diffHours < 24) return `il y a ${diffHours}h`
-    if (diffDays < 7) return `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`
-    return `le ${date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-  } catch { return '' }
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage }: SeanceDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const statutConfig = STATUT_CONFIG[seance.statut || 'BROUILLON']
+  const statutConfig = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
   const isBrouillon = seance.statut === 'BROUILLON'
 
   // Realtime : mise à jour automatique quand les convocataires, présences ou ODJ changent
@@ -513,7 +472,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`Statut mis à jour : ${STATUT_CONFIG[newStatut]?.label || newStatut}`)
+        toast.success(`Statut mis à jour : ${SEANCE_STATUT_CONFIG[newStatut]?.label || newStatut}`)
         router.refresh()
       }
       setStatusChangeDialog(null)

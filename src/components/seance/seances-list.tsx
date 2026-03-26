@@ -65,6 +65,7 @@ import {
 import { SeanceFormDialog } from './seance-form'
 import { deleteSeance, duplicateSeance, archiveSeance, unarchiveSeance } from '@/lib/actions/seances'
 import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
+import { formatDate, formatTime } from '@/lib/utils/format-date'
 
 interface SeanceListItem extends SeanceRow {
   instance_config: Pick<InstanceConfigRow, 'id' | 'nom'> | null
@@ -103,32 +104,6 @@ const MODE_ICONS: Record<string, React.ElementType> = {
   PRESENTIEL: Building2,
   HYBRIDE: Monitor,
   VISIO: Video,
-}
-
-function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatTime(dateStr: string): string {
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return ''
-  }
 }
 
 function getYear(dateStr: string): number {

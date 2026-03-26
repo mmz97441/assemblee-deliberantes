@@ -98,7 +98,7 @@ export function InstancesList({ data }: InstancesListProps) {
           Ajouter une instance
         </Button>
         <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-          <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Landmark className="h-5 w-5 text-institutional-blue" />
@@ -137,8 +137,8 @@ export function InstancesList({ data }: InstancesListProps) {
                 <TableHead className="font-medium">Nom</TableHead>
                 <TableHead className="font-medium">Type légal</TableHead>
                 <TableHead className="text-center font-medium">Composition max.</TableHead>
-                <TableHead className="text-center font-medium">Délai convoc.</TableHead>
-                <TableHead className="font-medium">Quorum</TableHead>
+                <TableHead className="text-center font-medium hidden lg:table-cell">Délai convoc.</TableHead>
+                <TableHead className="font-medium hidden lg:table-cell">Quorum</TableHead>
                 <TableHead className="text-center font-medium">Statut</TableHead>
                 <TableHead className="text-right font-medium">Actions</TableHead>
               </TableRow>
@@ -151,10 +151,10 @@ export function InstancesList({ data }: InstancesListProps) {
                   <TableCell className="text-center tabular-nums">
                     {instance.composition_max ?? '—'}
                   </TableCell>
-                  <TableCell className="text-center tabular-nums">
+                  <TableCell className="text-center tabular-nums hidden lg:table-cell">
                     {instance.delai_convocation_jours ?? 5} j
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <Badge variant="outline" className="text-xs font-normal">
                       {QUORUM_TYPE_LABELS[instance.quorum_type || 'MAJORITE_MEMBRES'] || instance.quorum_type}
                     </Badge>

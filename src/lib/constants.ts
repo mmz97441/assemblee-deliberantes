@@ -29,6 +29,25 @@ export const PUBLIC_ROUTES = [
   '/vote',
 ] as const
 
+// --- Statuts de séance ---
+export const SEANCE_STATUT_CONFIG: Record<string, { label: string; color: string; description: string }> = {
+  BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700', description: 'En cours de préparation' },
+  CONVOQUEE: { label: 'Convoquée', color: 'bg-blue-100 text-blue-700', description: 'Les convocations ont été envoyées' },
+  EN_COURS: { label: 'En cours', color: 'bg-emerald-100 text-emerald-700', description: 'La séance est en cours' },
+  SUSPENDUE: { label: 'Suspendue', color: 'bg-amber-100 text-amber-700', description: 'La séance est temporairement suspendue' },
+  CLOTUREE: { label: 'Clôturée', color: 'bg-purple-100 text-purple-700', description: 'La séance est terminée' },
+  ARCHIVEE: { label: 'Archivée', color: 'bg-gray-100 text-gray-500', description: 'Classée dans les archives' },
+}
+
+// --- Résultats de vote ---
+export const VOTE_RESULTAT_CONFIG: Record<string, { label: string; color: string }> = {
+  ADOPTE: { label: 'Adopté', color: 'bg-emerald-100 text-emerald-700' },
+  ADOPTE_UNANIMITE: { label: 'Adopté à l\'unanimité', color: 'bg-emerald-100 text-emerald-700' },
+  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopté (voix prépondérante)', color: 'bg-blue-100 text-blue-700' },
+  REJETE: { label: 'Rejeté', color: 'bg-red-100 text-red-700' },
+  NUL: { label: 'Vote nul', color: 'bg-amber-100 text-amber-700' },
+}
+
 // --- Validation ---
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

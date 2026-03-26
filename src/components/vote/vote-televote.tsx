@@ -348,7 +348,7 @@ export function VoteTelevote({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2"
+                        className="min-h-[44px] h-auto px-3 py-2"
                         disabled={resendingMemberId === member.memberId || member.resendCount >= 3}
                         onClick={() => handleResend(member.memberId)}
                       >

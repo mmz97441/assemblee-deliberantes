@@ -497,6 +497,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
   const [savedInstitutionId, setSavedInstitutionId] = useState<string | null>(data?.id || null)
   const [editingInstance, setEditingInstance] = useState<EditableInstance | null>(null)
   const [isSavingInstance, setIsSavingInstance] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
 
   // Build editable instances from existing DB rows + templates
   const [instances, setInstances] = useState<EditableInstance[]>(() => {
@@ -520,8 +521,21 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
     window.history.replaceState({}, '', url.toString())
   }, [currentStep])
 
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
   const updateField = useCallback(<K extends keyof FormValues>(field: K, value: FormValues[K]) => {
     setValues((prev) => ({ ...prev, [field]: value }))
+    setIsDirty(true)
   }, [])
 
   const typeConfig = useMemo(() => {
@@ -642,6 +656,7 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
           setSavedInstitutionId(result.id as string)
         }
         toast.success('Enregistré ✓', { duration: 1500 })
+        setIsDirty(false)
         setCurrentStep((s) => s + 1)
         router.refresh()
       })

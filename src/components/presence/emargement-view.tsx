@@ -103,7 +103,7 @@ function calculateQuorumLocal(
 
   switch (quorumType) {
     case 'MAJORITE_MEMBRES':
-      quorumRequired = Math.ceil(total / 2) + 1
+      quorumRequired = Math.floor(total / 2) + 1
       fractionLabel = 'Majorité des membres'
       break
     case 'TIERS_MEMBRES':
@@ -119,7 +119,7 @@ function calculateQuorumLocal(
       fractionLabel = `${numerateur}/${denominateur} des membres`
       break
     default:
-      quorumRequired = Math.ceil(total / 2) + 1
+      quorumRequired = Math.floor(total / 2) + 1
       fractionLabel = 'Majorité des membres'
   }
 

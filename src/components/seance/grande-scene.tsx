@@ -49,6 +49,22 @@ interface GrandeSceneProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function GrandeScene({ seance, institutionName, recusations = [] }: GrandeSceneProps) {
   const [fullscreenFailed, setFullscreenFailed] = useState(false)
+  const [showExitButton, setShowExitButton] = useState(false)
+
+  // Show exit button on mouse movement, hide after 3s
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    const handleMouseMove = () => {
+      setShowExitButton(true)
+      clearTimeout(timer)
+      timer = setTimeout(() => setShowExitButton(false), 3000)
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      clearTimeout(timer)
+    }
+  }, [])
 
   // ─── Realtime subscription (primary) ─────────────────────────────────────
   const { isConnected: isRealtimeConnected } = useRealtime({
@@ -166,11 +182,11 @@ export function GrandeScene({ seance, institutionName, recusations = [] }: Grand
         tabIndex={0}
         title="Cliquez pour passer en plein écran"
       >
-        {/* Discrete exit fullscreen button */}
+        {/* Exit button — appears on mouse movement */}
         <button
           onClick={(e) => { e.stopPropagation(); handleExitFullscreen() }}
-          className="absolute top-4 right-4 opacity-0 hover:opacity-80 transition-opacity text-white/40 hover:text-white p-2 rounded-lg hover:bg-white/10"
-          title="Quitter le plein écran"
+          className={`absolute top-4 right-4 z-30 transition-opacity duration-300 text-white/80 hover:text-white p-2.5 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur-sm ${showExitButton ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          title="Quitter le plein écran (Échap)"
           aria-label="Quitter le plein écran"
         >
           <X className="h-6 w-6" />

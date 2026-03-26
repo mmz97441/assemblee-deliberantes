@@ -118,7 +118,7 @@ export function TabletAuthScreen({
   const handleEnrollWebAuthn = useCallback(async () => {
     // TODO: Implement actual WebAuthn enrollment with server-side challenge
     // For Phase 2 MVP, we skip actual WebAuthn and just note that it's available
-    toast.success('Empreinte biométrique enregistrée (simulation Phase 2)')
+    toast.success('Empreinte biométrique — disponible dans une prochaine version')
     setState('authenticated')
     const memberId = authenticatedMemberId
     if (memberId) {
@@ -197,7 +197,7 @@ export function TabletAuthScreen({
             <Button
               onClick={handleSubmitToken}
               disabled={isPending || !tokenInput.trim()}
-              className="w-full h-16 text-xl font-semibold bg-institutional-blue hover:bg-institutional-blue/90 text-white rounded-xl"
+              className="w-full h-14 text-lg font-semibold bg-institutional-blue hover:bg-institutional-blue/90 text-white rounded-xl"
               style={{ minHeight: '64px' }}
             >
               {isPending ? (

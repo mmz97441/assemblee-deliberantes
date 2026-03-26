@@ -51,6 +51,8 @@ import {
 } from '@/lib/actions/deliberations'
 import type { DeliberationContenu } from '@/lib/actions/deliberations'
 import type { Json } from '@/lib/supabase/types'
+import { VOTE_RESULTAT_CONFIG } from '@/lib/constants'
+import { formatShortDate, formatDateTime } from '@/lib/utils/format-date'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -97,39 +99,8 @@ interface DeliberationDetailProps {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const RESULTAT_LABELS: Record<string, { label: string; color: string }> = {
-  ADOPTE: { label: 'Adopte', color: 'bg-green-100 text-green-700' },
-  ADOPTE_UNANIMITE: { label: 'Adopte a l\'unanimite', color: 'bg-green-100 text-green-800' },
-  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopte (voix preponderante)', color: 'bg-amber-100 text-amber-800' },
-  REJETE: { label: 'Rejete', color: 'bg-red-100 text-red-700' },
-  NUL: { label: 'Nul', color: 'bg-gray-100 text-gray-700' },
-}
-
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatDateTime(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return dateStr
-  }
-}
+// Alias local : formatDate ici = date sans jour de la semaine
+const formatDate = formatShortDate
 
 // ─── Lifecycle Stepper ──────────────────────────────────────────────────────
 
@@ -206,8 +177,8 @@ function LifecycleStepper({ steps }: { steps: Step[] }) {
                 {step.status === 'done' && step.date
                   ? `Fait le ${formatDateTime(step.date)}`
                   : step.status === 'current'
-                  ? 'Etape en cours'
-                  : 'A venir'
+                  ? 'Étape en cours'
+                  : 'À venir'
                 }
               </p>
             </TooltipContent>
@@ -259,7 +230,7 @@ export function DeliberationDetail({
 
   const steps = getSteps(delib)
   const vote = delib.votes as DeliberationVote | null
-  const resultat = vote?.resultat ? RESULTAT_LABELS[vote.resultat] : null
+  const resultat = vote?.resultat ? VOTE_RESULTAT_CONFIG[vote.resultat] : null
   const seanceDate = delib.seances?.date_seance
 
   // Warnings
@@ -411,7 +382,7 @@ export function DeliberationDetail({
             Délibération annulée
           </div>
           <p className="text-sm">
-            Annulee le {delib.updated_at ? formatDateTime(delib.updated_at) : 'date inconnue'}.
+            Annulée le {delib.updated_at ? formatDateTime(delib.updated_at) : 'date inconnue'}.
             {delib.motif_annulation && (
               <> Motif : {delib.motif_annulation}</>
             )}
@@ -423,13 +394,13 @@ export function DeliberationDetail({
       {showAffichageWarning && (
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          L&apos;affichage doit etre effectue dans les 24h suivant la publication
+          L&apos;affichage doit être effectué dans les 24h suivant la publication
         </div>
       )}
       {showTransmissionWarning && (
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          La transmission a la prefecture doit etre effectuee dans les 15 jours
+          La transmission à la préfecture doit être effectuée dans les 15 jours
         </div>
       )}
 
@@ -467,7 +438,7 @@ export function DeliberationDetail({
 
             {canEdit ? (
               <div className="space-y-2">
-                <Label htmlFor="titre">Titre de la deliberation</Label>
+                <Label htmlFor="titre">Titre de la délibération</Label>
                 <Input
                   id="titre"
                   value={titre}
@@ -486,7 +457,7 @@ export function DeliberationDetail({
                   className="flex items-center gap-1 hover:text-foreground transition-colors"
                 >
                   <CalendarDays className="h-3.5 w-3.5" />
-                  Seance du {formatDate(seanceDate)} — {seanceTitle}
+                  Séance du {formatDate(seanceDate)} — {seanceTitle}
                   <ExternalLink className="h-3 w-3" />
                 </Link>
               )}
@@ -495,7 +466,7 @@ export function DeliberationDetail({
             {/* Vote details */}
             {vote && (
               <div className="mt-4 p-3 rounded-lg bg-muted/50 text-sm">
-                <p className="font-medium mb-1">Resultat du vote :</p>
+                <p className="font-medium mb-1">Résultat du vote :</p>
                 <div className="flex items-center gap-4 text-muted-foreground">
                   <span>Pour : <strong className="text-green-700">{vote.pour ?? 0}</strong></span>
                   <span>Contre : <strong className="text-red-700">{vote.contre ?? 0}</strong></span>
@@ -517,18 +488,18 @@ export function DeliberationDetail({
                 value={vu}
                 onChange={e => { setVu(e.target.value); markChanged() }}
                 rows={4}
-                placeholder="Vu le Code general des collectivites territoriales..."
+                placeholder="Vu le Code général des collectivités territoriales..."
                 className="resize-y"
               />
             ) : (
-              <p className="text-sm whitespace-pre-wrap">{vu || <span className="text-muted-foreground italic">Non renseigne</span>}</p>
+              <p className="text-sm whitespace-pre-wrap">{vu || <span className="text-muted-foreground italic">Non renseigné</span>}</p>
             )}
           </div>
 
           {/* CONSIDERANT section */}
           <div className="rounded-xl border bg-card p-6">
             <Label htmlFor="considerant" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3 block">
-              Considerant
+              Considérant
             </Label>
             {canEdit ? (
               <Textarea
@@ -536,11 +507,11 @@ export function DeliberationDetail({
                 value={considerant}
                 onChange={e => { setConsiderant(e.target.value); markChanged() }}
                 rows={4}
-                placeholder="Considerant que..."
+                placeholder="Considérant que..."
                 className="resize-y"
               />
             ) : (
-              <p className="text-sm whitespace-pre-wrap">{considerant || <span className="text-muted-foreground italic">Non renseigne</span>}</p>
+              <p className="text-sm whitespace-pre-wrap">{considerant || <span className="text-muted-foreground italic">Non renseigné</span>}</p>
             )}
           </div>
 
@@ -673,7 +644,7 @@ export function DeliberationDetail({
                       className="w-full"
                     >
                       <Megaphone className="h-4 w-4 mr-2" />
-                      {isPending ? 'Enregistrement...' : 'Marquer comme affichee'}
+                      {isPending ? 'Enregistrement...' : 'Marquer comme affichée'}
                     </Button>
                   )}
                   {!delib.transmis_prefecture_at && (
@@ -695,11 +666,11 @@ export function DeliberationDetail({
                         className="w-full"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Telecharger PDF
+                        Télécharger PDF
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Generation PDF bientot disponible</p>
+                      <p>Génération PDF bientôt disponible</p>
                     </TooltipContent>
                   </Tooltip>
                   {isSuperAdmin && (
@@ -713,7 +684,7 @@ export function DeliberationDetail({
                       className="w-full"
                     >
                       <Ban className="h-4 w-4 mr-2" />
-                      Annuler la deliberation
+                      Annuler la délibération
                     </Button>
                   )}
                 </>
@@ -728,7 +699,7 @@ export function DeliberationDetail({
             </h3>
             <div className="space-y-2.5 text-sm">
               <TimelineItem
-                label="Creation"
+                label="Création"
                 date={delib.created_at}
               />
               <TimelineItem
@@ -742,7 +713,7 @@ export function DeliberationDetail({
                 highlight={!!delib.publie_at && !delib.affiche_at && !isAnnulee}
               />
               <TimelineItem
-                label="Transmission préfecture"
+                label="Transmission en préfecture"
                 date={delib.transmis_prefecture_at}
                 highlight={!!delib.affiche_at && !delib.transmis_prefecture_at && !isAnnulee}
               />
@@ -759,7 +730,7 @@ export function DeliberationDetail({
           {/* Seance link */}
           <div className="rounded-xl border bg-card p-5">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Seance associee
+              Séance associée
             </h3>
             <Link
               href={`/seances/${delib.seance_id}`}
@@ -789,7 +760,7 @@ export function DeliberationDetail({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
             <AlertDialogAction onClick={handlePublish} disabled={isPending}>
-              {isPending ? 'Publication...' : 'Publier et attribuer le numero'}
+              {isPending ? 'Publication...' : 'Publier et attribuer le numéro'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -801,8 +772,7 @@ export function DeliberationDetail({
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce brouillon ?</AlertDialogTitle>
             <AlertDialogDescription>
-              Le brouillon &laquo;&nbsp;{delib.titre}&nbsp;&raquo; sera definitivement supprime.
-              Cette action est irreversible.
+              Ce brouillon sera définitivement supprimé. Cette action est irréversible.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

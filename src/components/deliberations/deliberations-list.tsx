@@ -47,6 +47,8 @@ import {
   annulDeliberation,
 } from '@/lib/actions/deliberations'
 import type { InstanceConfigRow } from '@/lib/supabase/types'
+import { VOTE_RESULTAT_CONFIG } from '@/lib/constants'
+import { formatShortDate, formatDateNumeric } from '@/lib/utils/format-date'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -130,39 +132,9 @@ const STATUS_CONFIG: Record<DelibStatus, { label: string; color: string; descrip
   },
 }
 
-const RESULTAT_CONFIG: Record<string, { label: string; color: string }> = {
-  ADOPTE: { label: 'Adopté', color: 'bg-green-100 text-green-700' },
-  ADOPTE_UNANIMITE: { label: 'Adopté à l\'unanimité', color: 'bg-green-100 text-green-800' },
-  ADOPTE_VOIX_PREPONDERANTE: { label: 'Adopté (voix prépondérante)', color: 'bg-amber-100 text-amber-800' },
-  REJETE: { label: 'Rejeté', color: 'bg-red-100 text-red-700' },
-  NUL: { label: 'Nul', color: 'bg-gray-100 text-gray-700' },
-}
-
-// ─── Date formatters ────────────────────────────────────────────────────────
-
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatDateShort(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
-}
+// Alias locaux pour compatibilité
+const formatDate = formatShortDate
+const formatDateShort = formatDateNumeric
 
 // ─── Main component ─────────────────────────────────────────────────────────
 
@@ -185,6 +157,8 @@ export function DeliberationsList({
   const [annulDialogOpen, setAnnulDialogOpen] = useState(false)
   const [annulingDelib, setAnnulingDelib] = useState<DeliberationItem | null>(null)
   const [annulMotif, setAnnulMotif] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 20
 
   const deliberations = rawDeliberations as DeliberationItem[]
 
@@ -237,6 +211,15 @@ export function DeliberationsList({
     })
   }, [deliberations, search, yearFilter, statusFilter, instanceFilter])
 
+  // Reset page when filters change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const filterKey = `${search}|${yearFilter}|${statusFilter}|${instanceFilter}`
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey)
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey)
+    setCurrentPage(1)
+  }
+
   // Sort: brouillons first (action needed), then by numero DESC, then by created_at DESC
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -251,6 +234,10 @@ export function DeliberationsList({
       return bDate.localeCompare(aDate)
     })
   }, [filtered])
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ITEMS_PER_PAGE))
+  const paginatedItems = sorted.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -414,7 +401,7 @@ export function DeliberationsList({
 
       {/* List */}
       <div className="space-y-3">
-        {sorted.map(delib => (
+        {paginatedItems.map(delib => (
           <DeliberationCard
             key={delib.id}
             delib={delib}
@@ -435,6 +422,33 @@ export function DeliberationsList({
           />
         ))}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 pt-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            Page {currentPage} sur {totalPages} ({sorted.length} délibération{sorted.length > 1 ? 's' : ''})
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+            >
+              Précédent
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+            >
+              Suivant
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Publish confirmation */}
       <AlertDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
@@ -517,7 +531,7 @@ function DeliberationCard({
   const status = getDelibStatus(delib)
   const statusConfig = STATUS_CONFIG[status]
   const resultat = delib.votes?.resultat
-  const resultatConfig = resultat ? RESULTAT_CONFIG[resultat] : null
+  const resultatConfig = resultat ? VOTE_RESULTAT_CONFIG[resultat] : null
   const instanceName = delib.seances?.instance_config?.nom
   const seanceDate = delib.seances?.date_seance
 

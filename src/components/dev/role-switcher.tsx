@@ -89,7 +89,7 @@ export function RoleSwitcher({ realRole }: RoleSwitcherProps) {
               className="ml-2 inline-flex items-center gap-1 underline hover:no-underline disabled:opacity-50"
             >
               <RotateCcw className="h-3 w-3" />
-              Reinitialiser
+              Réinitialiser
             </button>
           </div>
         </div>
@@ -109,14 +109,14 @@ export function RoleSwitcher({ realRole }: RoleSwitcherProps) {
                   : 'border-purple-300 bg-white text-purple-600 hover:bg-purple-50 dark:bg-gray-900 dark:text-purple-400 dark:hover:bg-gray-800'
                 }
               `}
-              title="Tester un role (super_admin uniquement)"
+              title="Tester un rôle (super_admin uniquement)"
             >
               {currentOverride ? (
                 <Eye className="h-4 w-4" />
               ) : (
                 <Users className="h-4 w-4" />
               )}
-              {currentOverride ? `Vue : ${activeLabel}` : 'Tester un role'}
+              {currentOverride ? `Vue : ${activeLabel}` : 'Tester un rôle'}
             </Button>
           </PopoverTrigger>
 
@@ -127,7 +127,7 @@ export function RoleSwitcher({ realRole }: RoleSwitcherProps) {
           >
             <div className="flex items-center justify-between mb-2 px-2 pt-1">
               <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">
-                Tester un role
+                Tester un rôle
               </span>
               <Button
                 variant="ghost"
@@ -163,7 +163,7 @@ export function RoleSwitcher({ realRole }: RoleSwitcherProps) {
                     <span>{r.label}</span>
                     {isActive && (
                       <span className="text-purple-500 text-xs font-bold">
-                        {r.value === 'super_admin' ? 'reel' : 'actif'}
+                        {r.value === 'super_admin' ? 'réel' : 'actif'}
                       </span>
                     )}
                   </button>
@@ -181,7 +181,7 @@ export function RoleSwitcher({ realRole }: RoleSwitcherProps) {
                   disabled={isPending}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  Reinitialiser (revenir a super_admin)
+                  Réinitialiser (revenir à super_admin)
                 </Button>
               </div>
             )}

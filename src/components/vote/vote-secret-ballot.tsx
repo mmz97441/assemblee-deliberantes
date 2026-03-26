@@ -285,8 +285,8 @@ export function VoteSecretBallot({
             </p>
             <Button
               onClick={handleProceedToProcuration}
-              className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700"
-              style={{ minHeight: '56px' }}
+              className="w-full h-16 text-lg bg-blue-600 hover:bg-blue-700"
+              style={{ minHeight: '64px' }}
             >
               <Users className="h-5 w-5 mr-2" />
               Voter pour {currentMandant?.prenom} {currentMandant?.nom}
