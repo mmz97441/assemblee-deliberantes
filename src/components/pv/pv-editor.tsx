@@ -1676,6 +1676,7 @@ function StepFinaliser({
           className="w-full gap-2 min-h-[56px] text-base"
           onClick={handleSendNotifications}
           disabled={isSending || (!presidentName && !secretaireName)}
+          title={!presidentName && !secretaireName ? 'Désignez d\'abord un président ou un secrétaire' : ''}
         >
           {isSending ? (
             <><Loader2 className="h-5 w-5 animate-spin" /> Envoi en cours...</>
@@ -1877,6 +1878,7 @@ function StepSignatures({
                 <Button
                   onClick={() => handleDesignate('president')}
                   disabled={!selectedPresident || isSavingPresident}
+                  title={!selectedPresident ? 'Sélectionnez un président dans la liste ci-dessus' : ''}
                   className="w-full min-h-[44px] gap-2"
                 >
                   {isSavingPresident ? (
@@ -1997,6 +1999,7 @@ function StepSignatures({
                 <Button
                   onClick={() => handleDesignate('secretaire')}
                   disabled={!selectedSecretaire || isSavingSecretaire}
+                  title={!selectedSecretaire ? 'Sélectionnez un secrétaire dans la liste ci-dessus' : ''}
                   className="w-full min-h-[44px] gap-2"
                 >
                   {isSavingSecretaire ? (

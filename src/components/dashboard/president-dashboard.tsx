@@ -177,7 +177,7 @@ export function PresidentDashboard({
             <h1 className="text-2xl font-bold text-foreground">
               {greeting}, {firstName}
             </h1>
-            <p className="text-sm text-muted-foreground">President(e) de seance</p>
+            <p className="text-sm text-muted-foreground">Président(e) de séance</p>
           </div>
         </div>
 
@@ -285,7 +285,7 @@ export function PresidentDashboard({
               type="button"
               onClick={() => setDetailDialog('participation')}
               className="block w-full text-left group"
-              title="Voir le detail de participation par seance"
+              title="Voir le détail de participation par séance"
             >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-sky-300">
                 <div className="flex items-center justify-between mb-3">
@@ -355,18 +355,18 @@ export function PresidentDashboard({
           </section>
         )}
 
-        {/* ─── Section D: Dernieres deliberations ─────────────── */}
+        {/* ─── Section D: Dernières délibérations ─────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <FileText className="h-5 w-5 text-purple-600" />
-              Dernieres deliberations
+              Dernières délibérations
             </h2>
             <Link
               href={ROUTES.DELIBERATIONS}
               className="text-sm text-institutional-blue hover:underline flex items-center gap-1"
             >
-              Toutes les deliberations
+              Toutes les délibérations
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -431,10 +431,10 @@ export function PresidentDashboard({
                 <CalendarDays className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">
-                Aucune seance a venir
+                Aucune séance à venir
               </h3>
               <p className="text-sm text-muted-foreground">
-                Vous n&apos;avez aucune seance a presider pour le moment.
+                Vous n&apos;avez aucune séance à présider pour le moment.
               </p>
             </div>
           ) : (
@@ -512,8 +512,8 @@ export function PresidentDashboard({
                     <FileText className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">Deliberations</h3>
-                    <p className="text-xs text-muted-foreground">Deliberations recentes</p>
+                    <h3 className="font-semibold text-foreground">Délibérations</h3>
+                    <p className="text-xs text-muted-foreground">Délibérations récentes</p>
                   </div>
                 </div>
               </div>
@@ -637,7 +637,7 @@ export function PresidentDashboard({
           </div>
           <div className="flex items-center justify-between mt-4 pt-3 border-t">
             <Link href={ROUTES.DELIBERATIONS} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
-              Voir toutes les deliberations <ArrowRight className="h-3.5 w-3.5" />
+              Voir toutes les délibérations <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
           </div>

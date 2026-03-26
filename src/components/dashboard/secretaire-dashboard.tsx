@@ -63,7 +63,7 @@ export function SecretaireDashboard({
             <h1 className="text-2xl font-bold text-foreground">
               {greeting}, {firstName}
             </h1>
-            <p className="text-sm text-muted-foreground">Secretaire de seance</p>
+            <p className="text-sm text-muted-foreground">Secrétaire de séance</p>
           </div>
         </div>
 
@@ -71,7 +71,7 @@ export function SecretaireDashboard({
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <FileText className="h-5 w-5 text-purple-600" />
-            Proces-verbaux a rediger
+            Procès-verbaux à rédiger
             {pvToRedact.length > 0 && (
               <Badge className="bg-red-500 text-white border-0 text-xs font-bold ml-1">
                 {pvToRedact.length}
@@ -122,7 +122,7 @@ export function SecretaireDashboard({
                           {pv.seance_titre}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          Seance du {formatShortDate(pv.seance_date)}
+                          Séance du {formatShortDate(pv.seance_date)}
                         </p>
                       </div>
                       <Button
@@ -155,11 +155,11 @@ export function SecretaireDashboard({
           )}
         </section>
 
-        {/* ─── Section B: Mes prochaines seances ──────────────── */}
+        {/* ─── Section B: Mes prochaines séances ──────────────── */}
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <CalendarDays className="h-5 w-5 text-institutional-blue" />
-            Mes prochaines seances
+            Mes prochaines séances
           </h2>
 
           {upcomingSeances.length === 0 ? (
@@ -168,10 +168,10 @@ export function SecretaireDashboard({
                 <CalendarDays className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">
-                Aucune seance a venir
+                Aucune séance à venir
               </h3>
               <p className="text-sm text-muted-foreground">
-                Vous n&apos;avez aucune seance assignee pour le moment.
+                Vous n&apos;avez aucune séance assignée pour le moment.
               </p>
             </div>
           ) : (
@@ -249,8 +249,8 @@ export function SecretaireDashboard({
                     <FileText className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">Deliberations</h3>
-                    <p className="text-xs text-muted-foreground">Consulter les deliberations</p>
+                    <h3 className="font-semibold text-foreground">Délibérations</h3>
+                    <p className="text-xs text-muted-foreground">Consulter les délibérations</p>
                   </div>
                 </div>
               </div>

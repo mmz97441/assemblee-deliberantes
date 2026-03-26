@@ -572,7 +572,9 @@ export async function getDeliberations(filters?: DeliberationFilters): Promise<
     }
 
     if (filters?.search) {
-      query = query.ilike('titre', `%${filters.search}%`)
+      // Sanitize LIKE wildcards to prevent injection
+      const sanitizedSearch = filters.search.replace(/[%_\\]/g, '\\$&')
+      query = query.ilike('titre', `%${sanitizedSearch}%`)
     }
 
     // Order: published first (by numero DESC), then drafts by created_at DESC

@@ -18,6 +18,26 @@ const STATUS_PRIORITY: Record<string, number> = {
 
 export async function POST(request: NextRequest) {
   try {
+    // H4: Verify Resend webhook signature headers
+    const svixId = request.headers.get('svix-id')
+    const svixTimestamp = request.headers.get('svix-timestamp')
+    const svixSignature = request.headers.get('svix-signature')
+
+    if (!svixId || !svixTimestamp || !svixSignature) {
+      console.warn('[WEBHOOK] Missing Resend signature headers — request rejected')
+      return NextResponse.json({ error: 'Missing webhook signature headers' }, { status: 401 })
+    }
+
+    // Reject stale timestamps (> 5 minutes)
+    const timestampSeconds = parseInt(svixTimestamp, 10)
+    if (isNaN(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) {
+      console.warn('[WEBHOOK] Stale webhook timestamp — request rejected')
+      return NextResponse.json({ error: 'Webhook timestamp too old' }, { status: 401 })
+    }
+
+    // TODO: Full cryptographic signature verification with svix library
+    // For now, header presence + timestamp freshness provides basic protection
+
     const body = await request.json()
     const { type, data } = body
 

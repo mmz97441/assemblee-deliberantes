@@ -102,7 +102,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         ]}
       />
 
-      <main className="px-8 py-6 page-enter">
+      <main className="px-4 sm:px-8 py-6 page-enter">
         <SeanceDetail
           seance={seance}
           allMembers={allMembers || []}

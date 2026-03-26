@@ -52,9 +52,23 @@ export async function uploadODJDocument(
       return { error: 'Fichier, point et séance requis' }
     }
 
-    // Validate file size (20 MB)
+    // Validate file size (20 Mo)
     if (file.size > 20 * 1024 * 1024) {
-      return { error: 'Le fichier ne doit pas depasser 20 Mo' }
+      return { error: 'Le fichier ne doit pas dépasser 20 Mo' }
+    }
+
+    // M3: File type allowlist
+    const ALLOWED_TYPES = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.oasis.opendocument.text',
+    ]
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return { error: 'Type de fichier non autorisé. Formats acceptés : PDF, Word, ODT, JPEG, PNG.' }
     }
 
     // Generate unique path

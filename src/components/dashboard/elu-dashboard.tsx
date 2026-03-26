@@ -222,9 +222,9 @@ export function EluDashboard({
           </div>
         </div>
 
-        {/* ─── Section A: Ma prochaine seance (hero) ─────────── */}
+        {/* ─── Section A: Ma prochaine séance (hero) ─────────── */}
         <section>
-          <h2 className="sr-only">Ma prochaine seance</h2>
+          <h2 className="sr-only">Ma prochaine séance</h2>
           {nextSeance ? (
             <HeroSeanceCard seance={nextSeance} />
           ) : (
@@ -233,10 +233,10 @@ export function EluDashboard({
                 <CalendarDays className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">
-                Aucune seance a venir
+                Aucune séance à venir
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Vous serez notifie(e) par email lorsqu&apos;une seance sera programmee.
+                Vous serez notifié(e) par email lorsqu&apos;une séance sera programmée.
               </p>
             </div>
           )}
@@ -344,7 +344,7 @@ export function EluDashboard({
               href={ROUTES.DELIBERATIONS}
               className="text-sm text-institutional-blue hover:underline flex items-center gap-1"
             >
-              Voir toutes les deliberations
+              Voir toutes les délibérations
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -483,8 +483,8 @@ export function EluDashboard({
                     <FileText className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">Deliberations</h3>
-                    <p className="text-xs text-muted-foreground">Consulter les deliberations</p>
+                    <h3 className="font-semibold text-foreground">Délibérations</h3>
+                    <p className="text-xs text-muted-foreground">Consulter les délibérations</p>
                   </div>
                 </div>
               </div>
@@ -535,7 +535,7 @@ export function EluDashboard({
               <div className="text-center py-6">
                 <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  Aucune seance enregistree cette annee.
+                  Aucune séance enregistrée cette année.
                 </p>
               </div>
             )}
@@ -641,7 +641,7 @@ export function EluDashboard({
               href={ROUTES.DELIBERATIONS}
               className="text-sm text-institutional-blue hover:underline flex items-center gap-1"
             >
-              Voir toutes les deliberations
+              Voir toutes les délibérations
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>

@@ -13,6 +13,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Missing data parameter' }, { status: 400 })
   }
 
+  // Input length check — QR data should be a UUID (36 chars) or similar token
+  if (data.length > 500) {
+    return NextResponse.json({ error: 'Data parameter too long' }, { status: 400 })
+  }
+
   try {
     const buffer = await QRCode.toBuffer(data, {
       type: 'png',

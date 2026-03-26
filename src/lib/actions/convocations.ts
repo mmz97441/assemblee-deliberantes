@@ -43,7 +43,7 @@ export interface SendConvocationResult {
 export async function sendConvocations(seanceId: string): Promise<SendConvocationResult | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president'])
     if (roleError) return { error: roleError }
 
     // Rate limiting: max 5 envois par séance par heure
@@ -79,6 +79,11 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
 
     if (seance.statut !== 'CONVOQUEE' && seance.statut !== 'BROUILLON') {
       return { error: 'Les convocations ne peuvent être envoyées que pour une séance en brouillon ou convoquée' }
+    }
+
+    // Check ODJ exists (CGCT L2121-10 — convocation must include the ODJ)
+    if (!seance.odj_points || seance.odj_points.length === 0) {
+      return { error: 'L\'ordre du jour est vide — ajoutez au moins un point avant d\'envoyer les convocations (CGCT L2121-10).' }
     }
 
     // Check president is designated (CGCT L2121-10 — convocation must come from the president)
@@ -251,12 +256,11 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       }
     }
 
-    // If seance was brouillon, auto-update to CONVOQUEE
+    // If seance was brouillon, auto-transition to CONVOQUEE via updateSeanceStatut
+    // This ensures all CGCT guards are applied consistently
     if (seance.statut === 'BROUILLON' && result.sent > 0) {
-      await supabase
-        .from('seances')
-        .update({ statut: 'CONVOQUEE' })
-        .eq('id', seanceId)
+      const { updateSeanceStatut } = await import('@/lib/actions/seances')
+      await updateSeanceStatut(seanceId, 'CONVOQUEE')
     }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
@@ -276,6 +280,24 @@ export async function confirmPresence(token: string): Promise<
   try {
     // Use service role — this is a PUBLIC action (no user logged in)
     const supabase = await createServiceRoleClient()
+
+    // M4: Rate limit confirmPresence — max 10 per minute per token prefix
+    // Since this is public (service role), rate limit by token prefix to prevent brute force
+    const tokenPrefix = token.substring(0, 8)
+    const { count: confirmAttempts } = await supabase
+      .from('rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('action_key', `confirm_presence_${tokenPrefix}`)
+      .gte('created_at', new Date(Date.now() - 60 * 1000).toISOString())
+
+    if (confirmAttempts && confirmAttempts >= 10) {
+      return { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' }
+    }
+
+    await supabase.from('rate_limits').insert({
+      action_key: `confirm_presence_${tokenPrefix}`,
+      user_id: '00000000-0000-0000-0000-000000000000',
+    })
 
     // Find convocataire by token
     const { data: conv, error } = await supabase

@@ -75,7 +75,7 @@ export async function openVote(
     // Verify seance is EN_COURS
     const { data: seance } = await supabase
       .from('seances')
-      .select('id, statut, instance_id')
+      .select('id, statut, instance_id, reconvocation')
       .eq('id', seanceId)
       .single()
 
@@ -84,10 +84,10 @@ export async function openVote(
       return { error: 'La séance doit être en cours pour ouvrir un vote' }
     }
 
-    // Get instance config for voix_preponderante
+    // Get instance config for voix_preponderante + quorum
     const { data: instanceConfig } = await supabase
       .from('instance_config')
-      .select('voix_preponderante')
+      .select('voix_preponderante, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max')
       .eq('id', seance.instance_id)
       .single()
 
@@ -152,6 +152,23 @@ export async function openVote(
 
     if (totalVotants === 0) {
       return { error: 'Aucun membre présent — impossible d\'ouvrir un vote' }
+    }
+
+    // H5: Check quorum before opening vote (CGCT L2121-17)
+    if (instanceConfig && !(seance as Record<string, unknown>).reconvocation) {
+      const total = instanceConfig.composition_max || totalVotants
+      let quorumRequired = Math.floor(total / 2) + 1
+      const qType = instanceConfig.quorum_type || 'MAJORITE_MEMBRES'
+      if (qType === 'TIERS_MEMBRES') {
+        quorumRequired = Math.ceil(total / 3)
+      } else if (qType === 'DEUX_TIERS') {
+        quorumRequired = Math.ceil((total * 2) / 3)
+      } else if (qType === 'STATUTS' && instanceConfig.quorum_fraction_numerateur && instanceConfig.quorum_fraction_denominateur) {
+        quorumRequired = Math.ceil((total * instanceConfig.quorum_fraction_numerateur) / instanceConfig.quorum_fraction_denominateur)
+      }
+      if (totalVotants < quorumRequired) {
+        return { error: `Le quorum n'est pas atteint (${totalVotants} présents sur ${quorumRequired} requis). Le vote ne peut pas être ouvert.` }
+      }
     }
 
     // Create the vote
@@ -287,15 +304,16 @@ export async function closeVoteMainLevee(
     })
 
     // Compute HMAC integrity hash (tamper-proof vote results)
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
-    if (!hmacSecret) {
-      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
-    }
+    // H2: Never compute HMAC with empty string — set null if secret missing
+    const hmacSecret = process.env.VOTE_HMAC_SECRET
     const closedAt = new Date().toISOString()
     const hashData = `${voteId}|${pour}|${contre}|${abstentions}|${resultat}|${closedAt}`
     const hashIntegrite = hmacSecret
       ? crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
       : null
+    if (!hmacSecret) {
+      console.error('[SECURITY] VOTE_HMAC_SECRET non configuré — hash intégrité non calculé')
+    }
 
     // Close the vote
     const { error: updateError } = await supabase
@@ -479,7 +497,7 @@ export async function openVoteSecret(
     // Verify seance is EN_COURS
     const { data: seance } = await supabase
       .from('seances')
-      .select('id, statut, instance_id')
+      .select('id, statut, instance_id, reconvocation')
       .eq('id', seanceId)
       .single()
 
@@ -488,10 +506,10 @@ export async function openVoteSecret(
       return { error: 'La séance doit être en cours pour ouvrir un vote' }
     }
 
-    // Get instance config for voix_preponderante
+    // Get instance config for voix_preponderante + quorum
     const { data: instanceConfig } = await supabase
       .from('instance_config')
-      .select('voix_preponderante')
+      .select('voix_preponderante, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max')
       .eq('id', seance.instance_id)
       .single()
 
@@ -553,6 +571,23 @@ export async function openVoteSecret(
       return { error: 'Aucun membre présent — impossible d\'ouvrir un vote' }
     }
 
+    // H5: Check quorum before opening vote (CGCT L2121-17)
+    if (instanceConfig && !(seance as Record<string, unknown>).reconvocation) {
+      const total = instanceConfig.composition_max || totalVotants
+      let quorumRequired = Math.floor(total / 2) + 1
+      const qType = instanceConfig.quorum_type || 'MAJORITE_MEMBRES'
+      if (qType === 'TIERS_MEMBRES') {
+        quorumRequired = Math.ceil(total / 3)
+      } else if (qType === 'DEUX_TIERS') {
+        quorumRequired = Math.ceil((total * 2) / 3)
+      } else if (qType === 'STATUTS' && instanceConfig.quorum_fraction_numerateur && instanceConfig.quorum_fraction_denominateur) {
+        quorumRequired = Math.ceil((total * instanceConfig.quorum_fraction_numerateur) / instanceConfig.quorum_fraction_denominateur)
+      }
+      if (totalVotants < quorumRequired) {
+        return { error: `Le quorum n'est pas atteint (${totalVotants} présents sur ${quorumRequired} requis). Le vote ne peut pas être ouvert.` }
+      }
+    }
+
     // Generate and encrypt session key
     sessionKeyBuffer = generateVoteSessionKey()
     const encryptedKey = encryptSessionKey(sessionKeyBuffer, masterKeyHex)
@@ -611,9 +646,10 @@ export async function submitSecretBallot(
       return { error: 'La clé de chiffrement des votes n\'est pas configurée (VOTE_ENCRYPTION_KEY)' }
     }
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    // H2: Never compute HMAC with empty string — set null if secret missing
+    const hmacSecret = process.env.VOTE_HMAC_SECRET
     if (!hmacSecret) {
-      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+      console.error('[SECURITY] VOTE_HMAC_SECRET non configuré — hash intégrité non calculé')
     }
 
     // Rate limiting: max 60 soumissions de bulletin par heure par utilisateur
@@ -760,9 +796,10 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
       return { error: 'La clé de chiffrement des votes n\'est pas configurée (VOTE_ENCRYPTION_KEY)' }
     }
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    // H2: Never compute HMAC with empty string — set null if secret missing
+    const hmacSecret = process.env.VOTE_HMAC_SECRET
     if (!hmacSecret) {
-      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+      console.error('[SECURITY] VOTE_HMAC_SECRET non configuré — hash intégrité non calculé')
     }
 
     // Fetch the vote
@@ -896,10 +933,12 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
       recuses: recusedNamesSecret,
     })
 
-    // Compute HMAC integrity hash for the vote result
+    // Compute HMAC integrity hash for the vote result (H2: null if secret missing)
     const closedAt = new Date().toISOString()
     const hashData = `${voteId}|${pour}|${contre}|${abstention}|${resultat}|${closedAt}`
-    const hashIntegrite = crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+    const hashIntegrite = hmacSecret
+      ? crypto.createHmac('sha256', hmacSecret).update(hashData).digest('hex')
+      : null
 
     // Close the vote and destroy the encrypted session key
     const { error: updateError } = await supabase
@@ -1064,7 +1103,7 @@ export async function openVoteTelevote(
 
     const { data: seance } = await supabase
       .from('seances')
-      .select('id, statut, instance_id, titre')
+      .select('id, statut, instance_id, titre, reconvocation')
       .eq('id', seanceId)
       .single()
 
@@ -1075,19 +1114,35 @@ export async function openVoteTelevote(
 
     const { data: instanceConfig } = await supabase
       .from('instance_config')
-      .select('voix_preponderante')
+      .select('voix_preponderante, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max')
       .eq('id', seance.instance_id)
       .single()
 
     const { data: point } = await supabase
       .from('odj_points')
-      .select('id, titre, votes_interdits')
+      .select('id, titre, votes_interdits, type_traitement')
       .eq('id', odjPointId)
       .single()
 
     if (!point) return { error: 'Point ODJ introuvable' }
     if (point.votes_interdits) {
       return { error: 'Ce point est de type information — le vote est interdit' }
+    }
+
+    // M13: ELECTION check — elections must use secret ballot
+    if ((point as Record<string, unknown>).type_traitement === 'ELECTION') {
+      return { error: 'Les élections de personnes doivent obligatoirement se dérouler par vote secret (CGCT L2121-21). Utilisez le vote à bulletin secret.' }
+    }
+
+    // M13: Block double vote on CLOS points
+    const { data: existingClosedVotesTele } = await supabase
+      .from('votes')
+      .select('id, statut')
+      .eq('odj_point_id', odjPointId)
+      .eq('statut', 'CLOS')
+
+    if (existingClosedVotesTele && existingClosedVotesTele.length > 0) {
+      return { error: 'Ce point a déjà fait l\'objet d\'un vote clos. Annulez le vote précédent avant d\'en ouvrir un nouveau.' }
     }
 
     const { data: openVotes } = await supabase
@@ -1116,6 +1171,21 @@ export async function openVoteTelevote(
     }
 
     const totalVotants = members.length
+
+    // H5: Check quorum before opening televote (CGCT L2121-17)
+    if (instanceConfig && !(seance as Record<string, unknown>).reconvocation) {
+      const total = instanceConfig.composition_max || totalVotants
+      let quorumRequired = Math.floor(total / 2) + 1
+      const qType = (instanceConfig as Record<string, unknown>).quorum_type as string || 'MAJORITE_MEMBRES'
+      if (qType === 'TIERS_MEMBRES') {
+        quorumRequired = Math.ceil(total / 3)
+      } else if (qType === 'DEUX_TIERS') {
+        quorumRequired = Math.ceil((total * 2) / 3)
+      }
+      if (totalVotants < quorumRequired) {
+        return { error: `Le quorum n'est pas atteint (${totalVotants} présents sur ${quorumRequired} requis). Le vote ne peut pas être ouvert.` }
+      }
+    }
 
     const { data: vote, error: insertError } = await supabase
       .from('votes')
@@ -1200,6 +1270,26 @@ export async function verifyOTPAndVote(
 ): Promise<{ success: true; memberName: string } | { error: string; code?: string }> {
   try {
     const supabase = await createServiceRoleClient()
+
+    // H3: Rate limit OTP attempts by voteId (max 10 attempts per vote per 5 min)
+    // Uses service role so we can't use user-based rate limiting
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const { count: attemptCount } = await supabase
+      .from('rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('action_key', `otp_verify_${voteId}`)
+      .gte('created_at', fiveMinAgo)
+
+    if (attemptCount && attemptCount >= 10) {
+      return { error: 'Trop de tentatives. Veuillez réessayer dans quelques minutes.', code: 'RATE_LIMITED' }
+    }
+
+    // Record this attempt
+    await supabase.from('rate_limits').insert({
+      action_key: `otp_verify_${voteId}`,
+      user_id: '00000000-0000-0000-0000-000000000000',
+    })
+
     const otpHash = crypto.createHash('sha256').update(otp).digest('hex')
 
     const { data: otpRecord } = await televoteOtps(supabase)
@@ -1496,9 +1586,10 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
       titrePoint: point?.titre || vote.question || '',
     })
 
-    const hmacSecret = process.env.VOTE_HMAC_SECRET || ''
+    // H2: Never compute HMAC with empty string — set null if secret missing
+    const hmacSecret = process.env.VOTE_HMAC_SECRET
     if (!hmacSecret) {
-      console.error('VOTE_HMAC_SECRET non configuré — intégrité des votes compromise')
+      console.error('[SECURITY] VOTE_HMAC_SECRET non configuré — hash intégrité non calculé')
     }
     const closedAt = new Date().toISOString()
     const hashData = `${voteId}|${pour}|${contre}|${abstention}|${resultat}|${closedAt}`

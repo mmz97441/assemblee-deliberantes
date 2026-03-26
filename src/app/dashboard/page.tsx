@@ -995,8 +995,8 @@ export default async function DashboardPage() {
             id: `pv-missing-${s.id}`,
             severity: 'red',
             icon: <PenLine className="h-5 w-5" />,
-            label: `"${s.titre}" cloturee sans PV`,
-            action_label: 'Rediger',
+            label: `"${s.titre}" clôturée sans PV`,
+            action_label: 'Rédiger',
             href: `/seances/${s.id}/pv`,
           })
         }

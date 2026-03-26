@@ -99,7 +99,7 @@ export default async function PVPage({ params }: Props) {
         ]}
       />
 
-      <main className="px-8 py-6 page-enter">
+      <main className="px-4 sm:px-8 py-6 page-enter">
         <PVEditor
           seanceId={id}
           seanceTitre={seance.titre}

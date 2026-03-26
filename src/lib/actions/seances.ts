@@ -280,6 +280,37 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
     const id = formData.get('id') as string
     if (!id) return { error: 'ID de la séance manquant' }
 
+    // H6: Block modifications on closed/archived seances
+    const { data: currentSeance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', id)
+      .single()
+
+    if (currentSeance && ['CLOTUREE', 'ARCHIVEE'].includes(currentSeance.statut || '')) {
+      return { error: 'Cette séance est clôturée ou archivée — aucune modification n\'est possible.' }
+    }
+
+    // For EN_COURS/SUSPENDUE, only allow notes and secretaire updates
+    if (currentSeance && ['EN_COURS', 'SUSPENDUE'].includes(currentSeance.statut || '')) {
+      const notes = (formData.get('notes') as string)?.trim() || null
+      const secretaireId = (formData.get('secretaire_seance_id') as string) || null
+      const restrictedPayload: Record<string, unknown> = {}
+      if (notes !== undefined) restrictedPayload.notes = notes
+      if (secretaireId !== undefined) restrictedPayload.secretaire_seance_id = secretaireId
+
+      const { error } = await supabase
+        .from('seances')
+        .update(restrictedPayload)
+        .eq('id', id)
+
+      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.SEANCES)
+      revalidatePath(`${ROUTES.SEANCES}/${id}`)
+      return { success: true }
+    }
+
     const titre = (formData.get('titre') as string)?.trim()
     const instanceId = formData.get('instance_id') as string
     const dateSeance = formData.get('date_seance') as string
@@ -378,6 +409,19 @@ export async function updateSeanceStatut(
       }
     }
 
+    // M11: CONVOQUEE → BROUILLON: block if convocations already sent
+    if (currentStatut === 'CONVOQUEE' && statut === 'BROUILLON') {
+      const { count: sentConvCount } = await supabase
+        .from('convocataires')
+        .select('*', { count: 'exact', head: true })
+        .eq('seance_id', id)
+        .neq('statut_convocation', 'NON_ENVOYE')
+
+      if (sentConvCount && sentConvCount > 0) {
+        return { error: 'Des convocations ont déjà été envoyées — impossible de revenir au brouillon.' }
+      }
+    }
+
     // CONVOQUEE → EN_COURS: convocations must have been actually sent (CGCT L2121-10)
     if (currentStatut === 'CONVOQUEE' && statut === 'EN_COURS') {
       const { count: sentCount } = await supabase
@@ -419,6 +463,11 @@ export async function updateSeanceStatut(
     }
 
     // ── End CGCT Guards ─────────────────────────────────────────────────
+
+    // M12: Delegate ARCHIVEE transition to archiveSeance (which has full guards)
+    if (statut === 'ARCHIVEE') {
+      return archiveSeance(id)
+    }
 
     const updateData: Record<string, unknown> = { statut }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 import type { MemberRow, InstanceConfigRow, UserRole } from '@/lib/supabase/types'
 
 type ActionResult = { success: true } | { error: string }
@@ -294,6 +295,14 @@ export async function sendMemberInvitation(memberId: string): Promise<ActionResu
     const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
+    // M5: Rate limit invitations — max 5 per hour
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: 'send_member_invitation',
+      maxAttempts: 5,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
+
     if (!memberId) return { error: 'ID du membre manquant' }
 
     // Fetch member info
@@ -373,6 +382,14 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
+
+    // M7: Rate limit imports — max 3 per hour
+    const rateCheck = await checkRateLimit(supabase, user!.id, {
+      actionKey: 'import_members',
+      maxAttempts: 3,
+      windowMinutes: 60,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     if (!rows || rows.length === 0) return { error: 'Aucune donnée à importer' }
     if (rows.length > 500) return { error: 'Maximum 500 lignes par import' }

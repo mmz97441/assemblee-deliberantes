@@ -50,6 +50,23 @@ export async function recuseFromPoint(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
+    // M1: Role validation for recusation
+    const role = (user.user_metadata?.role as string) || ''
+    if (declarePar === 'GESTIONNAIRE' && !['super_admin', 'gestionnaire'].includes(role)) {
+      return { error: 'Seul le gestionnaire peut déclarer une récusation pour un autre membre' }
+    }
+    if (declarePar === 'ELU') {
+      // Verify the memberId matches the auth user's member record
+      const { data: memberRecord } = await supabase
+        .from('members')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!memberRecord || memberRecord.id !== memberId) {
+        return { error: 'Vous ne pouvez déclarer une récusation que pour vous-même' }
+      }
+    }
+
     // Verify seance exists
     const { data: seance } = await supabase
       .from('seances')
@@ -128,14 +145,21 @@ export async function cancelRecusation(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    // Fetch the recusation to get the ODJ point
+    // Fetch the recusation to get the ODJ point and member
     const { data: recusation } = await supabase
       .from('recusations')
-      .select('id, odj_point_id')
+      .select('id, odj_point_id, member_id, declared_by')
       .eq('id', recusationId)
       .single()
 
     if (!recusation) return { error: 'Récusation introuvable' }
+
+    // M2: Require gestionnaire role OR the member who created the recusation
+    const cancelRole = (user.user_metadata?.role as string) || ''
+    const isGestionnaire = ['super_admin', 'gestionnaire'].includes(cancelRole)
+    if (!isGestionnaire && recusation.declared_by !== user.id) {
+      return { error: 'Seul le gestionnaire ou le membre concerné peut annuler cette récusation' }
+    }
 
     // Check no vote has started on this point
     const { data: existingVote } = await supabase

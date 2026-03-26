@@ -42,6 +42,17 @@ export async function markPresence(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
+    // M14: Check seance status — only allow presence marking for active seances
+    const { data: seanceCheck } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seanceCheck || !['CONVOQUEE', 'EN_COURS'].includes(seanceCheck.statut || '')) {
+      return { error: 'La séance n\'est pas dans un état permettant l\'émargement' }
+    }
+
     // Allow gestionnaire to mark anyone, OR allow member to mark only themselves
     const role = (user.user_metadata?.role as string) || ''
     const isGestionnaire = ['super_admin', 'gestionnaire'].includes(role)
@@ -173,6 +184,17 @@ export async function markPresenceManual(
       return { error: 'Permissions insuffisantes' }
     }
 
+    // M14: Check seance status
+    const { data: seanceCheckManual } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seanceCheckManual || !['CONVOQUEE', 'EN_COURS'].includes(seanceCheckManual.statut || '')) {
+      return { error: 'La séance n\'est pas dans un état permettant l\'émargement' }
+    }
+
     // Verify the member is a convocataire of this séance (CGCT compliance)
     const { data: convocataire } = await supabase
       .from('convocataires')
@@ -222,6 +244,17 @@ export async function markDeparture(
     const role = (user.user_metadata?.role as string) || ''
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Permissions insuffisantes' }
+    }
+
+    // Check seance is EN_COURS
+    const { data: seanceForDeparture } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+
+    if (!seanceForDeparture || seanceForDeparture.statut !== 'EN_COURS') {
+      return { error: 'Les départs ne peuvent être enregistrés que pendant une séance en cours' }
     }
 
     const { error } = await supabase

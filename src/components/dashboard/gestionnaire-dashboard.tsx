@@ -216,10 +216,10 @@ export function GestionnaireDashboard({
               <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
               <div>
                 <p className="text-sm font-semibold text-emerald-800">
-                  Rien d&apos;urgent — tout est a jour !
+                  Rien d&apos;urgent — tout est à jour !
                 </p>
                 <p className="text-xs text-emerald-600 mt-0.5">
-                  Profitez-en pour preparer vos prochaines seances.
+                  Profitez-en pour préparer vos prochaines séances.
                 </p>
               </div>
             </div>
@@ -248,17 +248,17 @@ export function GestionnaireDashboard({
           )}
         </section>
 
-        {/* ─── Section B: Prochaines seances ──────────────────── */}
+        {/* ─── Section B: Prochaines séances ──────────────────── */}
         <section>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-institutional-blue" />
-              Prochaines seances
+              Prochaines séances
             </h2>
             <Button asChild variant="outline" size="sm">
               <Link href={ROUTES.SEANCES}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                Nouvelle seance
+                Nouvelle séance
               </Link>
             </Button>
           </div>
@@ -269,15 +269,15 @@ export function GestionnaireDashboard({
                 <CalendarDays className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">
-                Aucune seance prevue
+                Aucune séance prévue
               </h3>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto mb-4">
-                Planifiez votre premiere seance pour commencer a gerer vos assemblees deliberantes.
+                Planifiez votre première séance pour commencer à gérer vos assemblées délibérantes.
               </p>
               <Button asChild>
                 <Link href={ROUTES.SEANCES}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Creer une seance
+                  Créer une séance
                 </Link>
               </Button>
             </div>
@@ -311,7 +311,7 @@ export function GestionnaireDashboard({
                     <div className="mt-auto pt-4">
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xs text-muted-foreground">
-                          Preparation {seance.preparation_percent}%
+                          Préparation {seance.preparation_percent}%
                         </span>
                       </div>
                       <Progress
@@ -431,12 +431,12 @@ export function GestionnaireDashboard({
               </div>
             </button>
 
-            {/* Deliberations ce mois */}
+            {/* Délibérations ce mois */}
             <button
               type="button"
               onClick={() => setDetailDialog('deliberations')}
               className="block w-full text-left group"
-              title="Voir le detail des deliberations ce mois"
+              title="Voir le détail des délibérations ce mois"
             >
               <div className="stat-card cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98] transition-all hover:border-emerald-300">
                 <div className="flex items-center justify-between mb-3">
@@ -448,7 +448,7 @@ export function GestionnaireDashboard({
                 <p className="text-2xl font-bold text-foreground">
                   {stats.deliberationsCeMois}
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Deliberations ce mois</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Délibérations ce mois</p>
               </div>
             </button>
 
@@ -557,12 +557,12 @@ export function GestionnaireDashboard({
                     <div>
                       <h3 className="font-semibold text-foreground">Configuration</h3>
                       <p className="text-xs text-muted-foreground">
-                        Parametrage de l&apos;institution
+                        Paramétrage de l&apos;institution
                       </p>
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Identite legale, instances deliberantes, numerotation des deliberations.
+                    Identité légale, instances délibérantes, numérotation des délibérations.
                   </p>
                   <div className="mt-4 flex items-center text-sm font-medium text-institutional-blue group-hover:gap-2 transition-all">
                     <span>Configurer</span>
@@ -614,7 +614,7 @@ export function GestionnaireDashboard({
             ) : (
               <div className="text-center py-6">
                 <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune seance ce mois-ci.</p>
+                <p className="text-sm text-muted-foreground">Aucune séance ce mois-ci.</p>
               </div>
             )}
           </div>
@@ -627,13 +627,13 @@ export function GestionnaireDashboard({
         </DialogContent>
       </Dialog>
 
-      {/* Deliberations ce mois dialog */}
+      {/* Délibérations ce mois dialog */}
       <Dialog open={detailDialog === 'deliberations'} onOpenChange={(open) => !open && setDetailDialog(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarCheck className="h-5 w-5 text-emerald-600" />
-              Deliberations ce mois
+              Délibérations ce mois
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-2">
@@ -663,13 +663,13 @@ export function GestionnaireDashboard({
             ) : (
               <div className="text-center py-6">
                 <CalendarCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune deliberation ce mois-ci.</p>
+                <p className="text-sm text-muted-foreground">Aucune délibération ce mois-ci.</p>
               </div>
             )}
           </div>
           <div className="flex items-center justify-between mt-4 pt-3 border-t">
             <Link href={ROUTES.DELIBERATIONS} className="text-sm text-institutional-blue hover:underline flex items-center gap-1">
-              Voir toutes les deliberations <ArrowRight className="h-3.5 w-3.5" />
+              Voir toutes les délibérations <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             <Button variant="outline" size="sm" onClick={() => setDetailDialog(null)}>Fermer</Button>
           </div>
@@ -704,7 +704,7 @@ export function GestionnaireDashboard({
             ) : (
               <div className="text-center py-6">
                 <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucun membre actif enregistre.</p>
+                <p className="text-sm text-muted-foreground">Aucun membre actif enregistré.</p>
               </div>
             )}
           </div>

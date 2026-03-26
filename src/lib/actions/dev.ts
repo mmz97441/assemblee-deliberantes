@@ -33,7 +33,7 @@ export async function setRoleOverride(role: string | null) {
     cookieStore.set('dev_role_override', role, {
       path: '/',
       maxAge: 60 * 60 * 24, // 24h
-      httpOnly: false, // Client needs to read it for the switcher UI
+      httpOnly: true, // M9: Prevent XSS access to role override cookie
       sameSite: 'lax',
     })
   } else {
