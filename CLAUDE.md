@@ -10,6 +10,42 @@ C'est le cahier des charges complet. Toutes les décisions techniques y sont jus
 
 ---
 
+## ⚠️ RÈGLE ABSOLUE N°1 — APPLIQUER À CHAQUE LIGNE DE CODE
+
+**⚠️ L'expérience utilisateur est la PRIORITÉ N°1 de ce projet.**
+**Ce n'est PAS "faire marcher techniquement". C'est livrer une UX top tier mondial : intuitive, instinctive, facile pour TOUT utilisateur — qu'il soit secrétaire de mairie de 60 ans ou élu qui découvre l'application.**
+**Chaque écran doit être pensé du point de vue de CHAQUE profil utilisateur (gestionnaire, élu, président). Si un utilisateur doit réfléchir à comment fonctionne quelque chose, c'est un échec.**
+
+---
+
+## ⚠️ RÈGLE ABSOLUE N°2 — CONFORMITÉ CGCT + RIGUEUR MÉTIER
+
+**AVANT de coder quoi que ce soit, Claude DOIT vérifier :**
+
+1. **Est-ce conforme au CGCT ?** (Code Général des Collectivités Territoriales)
+   - Convocations : L2121-10 à L2121-12 (qui convoque, délai, ODJ obligatoire)
+   - Quorum : L2121-17 (majorité des membres, reconvocation)
+   - Votes : L2121-20 (procurations), L2121-21 (vote secret élections), L2121-22 (voix prépondérante)
+   - PV : L2121-15 (contenu, signatures, approbation séance suivante)
+   - Remplacement : L2122-17 (ordre des adjoints)
+   - Conflit d'intérêt : L2131-11 (récusation)
+
+2. **Est-ce que la logique métier est cohérente ?**
+   - Peut-on arriver dans un état incohérent ? (ex: voter sans quorum, modifier un PV signé)
+   - Chaque action a-t-elle les GARDES nécessaires ? (vérifications serveur, pas juste UI)
+   - Les transitions de statut sont-elles contrôlées ? (machine à états)
+
+3. **Est-ce que CHAQUE rôle est correctement limité ?**
+   - Le président ne gère PAS les votes (il préside)
+   - L'élu ne voit PAS les brouillons de PV
+   - Le gestionnaire ne signe PAS le PV
+   - Les droits dépendent de l'INSTANCE (CM, CAO, commission), pas du rôle global
+
+**Claude ne code JAMAIS une fonctionnalité sans avoir vérifié ces 3 points.**
+**L'utilisateur ne devrait JAMAIS avoir à rappeler ces règles.**
+
+---
+
 ## CONTEXTE DU PROJET
 
 Application web de gestion des assemblées délibérantes pour institutions publiques françaises :
