@@ -118,9 +118,9 @@ import {
   PenLine,
   Handshake,
   XCircle,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Copy,
   Bell,
+  Globe,
 } from 'lucide-react'
 import {
   addODJPoint,
@@ -1855,6 +1855,34 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Button>
               )}
 
+              {/* Écran public & vue président — EN_COURS */}
+              {seance.statut === 'EN_COURS' && (
+                <>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => {
+                      const url = `${window.location.origin}/seances/${seance.id}/public`
+                      navigator.clipboard.writeText(url)
+                      toast.success('Lien public copié !')
+                    }}
+                    title="Copier le lien de l'écran public — accessible sans connexion pour affichage en salle ou suivi citoyen"
+                  >
+                    <Globe className="h-4 w-4 mr-2" />
+                    Lien écran public
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => router.push(`/seances/${seance.id}/president`)}
+                    title="Ouvrir la vue tablette du président — suivi des débats, demandes de parole, demande de vote"
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Vue président
+                  </Button>
+                </>
+              )}
+
               {seance.statut === 'EN_COURS' && (
                 <>
                   <Button
@@ -1999,6 +2027,17 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   {statutConfig.label}
                 </Badge>
               </h3>
+
+              {seance.statut === 'EN_COURS' && (
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white btn-press"
+                  onClick={() => router.push(`/seances/${seance.id}/president`)}
+                  title="Ouvrir la vue président — suivi des débats, demandes de parole, demande de vote"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Ma vue président
+                </Button>
+              )}
 
               {seance.odj_points.length > 0 && (
                 <Button

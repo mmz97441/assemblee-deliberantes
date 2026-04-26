@@ -54,7 +54,7 @@ export async function middleware(request: NextRequest) {
     const publicPaths = ['/login', '/register', '/invite', '/convocation', '/api/qr', '/api/webhooks', '/vote']
     const isPublicPath = publicPaths.some((path) =>
       pathname.startsWith(path)
-    )
+    ) || /^\/seances\/[^/]+\/public$/.test(pathname)
 
     // Si pas connecte et route protegee -> login
     if (!user && !isPublicPath) {

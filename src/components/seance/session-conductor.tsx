@@ -541,6 +541,32 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
     }
   }, [seance.id, isSessionLive])
 
+  // ─── President request broadcast listener ─────────────────────────────
+  useEffect(() => {
+    if (!isSessionLive) return
+
+    const supabase = createClient()
+    const presidentChannel = supabase.channel(`president-${seance.id}`)
+
+    presidentChannel.on('broadcast', { event: 'president_request' }, (payload) => {
+      const data = payload.payload as { action: string; pointId?: string }
+      if (data.action === 'request_vote') {
+        const point = sortedPoints.find(p => p.id === data.pointId)
+        const pointLabel = point ? `« ${point.titre} »` : ''
+        toast.info(`Le président demande le vote ${pointLabel}`, { duration: 10000, icon: '🗳️' })
+      }
+      if (data.action === 'request_suspend') {
+        toast.warning('Le président demande la suspension de la séance', { duration: 10000, icon: '⏸️' })
+      }
+    })
+
+    presidentChannel.subscribe()
+
+    return () => {
+      supabase.removeChannel(presidentChannel)
+    }
+  }, [seance.id, isSessionLive, sortedPoints])
+
   // ─── Handlers ─────────────────────────────────────────────────────────
   function handleStatusChange(newStatut: string) {
     startTransition(async () => {
