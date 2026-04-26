@@ -142,7 +142,7 @@ export function EluPreparation({
   const [preparations, setPreparations] = useState<Record<string, PointPreparation>>({})
   const [expandedPoints, setExpandedPoints] = useState<Set<string>>(new Set())
   const [loaded, setLoaded] = useState(false)
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -156,15 +156,24 @@ export function EluPreparation({
     setLoaded(true)
   }, [seanceId, points])
 
-  // Debounced save
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      saveTimersRef.current.forEach(timer => clearTimeout(timer))
+    }
+  }, [])
+
+  // Debounced save per point (each point has its own timer)
   const debouncedSave = useCallback(
     (pointId: string, data: PointPreparation) => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
+      const existing = saveTimersRef.current.get(pointId)
+      if (existing) {
+        clearTimeout(existing)
       }
-      saveTimerRef.current = setTimeout(() => {
+      saveTimersRef.current.set(pointId, setTimeout(() => {
         savePreparation(seanceId, pointId, data)
-      }, 1500) // Save after 1.5s of inactivity
+        saveTimersRef.current.delete(pointId)
+      }, 1500))
     },
     [seanceId]
   )
