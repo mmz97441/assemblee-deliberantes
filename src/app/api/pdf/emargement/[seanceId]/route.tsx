@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkApiRateLimit, API_RATE_LIMITS } from '@/lib/security/api-rate-limiter'
+import { getVerifiedRole } from '@/lib/auth/get-user-role'
 import {
   EmargementPDFDocument,
   type EmargementPDFData,
@@ -22,8 +24,14 @@ export async function GET(
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
-    // Role check — gestionnaire/super_admin only
-    const role = (userData.user.user_metadata?.role as string) || ''
+    // Rate limiting PDF — max 10 par minute par utilisateur
+    if (!checkApiRateLimit(`pdf_emargement_${userData.user.id}`, API_RATE_LIMITS.PDF.maxRequests, API_RATE_LIMITS.PDF.windowMs)) {
+      return NextResponse.json({ error: 'Trop de demandes de PDF. Veuillez patienter quelques instants.' }, { status: 429 })
+    }
+
+    // SÉCURITÉ : vérification du rôle via la table members
+    const metadataRole = (userData.user.user_metadata?.role as string) || ''
+    const role = await getVerifiedRole(supabase, userData.user.id, metadataRole)
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return NextResponse.json({ error: 'Permissions insuffisantes' }, { status: 403 })
     }

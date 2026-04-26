@@ -38,7 +38,7 @@ export async function loginAction(formData: FormData) {
     if (error.message.includes('Email not confirmed')) {
       return { error: 'Veuillez confirmer votre email avant de vous connecter' }
     }
-    return { error: 'Erreur de connexion. Veuillez reessayer.' }
+    return { error: 'Erreur de connexion. Veuillez réessayer.' }
   }
 
   revalidatePath('/', 'layout')
@@ -63,27 +63,42 @@ export async function registerAction(formData: FormData) {
   const passwordError = validatePassword(password, confirmPassword)
   if (passwordError) return { error: passwordError }
 
-  // Verifier qu'il n'y a pas encore d'utilisateur (premier setup)
+  // Vérifier qu'il n'y a pas encore d'utilisateur (premier setup)
+  // SÉCURITÉ : l'inscription directe n'est autorisée QUE pour le tout premier utilisateur.
+  // Tous les autres utilisateurs doivent être invités via le flux d'invitation.
   let serviceClient
   try {
     serviceClient = await createServiceRoleClient()
   } catch {
-    return { error: 'Erreur de connexion au serveur. Verifiez la configuration Supabase.' }
+    return { error: 'Erreur de connexion au serveur. Vérifiez la configuration Supabase.' }
   }
 
-  const { data: existingUsers, error: listError } = await serviceClient.auth.admin.listUsers()
+  // Double vérification : auth users ET table members
+  // Utiliser perPage: 1 pour la performance (on a juste besoin de savoir s'il en existe)
+  const { data: existingUsers, error: listError } = await serviceClient.auth.admin.listUsers({
+    perPage: 1,
+  })
 
   if (listError) {
-    return { error: `Erreur serveur: ${listError.message}` }
+    return { error: `Erreur serveur : ${listError.message}` }
   }
 
-  const isFirstUser = !existingUsers?.users || existingUsers.users.length === 0
+  const hasAuthUsers = existingUsers?.users && existingUsers.users.length > 0
 
-  if (!isFirstUser) {
-    return { error: 'L\'inscription directe est desactivee. Demandez une invitation.' }
+  // Vérifier aussi la table members comme garde supplémentaire
+  const { count: memberCount } = await serviceClient
+    .from('members')
+    .select('*', { count: 'exact', head: true })
+
+  const hasMembersInDB = memberCount !== null && memberCount > 0
+
+  if (hasAuthUsers || hasMembersInDB) {
+    return {
+      error: 'L\'inscription directe est désactivée. Demandez une invitation à votre gestionnaire.',
+    }
   }
 
-  // Creer le premier utilisateur (super_admin)
+  // Créer le premier utilisateur (super_admin)
   const { prenom, nom } = parseFullName(fullName)
 
   const { data, error: createError } = await serviceClient.auth.admin.createUser({
@@ -103,7 +118,7 @@ export async function registerAction(formData: FormData) {
     return { error: `Erreur création compte : ${createError.message}` }
   }
 
-  // Creer l'entree dans la table members
+  // Créer l'entrée dans la table members
   if (data.user) {
     const { error: insertError } = await serviceClient.from('members').insert({
       user_id: data.user.id,
@@ -144,7 +159,7 @@ export async function sendInvitationAction(formData: FormData) {
 
   const nameError = validateFullName(fullName)
   if (nameError) return { error: nameError }
-  if (!role) return { error: 'Le role est requis' }
+  if (!role) return { error: 'Le rôle est requis' }
 
   const emailError = validateEmail(email)
   if (emailError) return { error: emailError }
@@ -154,7 +169,14 @@ export async function sendInvitationAction(formData: FormData) {
 
   if (!user) return { error: 'Non authentifié' }
 
-  const currentRole = user.user_metadata?.role as UserRole
+  // SÉCURITÉ : vérifier le rôle depuis la table members (pas user_metadata modifiable)
+  const { data: currentMember } = await supabase
+    .from('members')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const currentRole = (currentMember?.role || user.user_metadata?.role) as UserRole
   if (currentRole !== 'super_admin' && currentRole !== 'gestionnaire') {
     return { error: 'Permission refusée' }
   }
@@ -190,7 +212,7 @@ export async function sendInvitationAction(formData: FormData) {
   }
 
   revalidatePath(ROUTES.MEMBRES)
-  return { success: `Invitation envoyee a ${email}` }
+  return { success: `Invitation envoyée à ${email}` }
 }
 
 // ============================================

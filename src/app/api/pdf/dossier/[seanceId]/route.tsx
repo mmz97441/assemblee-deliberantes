@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkApiRateLimit, API_RATE_LIMITS } from '@/lib/security/api-rate-limiter'
+import { getVerifiedRole } from '@/lib/auth/get-user-role'
 import {
   DossierSeancePDFDocument,
   type DossierSeancePDFData,
@@ -22,6 +24,11 @@ export async function GET(
       return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     }
 
+    // Rate limiting PDF — max 10 par minute par utilisateur
+    if (!checkApiRateLimit(`pdf_dossier_${userData.user.id}`, API_RATE_LIMITS.PDF.maxRequests, API_RATE_LIMITS.PDF.windowMs)) {
+      return NextResponse.json({ error: 'Trop de demandes de PDF. Veuillez patienter quelques instants.' }, { status: 429 })
+    }
+
     // Load séance
     const { data: seance, error: seanceError } = await supabase
       .from('seances')
@@ -41,8 +48,9 @@ export async function GET(
       return NextResponse.json({ error: 'Séance introuvable' }, { status: 404 })
     }
 
-    // Access check — gestionnaire or convocataire
-    const role = (userData.user.user_metadata?.role as string) || ''
+    // SÉCURITÉ : vérification du rôle via la table members
+    const metadataRole = (userData.user.user_metadata?.role as string) || ''
+    const role = await getVerifiedRole(supabase, userData.user.id, metadataRole)
     const isManager = ['super_admin', 'gestionnaire'].includes(role)
 
     if (!isManager) {

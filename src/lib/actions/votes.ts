@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { determineVoteResult, generateFormulePV, type MajoriteRequise } from '@/lib/validators/vote-result'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
+import { getVerifiedRole } from '@/lib/auth/get-user-role'
 import { sendSMS, maskPhoneNumber } from '@/lib/sms/twilio'
 import {
   generateVoteSessionKey,
@@ -55,7 +56,9 @@ export async function openVote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
+    // SÉCURITÉ : vérification du rôle via la table members (action critique — votes)
+    const metadataRole = (user.user_metadata?.role as string) || ''
+    const role = await getVerifiedRole(supabase, user.id, metadataRole)
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut ouvrir un vote' }
     }
@@ -216,7 +219,9 @@ export async function closeVoteMainLevee(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
+    // SÉCURITÉ : vérification du rôle via la table members (action critique — votes)
+    const metadataRole = (user.user_metadata?.role as string) || ''
+    const role = await getVerifiedRole(supabase, user.id, metadataRole)
     if (!['super_admin', 'gestionnaire'].includes(role)) {
       return { error: 'Seul le gestionnaire peut clore un vote' }
     }

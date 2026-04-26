@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import QRCode from 'qrcode'
+import { checkApiRateLimit, API_RATE_LIMITS } from '@/lib/security/api-rate-limiter'
 
 /**
  * GET /api/qr?data=xxx
@@ -7,6 +8,17 @@ import QRCode from 'qrcode'
  * Used in convocation emails and the emargement tablet view.
  */
 export async function GET(request: NextRequest) {
+  // Rate limiting par IP — max 30 par minute (route publique)
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown'
+  if (!checkApiRateLimit(`qr_${ip}`, API_RATE_LIMITS.QR.maxRequests, API_RATE_LIMITS.QR.windowMs)) {
+    return NextResponse.json(
+      { error: 'Trop de demandes. Veuillez patienter quelques instants.' },
+      { status: 429 }
+    )
+  }
+
   const data = request.nextUrl.searchParams.get('data')
 
   if (!data) {

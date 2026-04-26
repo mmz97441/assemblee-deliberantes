@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
+import { getVerifiedRole } from '@/lib/auth/get-user-role'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -328,7 +329,10 @@ export async function publishDeliberation(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    // SÉCURITÉ : vérification du rôle via la table members (action critique — publication)
+    const metadataRole = (user.user_metadata?.role as string) || ''
+    const verifiedRole = await getVerifiedRole(supabase, user.id, metadataRole)
+    if (!['super_admin', 'gestionnaire'].includes(verifiedRole)) {
       return { error: 'Permissions insuffisantes' }
     }
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 
@@ -16,29 +17,97 @@ const STATUS_PRIORITY: Record<string, number> = {
   'ERREUR_EMAIL': -1,
 }
 
+/**
+ * Vérifie la signature HMAC du webhook Resend (protocole Svix).
+ * Le secret Svix commence par "whsec_" suivi de la clé en base64.
+ * La signature est calculée sur : "${timestamp}.${body}"
+ */
+function verifyWebhookSignature(
+  secret: string,
+  svixId: string,
+  svixTimestamp: string,
+  svixSignature: string,
+  rawBody: string
+): boolean {
+  try {
+    // Le secret Svix commence par "whsec_" — on extrait la clé base64
+    const secretKey = secret.startsWith('whsec_') ? secret.slice(6) : secret
+    const keyBuffer = Buffer.from(secretKey, 'base64')
+
+    // Le payload à signer est : "${msg_id}.${timestamp}.${body}"
+    const signedContent = `${svixId}.${svixTimestamp}.${rawBody}`
+
+    const expectedSignature = crypto
+      .createHmac('sha256', keyBuffer)
+      .update(signedContent)
+      .digest('base64')
+
+    // svixSignature peut contenir plusieurs signatures séparées par des espaces
+    // chacune au format "v1,<base64>"
+    const signatures = svixSignature.split(' ')
+    for (const sig of signatures) {
+      const [version, sigValue] = sig.split(',')
+      if (version === 'v1' && sigValue) {
+        // Comparaison constante en temps pour éviter les timing attacks
+        const sigBuffer = Buffer.from(sigValue, 'base64')
+        const expectedBuffer = Buffer.from(expectedSignature, 'base64')
+        if (sigBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+          return true
+        }
+      }
+    }
+    return false
+  } catch (err) {
+    console.error('[WEBHOOK] Erreur vérification signature :', err)
+    return false
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // H4: Verify Resend webhook signature headers
+    // Vérifier les en-têtes de signature Resend (protocole Svix)
     const svixId = request.headers.get('svix-id')
     const svixTimestamp = request.headers.get('svix-timestamp')
     const svixSignature = request.headers.get('svix-signature')
 
     if (!svixId || !svixTimestamp || !svixSignature) {
-      console.warn('[WEBHOOK] Missing Resend signature headers — request rejected')
+      console.warn('[WEBHOOK] En-têtes de signature Resend manquants — requête rejetée')
       return NextResponse.json({ error: 'Missing webhook signature headers' }, { status: 401 })
     }
 
-    // Reject stale timestamps (> 5 minutes)
+    // Rejeter les timestamps périmés (> 5 minutes)
     const timestampSeconds = parseInt(svixTimestamp, 10)
     if (isNaN(timestampSeconds) || Math.abs(Date.now() / 1000 - timestampSeconds) > 300) {
-      console.warn('[WEBHOOK] Stale webhook timestamp — request rejected')
+      console.warn('[WEBHOOK] Timestamp du webhook périmé — requête rejetée')
       return NextResponse.json({ error: 'Webhook timestamp too old' }, { status: 401 })
     }
 
-    // TODO: Full cryptographic signature verification with svix library
-    // For now, header presence + timestamp freshness provides basic protection
+    // Lire le body brut AVANT de le parser (nécessaire pour la vérification de signature)
+    const rawBody = await request.text()
 
-    const body = await request.json()
+    // Vérification cryptographique de la signature HMAC si le secret est configuré
+    const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
+    if (webhookSecret) {
+      const isValid = verifyWebhookSignature(
+        webhookSecret,
+        svixId,
+        svixTimestamp,
+        svixSignature,
+        rawBody
+      )
+      if (!isValid) {
+        console.warn('[WEBHOOK] Signature HMAC invalide — requête rejetée')
+        return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
+      }
+    } else {
+      // AVERTISSEMENT : pas de secret configuré, seuls les en-têtes et le timestamp sont vérifiés
+      console.warn(
+        '[WEBHOOK] RESEND_WEBHOOK_SECRET non configuré — la signature cryptographique n\'est pas vérifiée. ' +
+        'Configurez RESEND_WEBHOOK_SECRET dans .env.local pour une sécurité complète.'
+      )
+    }
+
+    const body = JSON.parse(rawBody)
     const { type, data } = body
 
     // Extract the email recipient

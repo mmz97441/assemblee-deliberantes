@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getVerifiedRole } from '@/lib/auth/get-user-role'
 
 type ActionResult = { success: true } | { success: true; id: string } | { error: string }
 
@@ -15,17 +16,28 @@ async function getAuthenticatedUser() {
   return { user: data.user, supabase }
 }
 
-function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
+/**
+ * SÉCURITÉ : Vérifie le rôle via la table members (pas user_metadata modifiable).
+ * Utilise getVerifiedRole pour les actions critiques de configuration.
+ */
+async function requireVerifiedRole(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  user: { id: string; user_metadata?: Record<string, unknown> } | null,
+  roles: string[]
+): Promise<string | null> {
   if (!user) return 'Non authentifié'
-  const role = (user.user_metadata?.role as string) || ''
-  if (!roles.includes(role)) return 'Permissions insuffisantes'
+  const metadataRole = (user.user_metadata?.role as string) || ''
+  const verifiedRole = await getVerifiedRole(supabase, user.id, metadataRole)
+  if (!roles.includes(verifiedRole)) return 'Permissions insuffisantes'
   return null
 }
 
 export async function saveInstitutionConfig(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin'])
+    // SÉCURITÉ : vérification du rôle via la table members (action critique)
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin'])
     if (roleError) return { error: roleError }
 
     const nom_officiel = formData.get('nom_officiel') as string
@@ -88,7 +100,8 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
 export async function saveInstanceConfig(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    // SÉCURITÉ : vérification du rôle via la table members (action critique)
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const nom = formData.get('nom') as string
@@ -153,7 +166,8 @@ export async function saveInstanceConfig(formData: FormData): Promise<ActionResu
 export async function toggleInstanceActive(id: string, actif: boolean): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    // SÉCURITÉ : vérification du rôle via la table members (action critique)
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!id) return { error: 'ID manquant' }
