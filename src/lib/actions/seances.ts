@@ -1328,3 +1328,226 @@ export async function removeConvocataire(seanceId: string, memberId: string): Pr
     return { error: 'Erreur inattendue' }
   }
 }
+
+// ─── Wizard : création complète en une seule action ─────────────────────────
+
+export interface WizardODJPoint {
+  titre: string
+  type_traitement: 'DELIBERATION' | 'INFORMATION' | 'QUESTION_DIVERSE' | 'ELECTION' | 'APPROBATION_PV'
+  majorite_requise: 'SIMPLE' | 'ABSOLUE' | 'QUALIFIEE' | 'UNANIMITE'
+  rapporteur_id: string | null
+  description: string | null
+  huis_clos: boolean
+  votes_interdits: boolean
+}
+
+export interface CreateSeanceWizardInput {
+  instanceId: string
+  titre: string
+  dateSeance: string
+  heureSeance: string
+  lieu: string
+  mode: 'PRESENTIEL' | 'HYBRIDE' | 'VISIO'
+  publique: boolean
+  urgence: boolean
+  odjPoints: WizardODJPoint[]
+  convocataireIds: string[]
+  sendConvocations: boolean
+}
+
+export async function createSeanceWizard(
+  input: CreateSeanceWizardInput
+): Promise<{ success: true; id: string; convocationsSent: number } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    // ── Validations ──────────────────────────────────────────────────
+    if (!input.titre?.trim()) return { error: 'Le titre est requis' }
+    if (!input.instanceId) return { error: "L'instance est requise" }
+    if (!input.dateSeance) return { error: 'La date est requise' }
+    if (!input.odjPoints || input.odjPoints.length === 0) {
+      return { error: "L'ordre du jour doit contenir au moins un point" }
+    }
+    if (!input.convocataireIds || input.convocataireIds.length === 0) {
+      return { error: 'Au moins un convocataire est requis' }
+    }
+
+    // Validate date is not in the past
+    const fullDate = input.heureSeance
+      ? `${input.dateSeance}T${input.heureSeance}:00`
+      : `${input.dateSeance}T00:00:00`
+    const parsedDate = new Date(fullDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (parsedDate < today) {
+      return { error: 'La date de la séance ne peut pas être dans le passé.' }
+    }
+
+    // Check instance
+    const { data: instanceCheck } = await supabase
+      .from('instance_config')
+      .select('actif, voix_preponderante, mode_arrivee_tardive, seances_publiques_defaut')
+      .eq('id', input.instanceId)
+      .single()
+
+    if (instanceCheck && instanceCheck.actif === false) {
+      return { error: 'Cette instance est désactivée.' }
+    }
+
+    // Auto-fill président et secrétaire depuis le bureau
+    let presidentId: string | null = null
+    let secretaireId: string | null = null
+
+    const { data: bureauMembers } = await supabase
+      .from('instance_members')
+      .select('member_id, bureau_role')
+      .eq('instance_config_id', input.instanceId)
+      .not('bureau_role', 'is', null)
+      .eq('actif', true)
+
+    if (bureauMembers) {
+      const bp = bureauMembers.find(m => m.bureau_role === 'president')
+      if (bp) presidentId = bp.member_id
+      const bs = bureauMembers.find(m => m.bureau_role === 'secretaire')
+      if (bs) secretaireId = bs.member_id
+    }
+
+    // Build notes
+    let notes: string | null = null
+    if (input.urgence) {
+      notes = 'Séance convoquée en urgence'
+    }
+
+    // ── 1. Créer la séance ──────────────────────────────────────────
+    const { data: newSeance, error: seanceError } = await supabase
+      .from('seances')
+      .insert({
+        titre: input.titre.trim(),
+        instance_id: input.instanceId,
+        date_seance: fullDate,
+        mode: input.mode,
+        lieu: input.lieu?.trim() || null,
+        publique: instanceCheck?.seances_publiques_defaut ?? input.publique,
+        voix_preponderante: instanceCheck?.voix_preponderante ?? false,
+        late_arrival_mode: instanceCheck?.mode_arrivee_tardive ?? 'SOUPLE',
+        notes,
+        president_effectif_seance_id: presidentId,
+        secretaire_seance_id: secretaireId,
+        statut: 'BROUILLON' as const,
+        created_by: user?.id ?? null,
+      })
+      .select('id')
+      .single()
+
+    if (seanceError || !newSeance) {
+      return { error: `Erreur de création : ${seanceError?.message || 'inconnue'}` }
+    }
+
+    const seanceId = newSeance.id
+
+    // ── 2. Ajouter les points ODJ ───────────────────────────────────
+    const odjPayloads = input.odjPoints.map((p, index) => ({
+      seance_id: seanceId,
+      titre: p.titre.trim(),
+      description: p.description?.trim() || null,
+      type_traitement: p.type_traitement,
+      majorite_requise: p.majorite_requise,
+      rapporteur_id: p.rapporteur_id || null,
+      huis_clos: p.huis_clos || false,
+      votes_interdits: p.votes_interdits || false,
+      position: index + 1,
+      statut: 'A_TRAITER',
+    }))
+
+    const { error: odjError } = await supabase
+      .from('odj_points')
+      .insert(odjPayloads)
+
+    if (odjError) {
+      console.error('Wizard: error adding ODJ points:', odjError)
+    }
+
+    // ── 3. Ajouter les convocataires ────────────────────────────────
+    const convPayloads = input.convocataireIds.map(memberId => ({
+      seance_id: seanceId,
+      member_id: memberId,
+      statut_convocation: 'NON_ENVOYE' as const,
+    }))
+
+    const { error: convError } = await supabase
+      .from('convocataires')
+      .insert(convPayloads)
+
+    if (convError) {
+      console.error('Wizard: error adding convocataires:', convError)
+    }
+
+    // ── 4. Auto-ajouter point approbation PV si pertinent ───────────
+    await addPVApprovalODJPoint(seanceId, input.instanceId).catch(err => {
+      console.error('Wizard: error adding PV approval point:', err)
+    })
+
+    // ── 5. Envoyer les convocations si demandé ──────────────────────
+    let convocationsSent = 0
+    if (input.sendConvocations && presidentId) {
+      // Need to transition to CONVOQUEE first (requires ODJ + convocataires + president)
+      const { error: statusError } = await supabase
+        .from('seances')
+        .update({ statut: 'CONVOQUEE' })
+        .eq('id', seanceId)
+
+      if (!statusError) {
+        // Dynamic import to avoid circular dependency
+        const { sendConvocations } = await import('@/lib/actions/convocations')
+        const result = await sendConvocations(seanceId)
+        if ('error' in result) {
+          console.warn('Wizard: convocation send warning:', result.error)
+        } else {
+          convocationsSent = result.sent
+        }
+      }
+    }
+
+    revalidatePath(ROUTES.SEANCES)
+    return { success: true, id: seanceId, convocationsSent }
+  } catch (err) {
+    console.error('createSeanceWizard error:', err)
+    return { error: 'Erreur inattendue lors de la création' }
+  }
+}
+
+// ─── Récupérer l'ODJ de la dernière séance d'une instance ───────────────────
+
+export async function getLastSeanceODJ(
+  instanceId: string
+): Promise<{ data: ODJPointRow[] } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    // Find the most recent séance for this instance
+    const { data: lastSeance } = await supabase
+      .from('seances')
+      .select('id')
+      .eq('instance_id', instanceId)
+      .order('date_seance', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!lastSeance) return { data: [] }
+
+    const { data: points, error } = await supabase
+      .from('odj_points')
+      .select('*')
+      .eq('seance_id', lastSeance.id)
+      .order('position', { ascending: true })
+
+    if (error) return { error: error.message }
+    return { data: points || [] }
+  } catch (err) {
+    console.error('getLastSeanceODJ error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}

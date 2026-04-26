@@ -779,7 +779,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   {/* Next action suggestion */}
                   {nextIncompleteStep && (
                     <div className="mt-4 pt-3 border-t">
-                      <p className="text-xs text-muted-foreground mb-2">Prochaine etape recommandee :</p>
+                      <p className="text-xs text-muted-foreground mb-2">Prochaine étape recommandée :</p>
                       {nextIncompleteStep.id === 'odj' && (
                         <Button
                           size="sm"
@@ -787,7 +787,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                           onClick={() => setActiveTab('odj')}
                         >
                           <ListPlus className="h-4 w-4 mr-2" />
-                          Completer l&apos;ordre du jour
+                          Compléter l&apos;ordre du jour
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </Button>
                       )}
@@ -839,7 +839,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                           disabled={isPending}
                         >
                           <Clock className="h-4 w-4 mr-2" />
-                          Ouvrir la seance
+                          Ouvrir la séance
                           <ArrowRight className="h-4 w-4 ml-2" />
                         </Button>
                       )}

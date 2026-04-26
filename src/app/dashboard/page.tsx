@@ -51,7 +51,7 @@ export default async function DashboardPage() {
 
   // Determine greeting based on time
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon apres-midi' : 'Bonsoir'
+  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
   const supabase = await createServerSupabaseClient()
   const now = new Date()

@@ -188,7 +188,7 @@ export function GestionnaireDashboard({
             <h2 className="text-xl font-semibold text-foreground mb-2">Bienvenue !</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
               Commencez par configurer votre institution pour utiliser l&apos;application.
-              Cette etape permet de personnaliser les parametres legaux et administratifs.
+              Cette étape permet de personnaliser les paramètres légaux et administratifs.
             </p>
             <Button asChild size="lg">
               <Link href={ROUTES.CONFIGURATION}>
@@ -199,11 +199,11 @@ export function GestionnaireDashboard({
           </div>
         )}
 
-        {/* ─── Section A: A faire maintenant ──────────────────── */}
+        {/* ─── Section A: À faire maintenant ──────────────────── */}
         <section>
           <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-institutional-blue" />
-            A faire maintenant
+            À faire maintenant
             {tasks.length > 0 && (
               <Badge className="bg-red-500 text-white border-0 text-xs font-bold ml-1">
                 {tasks.length}
@@ -510,17 +510,17 @@ export function GestionnaireDashboard({
                     <CalendarDays className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">Seances</h3>
+                    <h3 className="font-semibold text-foreground">Séances</h3>
                     <p className="text-xs text-muted-foreground">
-                      Gestion des seances deliberantes
+                      Gestion des séances délibérantes
                     </p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Creez et gerez vos seances, ordres du jour, convocations et proces-verbaux.
+                  Créez et gérez vos séances, ordres du jour, convocations et procès-verbaux.
                 </p>
                 <div className="mt-4 flex items-center text-sm font-medium text-institutional-blue group-hover:gap-2 transition-all">
-                  <span>Acceder</span>
+                  <span>Accéder</span>
                   <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
                 </div>
               </div>
@@ -534,14 +534,14 @@ export function GestionnaireDashboard({
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground">Membres</h3>
-                    <p className="text-xs text-muted-foreground">Elus et agents</p>
+                    <p className="text-xs text-muted-foreground">Élus et agents</p>
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Gerez les membres de vos instances, leurs roles et mandats.
+                  Gérez les membres de vos instances, leurs rôles et mandats.
                 </p>
                 <div className="mt-4 flex items-center text-sm font-medium text-emerald-700 group-hover:gap-2 transition-all">
-                  <span>Acceder</span>
+                  <span>Accéder</span>
                   <ArrowRight className="h-4 w-4 ml-1 transition-transform group-hover:translate-x-1" />
                 </div>
               </div>

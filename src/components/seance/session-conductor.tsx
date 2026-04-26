@@ -1391,7 +1391,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-[280px]">
-                    Le quorum est le nombre minimum de membres présents requis pour que les délibérations soient valables.
+                    Le quorum est le nombre minimum de membres présents requis pour que les délibérations soient valables (CGCT L2121-17). Sans quorum, les votes ne sont pas légaux.
                   </TooltipContent>
                 </Tooltip>
               </span>
@@ -1436,10 +1436,17 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                 <p className="text-lg font-bold text-slate-600">{presenceStats.absent}</p>
                 <p className="text-[10px] text-slate-500">Absents</p>
               </div>
-              <div className="rounded-lg bg-blue-50 p-2">
-                <p className="text-lg font-bold text-blue-600">{presenceStats.procurations}</p>
-                <p className="text-[10px] text-blue-500">Procurations</p>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="rounded-lg bg-blue-50 p-2 cursor-help">
+                    <p className="text-lg font-bold text-blue-600">{presenceStats.procurations}</p>
+                    <p className="text-[10px] text-blue-500">Procurations</p>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[260px]">
+                  Un membre absent confie son droit de vote à un membre présent (CGCT L2121-20).
+                </TooltipContent>
+              </Tooltip>
               <div className="rounded-lg bg-amber-50 p-2">
                 <p className="text-lg font-bold text-amber-600">{presenceStats.excuses}</p>
                 <p className="text-[10px] text-amber-500">Excusés</p>
@@ -1484,10 +1491,18 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                 </div>
               )}
               {seance.instance_config?.voix_preponderante && (
-                <div className="flex items-center gap-1 text-blue-600 mt-1">
-                  <Shield className="h-3 w-3" />
-                  Voix prépondérante du président
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-blue-600 mt-1 cursor-help">
+                      <Shield className="h-3 w-3" />
+                      Voix prépondérante du président
+                      <Info className="h-3 w-3 text-blue-400" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[280px]">
+                    En cas d&apos;égalité des voix, la voix du président départage le vote (CGCT L2121-22).
+                  </TooltipContent>
+                </Tooltip>
               )}
             </div>
           </div>

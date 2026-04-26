@@ -266,9 +266,11 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
           </TabsList>
           <div className="flex-1" />
           {canManage && (
-            <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }} className="min-h-[44px]">
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle séance
+            <Button asChild className="min-h-[44px]">
+              <Link href="/seances/new">
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvelle séance
+              </Link>
             </Button>
           )}
         </div>
@@ -333,9 +335,11 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
                   : "Aucune séance ne correspond aux filtres sélectionnés. Essayez de modifier vos critères de recherche."}
               </p>
               {canManage && seances.length === 0 && (
-                <Button onClick={() => { setEditingSeance(null); setFormOpen(true) }}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nouvelle séance
+                <Button asChild>
+                  <Link href="/seances/new">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nouvelle séance
+                  </Link>
                 </Button>
               )}
               {seances.length > 0 && (
