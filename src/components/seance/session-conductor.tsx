@@ -520,12 +520,24 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
     channel.on('broadcast', { event: 'demande_parole' }, (payload) => {
       const data = payload.payload as { memberId: string; memberName: string; action: string; timestamp: string }
+
+      // ─── SÉCURITÉ : vérifier que le memberId est un convocataire réel ───
+      const isRealConvocataire = seance.convocataires.some(c => c.member_id === data.memberId)
+      if (!isRealConvocataire) {
+        console.warn('[Sécurité] Demande de parole rejetée — memberId inconnu :', data.memberId)
+        return
+      }
+
+      // ─── SÉCURITÉ : utiliser le nom connu côté serveur, pas le payload ──
+      const conv = seance.convocataires.find(c => c.member_id === data.memberId)
+      const trustedName = conv?.member ? `${conv.member.prenom} ${conv.member.nom}` : data.memberName
+
       if (data.action === 'request') {
         setDemandesParole(prev => {
           if (prev.some(d => d.memberId === data.memberId)) return prev
-          return [...prev, { memberId: data.memberId, memberName: data.memberName, timestamp: data.timestamp }]
+          return [...prev, { memberId: data.memberId, memberName: trustedName, timestamp: data.timestamp }]
         })
-        toast.info(`${data.memberName} demande la parole`, {
+        toast.info(`${trustedName} demande la parole`, {
           duration: 8000,
           icon: '✋',
         })
@@ -550,10 +562,19 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
     presidentChannel.on('broadcast', { event: 'president_request' }, (payload) => {
       const data = payload.payload as { action: string; pointId?: string }
+
+      // ─── SÉCURITÉ : valider que le pointId référencé existe dans l'ODJ ──
       if (data.action === 'request_vote') {
-        const point = sortedPoints.find(p => p.id === data.pointId)
-        const pointLabel = point ? `« ${point.titre} »` : ''
-        toast.info(`Le président demande le vote ${pointLabel}`, { duration: 10000, icon: '🗳️' })
+        if (data.pointId) {
+          const point = sortedPoints.find(p => p.id === data.pointId)
+          if (!point) {
+            console.warn('[Sécurité] Demande de vote ignorée — pointId inconnu :', data.pointId)
+            return
+          }
+          toast.info(`Le président demande le vote « ${point.titre} »`, { duration: 10000, icon: '🗳️' })
+        } else {
+          toast.info('Le président demande le vote', { duration: 10000, icon: '🗳️' })
+        }
       }
       if (data.action === 'request_suspend') {
         toast.warning('Le président demande la suspension de la séance', { duration: 10000, icon: '⏸️' })

@@ -318,12 +318,24 @@ export function PresidentTablet({ seance, instanceMemberCount, institutionName }
 
     channel.on('broadcast', { event: 'demande_parole' }, (payload) => {
       const data = payload.payload as { memberId: string; memberName: string; action: string; timestamp: string }
+
+      // ─── SÉCURITÉ : vérifier que le memberId est un convocataire réel ───
+      const isRealConvocataire = seance.convocataires.some(c => c.member_id === data.memberId)
+      if (!isRealConvocataire) {
+        console.warn('[Sécurité] Demande de parole rejetée — memberId inconnu :', data.memberId)
+        return
+      }
+
+      // ─── SÉCURITÉ : utiliser le nom connu côté serveur, pas le payload ──
+      const conv = seance.convocataires.find(c => c.member_id === data.memberId)
+      const trustedName = conv?.member ? `${conv.member.prenom} ${conv.member.nom}` : data.memberName
+
       if (data.action === 'request') {
         setDemandesParole(prev => {
           if (prev.some(d => d.memberId === data.memberId)) return prev
-          return [...prev, { memberId: data.memberId, memberName: data.memberName, timestamp: data.timestamp }]
+          return [...prev, { memberId: data.memberId, memberName: trustedName, timestamp: data.timestamp }]
         })
-        toast.info(`${data.memberName} demande la parole`, { duration: 5000, icon: '✋' })
+        toast.info(`${trustedName} demande la parole`, { duration: 5000, icon: '✋' })
       } else if (data.action === 'cancel') {
         setDemandesParole(prev => prev.filter(d => d.memberId !== data.memberId))
       }

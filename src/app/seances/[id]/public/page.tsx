@@ -74,6 +74,27 @@ export default async function PublicSessionPage({ params }: Props) {
     notFound()
   }
 
+  // ─── SÉCURITÉ : bloquer l'accès aux séances non publiques ───────────
+  // Les séances à huis clos (publique === false) ne doivent pas être accessibles
+  // Les séances en BROUILLON ne doivent pas être visibles publiquement
+  const ALLOWED_PUBLIC_STATUTS = ['CONVOQUEE', 'EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE']
+  if (seance.publique === false) {
+    notFound()
+  }
+  if (!seance.statut || !ALLOWED_PUBLIC_STATUTS.includes(seance.statut)) {
+    notFound()
+  }
+
+  // ─── SÉCURITÉ : masquer les descriptions des points à huis clos ──────
+  // Le public ne doit pas voir le contenu des points marqués huis clos
+  const sanitizedSeance = {
+    ...seance,
+    odj_points: seance.odj_points.map((point) => ({
+      ...point,
+      description: point.huis_clos ? null : point.description,
+    })),
+  }
+
   // Compter les présences (pas les noms — vie privée)
   const { count: presenceCount } = await supabase
     .from('presences')
@@ -96,7 +117,7 @@ export default async function PublicSessionPage({ params }: Props) {
 
   return (
     <PublicSessionView
-      seance={seance}
+      seance={sanitizedSeance}
       institutionName={institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'}
       presenceCount={presenceCount || 0}
       totalConvocataires={totalConvocataires || 0}

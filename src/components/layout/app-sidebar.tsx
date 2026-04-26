@@ -207,7 +207,17 @@ export function AppSidebar({ userFullName, userRole, mobile, onNavigate, collaps
           )}
         </div>
 
-        <form action={logoutAction} className="mt-2">
+        <form action={logoutAction} className="mt-2" onSubmit={() => {
+          // ─── SÉCURITÉ : nettoyer les données locales sensibles à la déconnexion ──
+          try {
+            const keys = Object.keys(localStorage)
+            for (const key of keys) {
+              if (key.startsWith('prep_') || key.startsWith('notes_')) {
+                localStorage.removeItem(key)
+              }
+            }
+          } catch { /* localStorage indisponible */ }
+        }}>
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <button

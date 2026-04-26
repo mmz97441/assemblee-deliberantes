@@ -23,12 +23,12 @@ export default async function PresidentPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Vérifier le rôle
+  // Vérifier le rôle global
   const realRole = (userData.user.user_metadata?.role as string) || ''
   const role = await getEffectiveRole(realRole)
-  if (!['super_admin', 'gestionnaire', 'president'].includes(role)) {
-    redirect(`/seances/${id}`)
-  }
+
+  // super_admin et gestionnaire ont accès à toutes les vues président
+  const isManager = ['super_admin', 'gestionnaire'].includes(role)
 
   // Charger la séance complète
   const { data: seance, error: seanceError } = await supabase
@@ -94,6 +94,25 @@ export default async function PresidentPage({ params }: Props) {
 
   if (seanceError || !seance) {
     notFound()
+  }
+
+  // ─── SÉCURITÉ : vérifier que l'utilisateur est bien le président de CETTE séance ──
+  if (!isManager) {
+    // Trouver le member lié à l'utilisateur connecté
+    const { data: memberRecord } = await supabase
+      .from('members')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .maybeSingle()
+
+    const isPresidentOfThisSeance = memberRecord &&
+      seance.president_effectif &&
+      (seance.president_effectif as { id: string }).id === memberRecord.id
+
+    if (!isPresidentOfThisSeance) {
+      // L'utilisateur n'est pas le président de cette séance — accès refusé
+      redirect(`/seances/${id}`)
+    }
   }
 
   // Compter les membres de l'instance pour le quorum
