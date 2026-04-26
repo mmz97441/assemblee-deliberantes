@@ -73,7 +73,8 @@
       "Bash(ls supabase/migrations/0001[9]* supabase/migrations/0002*)",
       "Bash(sed -i '' 's/Seances planifiees ce mois-ci/Séances planifiées ce mois-ci/g; s/Seances ce mois/Séances ce mois/g' src/components/dashboard/gestionnaire-dashboard.tsx)",
       "Bash(sed -i '' 's/Seances presidees/Séances présidées/g; s/Aucune seance presidee cette annee/Aucune séance présidée cette année/g' src/components/dashboard/president-dashboard.tsx)",
-      "Bash(sed -i '' 's/Seances participees/Séances participées/g' src/components/dashboard/elu-dashboard.tsx)"
+      "Bash(sed -i '' 's/Seances participees/Séances participées/g' src/components/dashboard/elu-dashboard.tsx)",
+      "Bash(git rm *)"
     ]
   }
 }

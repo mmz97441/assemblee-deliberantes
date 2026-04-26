@@ -869,6 +869,15 @@ function HeroSeanceCard({ seance }: { seance: NextSeanceInfo }) {
               </Link>
             </Button>
           )}
+          {/* Préparer la séance — visible when not EN_COURS */}
+          {!isEnCours && seance.odj_points.length > 0 && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/seances/${seance.id}/preparation`}>
+                <FileText className="h-4 w-4 mr-2" />
+                Préparer la séance
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>

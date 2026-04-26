@@ -1578,6 +1578,22 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                                     <RefreshCw className="h-3.5 w-3.5" />
                                   </Button>
                                 )}
+                                {canManage && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+                                        onClick={() => window.open(`/api/pdf/convocation/${seance.id}/${conv.member_id}`, '_blank')}
+                                        title="Télécharger la convocation en PDF"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Convocation PDF</TooltipContent>
+                                  </Tooltip>
+                                )}
                                 {canManage && isBrouillon && (
                                   <Button
                                     variant="ghost"
@@ -1915,6 +1931,43 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 Dupliquer
               </Button>
 
+              {/* PDF downloads */}
+              {seance.odj_points.length > 0 && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => window.open(`/api/pdf/dossier/${seance.id}`, '_blank')}
+                  title="Générer le dossier complet de séance (ordre du jour, projets de délibération) en PDF pour impression"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Imprimer le dossier
+                </Button>
+              )}
+
+              {seance.convocataires.length > 0 && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => window.open(`/api/pdf/emargement/${seance.id}`, '_blank')}
+                  title="Générer la feuille d'émargement pour signature papier"
+                >
+                  <PenLine className="h-4 w-4 mr-2" />
+                  Feuille d&apos;émargement
+                </Button>
+              )}
+
+              {(seance.statut === 'CLOTUREE' || seance.statut === 'ARCHIVEE') && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => window.open(`/api/pdf/recap/${seance.id}`, '_blank')}
+                  title="Télécharger le récapitulatif post-séance (1 page)"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Récapitulatif
+                </Button>
+              )}
+
               {/* Contextual tips */}
               {isBrouillon && seance.odj_points.length === 0 && seance.convocataires.length === 0 && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
@@ -1932,6 +1985,57 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Actions panel for non-gestionnaires (élus, président) */}
+        {!canManage && (
+          <div className="w-full lg:w-64 space-y-3 lg:shrink-0">
+            <div className="rounded-xl border bg-card p-4 space-y-3 lg:sticky lg:top-6">
+              <h3 className="font-semibold text-sm flex items-center gap-2">
+                Mon espace
+                <Badge className={`${statutConfig.color} border-0 text-[10px] px-2 py-0`}>
+                  {statutConfig.label}
+                </Badge>
+              </h3>
+
+              {seance.odj_points.length > 0 && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => router.push(`/seances/${seance.id}/preparation`)}
+                  title="Préparer la séance : consulter les documents, prendre des notes, noter vos questions"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Ma préparation
+                </Button>
+              )}
+
+              {(seance.statut === 'CLOTUREE' || seance.statut === 'ARCHIVEE') && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => window.open(`/api/pdf/recap/${seance.id}`, '_blank')}
+                  title="Télécharger le récapitulatif de la séance en PDF"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Récapitulatif PDF
+                </Button>
+              )}
+
+              <Separator />
+
+              <div className="space-y-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" />
+                  {seance.odj_points.length} point{seance.odj_points.length !== 1 ? 's' : ''} à l&apos;ordre du jour
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-3 w-3" />
+                  {seance.convocataires.length} convocataire{seance.convocataires.length !== 1 ? 's' : ''}
+                </div>
+              </div>
             </div>
           </div>
         )}

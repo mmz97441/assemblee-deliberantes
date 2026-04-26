@@ -388,6 +388,15 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => window.open(`/api/pdf/emargement/${seance.id}`, '_blank')}
+                title="Imprimer la feuille d'émargement papier"
+              >
+                <PenLine className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Feuille PDF</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleRefresh}
                 title="Rafraîchir la liste manuellement"
               >

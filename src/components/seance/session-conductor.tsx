@@ -84,6 +84,7 @@ import { VoteMainLevee } from '@/components/vote/vote-main-levee'
 import { VoteSecret } from '@/components/vote/vote-secret'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { VoteTelevote } from '@/components/vote/vote-televote'
+import { createClient } from '@/lib/supabase/client'
 import { LateArrivalBanner } from '@/components/seance/late-arrival-banner'
 import { SecretaryDesignation } from '@/components/seance/secretary-designation'
 import { PVApprovalBanner } from '@/components/seance/pv-approval-banner'
@@ -272,6 +273,9 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
 
   // Track if quorum was ever met (stays true once reached)
   const [quorumWasMet, setQuorumWasMet] = useState(false)
+
+  // Demandes de parole state
+  const [demandesParole, setDemandesParole] = useState<{ memberId: string; memberName: string; timestamp: string }[]>([])
 
   // Live clock (client-only to avoid hydration mismatch)
   useEffect(() => {
@@ -506,6 +510,36 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
   const pollingEnabled = !isRealtimeConnected && !isPending
   useAutoRefresh({ intervalMs: 5000, enabled: pollingEnabled })
   const isPolling = pollingEnabled
+
+  // ─── Demande de parole broadcast listener ──────────────────────────────
+  useEffect(() => {
+    if (!isSessionLive) return
+
+    const supabase = createClient()
+    const channel = supabase.channel(`parole-${seance.id}`)
+
+    channel.on('broadcast', { event: 'demande_parole' }, (payload) => {
+      const data = payload.payload as { memberId: string; memberName: string; action: string; timestamp: string }
+      if (data.action === 'request') {
+        setDemandesParole(prev => {
+          if (prev.some(d => d.memberId === data.memberId)) return prev
+          return [...prev, { memberId: data.memberId, memberName: data.memberName, timestamp: data.timestamp }]
+        })
+        toast.info(`${data.memberName} demande la parole`, {
+          duration: 8000,
+          icon: '✋',
+        })
+      } else if (data.action === 'cancel') {
+        setDemandesParole(prev => prev.filter(d => d.memberId !== data.memberId))
+      }
+    })
+
+    channel.subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [seance.id, isSessionLive])
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   function handleStatusChange(newStatut: string) {
@@ -1420,6 +1454,44 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
             seanceStatut={seance.statut}
             onRefresh={() => router.refresh()}
           />
+
+          {/* Demandes de parole */}
+          {demandesParole.length > 0 && (
+            <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-4 animate-in slide-in-from-top-2">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-blue-800 flex items-center gap-1.5">
+                  <Hand className="h-4 w-4" />
+                  Demandes de parole
+                  <Badge className="bg-blue-200 text-blue-800 border-0 text-xs">
+                    {demandesParole.length}
+                  </Badge>
+                </h3>
+              </div>
+              <div className="space-y-1.5">
+                {demandesParole.map((d) => (
+                  <div key={d.memberId} className="flex items-center justify-between rounded-lg bg-white border border-blue-200 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Hand className="h-3.5 w-3.5 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">{d.memberName}</span>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-blue-500 hover:text-red-500 hover:bg-red-50"
+                          onClick={() => setDemandesParole(prev => prev.filter(p => p.memberId !== d.memberId))}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Retirer de la liste</TooltipContent>
+                    </Tooltip>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* PV approval info */}
           <PVApprovalBanner

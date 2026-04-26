@@ -17,6 +17,16 @@ interface VoteInfo {
   statut: string | null
   total_votants: number | null
   question: string | null
+  resultat: string | null
+  pour: number | null
+  contre: number | null
+  abstention: number | null
+}
+
+interface ConvocataireInfo {
+  id: string
+  member_id: string
+  member: { id: string; prenom: string; nom: string } | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,6 +40,7 @@ interface SeanceData extends Record<string, any> {
   heure_ouverture: string | null
   instance_config: { id: string; nom: string; type_legal: string; voix_preponderante: boolean | null } | null
   odj_points: ODJPointRow[]
+  convocataires?: ConvocataireInfo[]
   president_effectif: { id: string; prenom: string; nom: string } | null
   secretaire_seance: { id: string; prenom: string; nom: string } | null
   votes?: VoteInfo[]

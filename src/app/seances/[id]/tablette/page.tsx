@@ -36,9 +36,10 @@ export default async function TablettePage({ params }: Props) {
         voix_preponderante
       ),
       odj_points (*),
+      convocataires (id, member_id, member:members (id, prenom, nom)),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
       secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
-      votes (id, odj_point_id, type_vote, statut, total_votants, question)
+      votes (id, odj_point_id, type_vote, statut, total_votants, question, resultat, pour, contre, abstention)
     `)
     .eq('id', id)
     .single()
