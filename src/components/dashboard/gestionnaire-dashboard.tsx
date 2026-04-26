@@ -404,7 +404,7 @@ export function GestionnaireDashboard({
             Vue d&apos;ensemble
           </h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            {/* Seances ce mois */}
+            {/* Séances ce mois */}
             <button
               type="button"
               onClick={() => setDetailDialog('seances')}
@@ -421,13 +421,13 @@ export function GestionnaireDashboard({
                       <TooltipTrigger asChild>
                         <Clock className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent>Seances planifiees ce mois-ci</TooltipContent>
+                      <TooltipContent>Séances planifiées ce mois-ci</TooltipContent>
                     </Tooltip>
                     <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>
                 <p className="text-2xl font-bold text-foreground">{stats.seancesCeMois}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Seances ce mois</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances ce mois</p>
               </div>
             </button>
 
@@ -577,13 +577,13 @@ export function GestionnaireDashboard({
 
       {/* ─── Detail Dialogs ──────────────────────────────────── */}
 
-      {/* Seances ce mois dialog */}
+      {/* Séances ce mois dialog */}
       <Dialog open={detailDialog === 'seances'} onOpenChange={(open) => !open && setDetailDialog(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-institutional-blue" />
-              Seances ce mois
+              Séances ce mois
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-2">

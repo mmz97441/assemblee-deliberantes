@@ -240,7 +240,7 @@ export function PresidentDashboard({
             Indicateurs <span suppressHydrationWarning>{currentYear}</span>
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-in">
-            {/* Seances presidees */}
+            {/* Séances présidées */}
             <button
               type="button"
               onClick={() => setDetailDialog('seances')}
@@ -255,7 +255,7 @@ export function PresidentDashboard({
                   <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
                 <p className="text-2xl font-bold text-foreground">{stats.seancesPresidees}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">Seances presidees</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances présidées</p>
               </div>
             </button>
 
@@ -537,13 +537,13 @@ export function PresidentDashboard({
 
       {/* ─── Detail Dialogs ──────────────────────────────────── */}
 
-      {/* Seances presidees dialog */}
+      {/* Séances présidées dialog */}
       <Dialog open={detailDialog === 'seances'} onOpenChange={(open) => !open && setDetailDialog(null)}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-institutional-blue" />
-              Seances presidees ({currentYear})
+              Séances présidées ({currentYear})
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2 mt-2">
@@ -578,7 +578,7 @@ export function PresidentDashboard({
             ) : (
               <div className="text-center py-6">
                 <CalendarDays className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Aucune seance presidee cette annee.</p>
+                <p className="text-sm text-muted-foreground">Aucune séance présidée cette année.</p>
               </div>
             )}
           </div>

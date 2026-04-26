@@ -281,7 +281,7 @@ export function EluDashboard({
                     / {stats.seancesConvoquees}
                   </span>
                 </p>
-                <p className="text-sm text-muted-foreground mt-0.5">Seances participees</p>
+                <p className="text-sm text-muted-foreground mt-0.5">Séances participées</p>
                 <Progress
                   value={participationPercent}
                   className="mt-2 h-1.5"
