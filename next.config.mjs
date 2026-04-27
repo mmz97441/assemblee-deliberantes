@@ -49,4 +49,7 @@ export default withSentryConfig(nextConfig, {
 
   // Automatically instrument server actions
   autoInstrumentServerFunctions: true,
+
+  // Tree-shake Sentry for smaller bundles
+  widenClientFileUpload: true,
 });
