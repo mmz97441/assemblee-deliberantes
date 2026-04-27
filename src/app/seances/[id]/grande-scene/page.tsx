@@ -6,11 +6,11 @@ import { ROUTES } from '@/lib/constants'
 import { GrandeScene } from '@/components/seance/grande-scene'
 
 interface Props {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 export default async function GrandeScenePage({ params }: Props) {
-  const { id } = await params
+  const { id } = params
   const supabase = await createServerSupabaseClient()
 
   const { data: userData, error: authError } = await supabase.auth.getUser()

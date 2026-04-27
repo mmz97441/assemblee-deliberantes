@@ -10,11 +10,11 @@ import { SeanceDetail } from '@/components/seance/seance-detail'
 import type { ODJPointRow } from '@/lib/supabase/types'
 
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 export default async function SeanceDetailPage({ params }: PageProps) {
-  const { id } = await params
+  const { id } = params
   const supabase = await createServerSupabaseClient()
   const { data: userData, error: authError } = await supabase.auth.getUser()
 

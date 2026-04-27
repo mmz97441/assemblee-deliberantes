@@ -7,7 +7,7 @@ import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { PresidentTablet } from '@/components/seance/president-tablet'
 
 interface Props {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 /**
@@ -15,7 +15,7 @@ interface Props {
  * ou au super_admin/gestionnaire.
  */
 export default async function PresidentPage({ params }: Props) {
-  const { id } = await params
+  const { id } = params
   const supabase = await createServerSupabaseClient()
 
   const { data: userData, error: authError } = await supabase.auth.getUser()

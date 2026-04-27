@@ -13,10 +13,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ year: string }> }
+  { params }: { params: { year: string } }
 ) {
   try {
-    const { year: yearStr } = await params
+    const { year: yearStr } = params
     const year = parseInt(yearStr, 10)
 
     if (isNaN(year) || year < 2000 || year > 2100) {

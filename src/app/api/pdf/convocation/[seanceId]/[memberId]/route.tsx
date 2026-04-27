@@ -12,10 +12,10 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ seanceId: string; memberId: string }> }
+  { params }: { params: { seanceId: string; memberId: string } }
 ) {
   try {
-    const { seanceId, memberId } = await params
+    const { seanceId, memberId } = params
     const supabase = await createServerSupabaseClient()
 
     // Auth check

@@ -9,11 +9,11 @@ import { PageHeader } from '@/components/layout/page-header'
 import { DeliberationDetail } from '@/components/deliberations/deliberation-detail'
 
 interface Props {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 export default async function DeliberationDetailPage({ params }: Props) {
-  const { id } = await params
+  const { id } = params
   const supabase = await createServerSupabaseClient()
   const { data: userData, error: authError } = await supabase.auth.getUser()
 

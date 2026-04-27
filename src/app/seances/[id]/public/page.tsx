@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { PublicSessionView } from '@/components/seance/public-session-view'
 
 interface Props {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 /**
@@ -16,7 +16,7 @@ interface Props {
  * - Un embed sur un site web
  */
 export default async function PublicSessionPage({ params }: Props) {
-  const { id } = await params
+  const { id } = params
 
   // Utiliser le service role n'est pas nécessaire ici —
   // on crée un client anonyme (pas de session) pour lire les données publiques.

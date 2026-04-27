@@ -9,11 +9,11 @@ import { EluPreparation } from '@/components/seance/elu-preparation'
 // ODJPointRow type used implicitly via Supabase query inference
 
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
 export default async function PreparationPage({ params }: PageProps) {
-  const { id } = await params
+  const { id } = params
   const supabase = await createServerSupabaseClient()
 
   const { data: userData, error: authError } = await supabase.auth.getUser()
