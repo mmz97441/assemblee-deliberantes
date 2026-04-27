@@ -132,7 +132,11 @@ export async function saveInstanceConfig(formData: FormData): Promise<ActionResu
       seances_publiques_defaut: formData.get('seances_publiques_defaut') !== 'false',
       votes_qd_autorises: formData.get('votes_qd_autorises') === 'true',
       majorite_defaut: ((formData.get('majorite_defaut') as string) || 'SIMPLE') as MR,
-
+      ecran_public_active: formData.get('ecran_public_active') !== 'false',
+      tablette_president_active: formData.get('tablette_president_active') === 'true',
+      type_secretaire: (formData.get('type_secretaire') as string) || 'ELU',
+      tablettes_individuelles: formData.get('tablettes_individuelles') === 'true',
+      enregistrement_audio: formData.get('enregistrement_audio') === 'true',
     }
 
     const id = formData.get('id') as string

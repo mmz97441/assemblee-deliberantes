@@ -364,6 +364,8 @@ export type Database = {
           composition_max: number | null
           created_at: string | null
           delai_convocation_jours: number | null
+          ecran_public_active: boolean | null
+          enregistrement_audio: boolean | null
           id: string
           majorite_defaut:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -376,7 +378,10 @@ export type Database = {
           quorum_fraction_numerateur: number | null
           quorum_type: Database["public"]["Enums"]["quorum_type"] | null
           seances_publiques_defaut: boolean | null
+          tablette_president_active: boolean | null
+          tablettes_individuelles: boolean | null
           type_legal: string
+          type_secretaire: string | null
           updated_at: string | null
           voix_preponderante: boolean | null
           vote_secret_nominations: boolean | null
@@ -387,6 +392,8 @@ export type Database = {
           composition_max?: number | null
           created_at?: string | null
           delai_convocation_jours?: number | null
+          ecran_public_active?: boolean | null
+          enregistrement_audio?: boolean | null
           id?: string
           majorite_defaut?:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -399,7 +406,10 @@ export type Database = {
           quorum_fraction_numerateur?: number | null
           quorum_type?: Database["public"]["Enums"]["quorum_type"] | null
           seances_publiques_defaut?: boolean | null
+          tablette_president_active?: boolean | null
+          tablettes_individuelles?: boolean | null
           type_legal: string
+          type_secretaire?: string | null
           updated_at?: string | null
           voix_preponderante?: boolean | null
           vote_secret_nominations?: boolean | null
@@ -410,6 +420,8 @@ export type Database = {
           composition_max?: number | null
           created_at?: string | null
           delai_convocation_jours?: number | null
+          ecran_public_active?: boolean | null
+          enregistrement_audio?: boolean | null
           id?: string
           majorite_defaut?:
             | Database["public"]["Enums"]["majorite_requise"]
@@ -422,7 +434,10 @@ export type Database = {
           quorum_fraction_numerateur?: number | null
           quorum_type?: Database["public"]["Enums"]["quorum_type"] | null
           seances_publiques_defaut?: boolean | null
+          tablette_president_active?: boolean | null
+          tablettes_individuelles?: boolean | null
           type_legal?: string
+          type_secretaire?: string | null
           updated_at?: string | null
           voix_preponderante?: boolean | null
           vote_secret_nominations?: boolean | null

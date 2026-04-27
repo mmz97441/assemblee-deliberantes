@@ -38,7 +38,8 @@ export default async function PublicSessionPage({ params }: Props) {
       instance_config (
         id,
         nom,
-        type_legal
+        type_legal,
+        ecran_public_active
       ),
       odj_points (
         id,
@@ -82,6 +83,12 @@ export default async function PublicSessionPage({ params }: Props) {
     notFound()
   }
   if (!seance.statut || !ALLOWED_PUBLIC_STATUTS.includes(seance.statut)) {
+    notFound()
+  }
+
+  // ─── SÉCURITÉ : vérifier que l'écran public est activé pour cette instance ──
+  const instanceConfig = seance.instance_config as { ecran_public_active?: boolean | null } | null
+  if (instanceConfig?.ecran_public_active === false) {
     notFound()
   }
 

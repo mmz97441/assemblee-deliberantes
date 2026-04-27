@@ -27,7 +27,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .from('seances')
     .select(`
       *,
-      instance_config (id, nom, type_legal, delai_convocation_jours, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max, majorite_defaut),
+      instance_config (id, nom, type_legal, delai_convocation_jours, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max, majorite_defaut, ecran_public_active, tablette_president_active),
       odj_points (*),
       convocataires (
         id,

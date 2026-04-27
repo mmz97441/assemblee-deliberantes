@@ -46,6 +46,9 @@ import {
   Plus,
   Pencil,
   Vote,
+  Monitor,
+  Tablet,
+  Mic,
 } from 'lucide-react'
 import type { InstitutionConfigRow, InstanceConfigRow } from '@/lib/supabase/types'
 import {
@@ -122,6 +125,11 @@ type EditableInstance = {
   votes_qd_autorises: boolean
   mode_arrivee_tardive: string
   description: string
+  ecran_public_active: boolean
+  tablette_president_active: boolean
+  type_secretaire: string
+  tablettes_individuelles: boolean
+  enregistrement_audio: boolean
   isNew: boolean // true if not saved yet
   isSaved: boolean // true if successfully saved to DB
 }
@@ -168,6 +176,11 @@ function templateToEditable(t: InstanceTemplate, existingId?: string): EditableI
     votes_qd_autorises: t.votes_qd_autorises,
     mode_arrivee_tardive: t.mode_arrivee_tardive,
     description: t.description,
+    ecran_public_active: true,
+    tablette_president_active: false,
+    type_secretaire: 'ELU',
+    tablettes_individuelles: false,
+    enregistrement_audio: false,
     isNew: !existingId,
     isSaved: !!existingId,
   }
@@ -188,6 +201,11 @@ function existingToEditable(row: InstanceConfigRow): EditableInstance {
     votes_qd_autorises: row.votes_qd_autorises ?? false,
     mode_arrivee_tardive: row.mode_arrivee_tardive ?? 'SOUPLE',
     description: '',
+    ecran_public_active: row.ecran_public_active ?? true,
+    tablette_president_active: row.tablette_president_active ?? false,
+    type_secretaire: row.type_secretaire ?? 'ELU',
+    tablettes_individuelles: row.tablettes_individuelles ?? false,
+    enregistrement_audio: row.enregistrement_audio ?? false,
     isNew: false,
     isSaved: true,
   }
@@ -207,6 +225,11 @@ function newEmptyInstance(): EditableInstance {
     votes_qd_autorises: false,
     mode_arrivee_tardive: 'SOUPLE',
     description: '',
+    ecran_public_active: true,
+    tablette_president_active: false,
+    type_secretaire: 'ELU',
+    tablettes_individuelles: false,
+    enregistrement_audio: false,
     isNew: true,
     isSaved: false,
   }
@@ -439,6 +462,62 @@ function InstanceEditDialog({
               />
             </div>
           </div>
+
+          <Separator />
+
+          {/* Séance options */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Options de séance
+            </h4>
+            <div className="rounded-lg border bg-muted/30 p-4 space-y-1">
+              <SwitchRow
+                id="ecran_public"
+                label="Écran public"
+                description="Afficher un écran de suivi accessible au public pendant les séances"
+                checked={local.ecran_public_active}
+                onCheckedChange={(v) => update('ecran_public_active', v)}
+              />
+              <Separator className="my-1" />
+              <SwitchRow
+                id="tablette_president"
+                label="Tablette président"
+                description="Vue dédiée pour le président sur tablette pendant les séances"
+                checked={local.tablette_president_active}
+                onCheckedChange={(v) => update('tablette_president_active', v)}
+              />
+              <Separator className="my-1" />
+              <SwitchRow
+                id="tablettes_individuelles"
+                label="Tablettes individuelles"
+                description="Chaque élu dispose d'une tablette personnelle en séance"
+                checked={local.tablettes_individuelles}
+                onCheckedChange={(v) => update('tablettes_individuelles', v)}
+              />
+              <Separator className="my-1" />
+              <SwitchRow
+                id="enregistrement_audio"
+                label="Enregistrement audio"
+                description="Enregistrer les débats pendant les séances"
+                checked={local.enregistrement_audio}
+                onCheckedChange={(v) => update('enregistrement_audio', v)}
+              />
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <Label>Type de secrétaire de séance</Label>
+              <Select value={local.type_secretaire} onValueChange={(v) => update('type_secretaire', v)}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ELU">Élu désigné à chaque séance</SelectItem>
+                  <SelectItem value="ADMINISTRATIF">Administratif permanent (secrétaire de mairie)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Détermine si le secrétaire est un élu désigné ou un agent administratif.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Actions */}
@@ -585,6 +664,11 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
       fd.set('seances_publiques_defaut', String(inst.seances_publiques_defaut))
       fd.set('votes_qd_autorises', String(inst.votes_qd_autorises))
       fd.set('mode_arrivee_tardive', inst.mode_arrivee_tardive)
+      fd.set('ecran_public_active', String(inst.ecran_public_active ?? true))
+      fd.set('tablette_president_active', String(inst.tablette_president_active ?? false))
+      fd.set('type_secretaire', inst.type_secretaire || 'ELU')
+      fd.set('tablettes_individuelles', String(inst.tablettes_individuelles ?? false))
+      fd.set('enregistrement_audio', String(inst.enregistrement_audio ?? false))
 
       const result = await saveInstanceConfig(fd)
       if ('error' in result) {
@@ -1011,6 +1095,26 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
                             {inst.voix_preponderante && (
                               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                                 ⚖️ Voix prépondérante
+                              </span>
+                            )}
+                            {inst.ecran_public_active && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Monitor className="h-3 w-3" /> Écran public
+                              </span>
+                            )}
+                            {inst.tablette_president_active && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Shield className="h-3 w-3" /> Tablette président
+                              </span>
+                            )}
+                            {inst.tablettes_individuelles && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Tablet className="h-3 w-3" /> Tablettes individuelles
+                              </span>
+                            )}
+                            {inst.enregistrement_audio && (
+                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                                <Mic className="h-3 w-3" /> Enregistrement audio
                               </span>
                             )}
                           </div>

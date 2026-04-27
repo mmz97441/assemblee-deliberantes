@@ -55,7 +55,8 @@ export default async function PresidentPage({ params }: Props) {
         quorum_fraction_denominateur,
         composition_max,
         majorite_defaut,
-        voix_preponderante
+        voix_preponderante,
+        tablette_president_active
       ),
       odj_points (*),
       convocataires (
@@ -94,6 +95,12 @@ export default async function PresidentPage({ params }: Props) {
 
   if (seanceError || !seance) {
     notFound()
+  }
+
+  // ─── SÉCURITÉ : vérifier que la tablette président est activée pour cette instance ──
+  const instanceConfig = seance.instance_config as { tablette_president_active?: boolean | null } | null
+  if (instanceConfig?.tablette_president_active !== true) {
+    redirect(`/seances/${id}`)
   }
 
   // ─── SÉCURITÉ : vérifier que l'utilisateur est bien le président de CETTE séance ──

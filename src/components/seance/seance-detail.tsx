@@ -195,6 +195,8 @@ interface SeanceData extends Record<string, any> {
     quorum_fraction_denominateur: number | null
     composition_max: number | null
     majorite_defaut: string | null
+    ecran_public_active: boolean | null
+    tablette_president_active: boolean | null
   } | null
   odj_points: ODJPointRow[]
   convocataires: ConvocataireItem[]
@@ -1855,31 +1857,35 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Button>
               )}
 
-              {/* Écran public & vue président — EN_COURS */}
+              {/* Écran public & vue président — EN_COURS (conditionné par la config instance) */}
               {seance.statut === 'EN_COURS' && (
                 <>
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => {
-                      const url = `${window.location.origin}/seances/${seance.id}/public`
-                      navigator.clipboard.writeText(url)
-                      toast.success('Lien public copié !')
-                    }}
-                    title="Copier le lien de l'écran public — accessible sans connexion pour affichage en salle ou suivi citoyen"
-                  >
-                    <Globe className="h-4 w-4 mr-2" />
-                    Lien écran public
-                  </Button>
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    onClick={() => router.push(`/seances/${seance.id}/president`)}
-                    title="Ouvrir la vue tablette du président — suivi des débats, demandes de parole, demande de vote"
-                  >
-                    <Shield className="h-4 w-4 mr-2" />
-                    Vue président
-                  </Button>
+                  {(seance.instance_config?.ecran_public_active !== false) && (
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => {
+                        const url = `${window.location.origin}/seances/${seance.id}/public`
+                        navigator.clipboard.writeText(url)
+                        toast.success('Lien public copié !')
+                      }}
+                      title="Copier le lien de l'écran public — accessible sans connexion pour affichage en salle ou suivi citoyen"
+                    >
+                      <Globe className="h-4 w-4 mr-2" />
+                      Lien écran public
+                    </Button>
+                  )}
+                  {(seance.instance_config?.tablette_president_active === true) && (
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={() => router.push(`/seances/${seance.id}/president`)}
+                      title="Ouvrir la vue tablette du président — suivi des débats, demandes de parole, demande de vote"
+                    >
+                      <Shield className="h-4 w-4 mr-2" />
+                      Vue président
+                    </Button>
+                  )}
                 </>
               )}
 
@@ -2028,7 +2034,7 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 </Badge>
               </h3>
 
-              {seance.statut === 'EN_COURS' && (
+              {seance.statut === 'EN_COURS' && seance.instance_config?.tablette_president_active === true && (
                 <Button
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white btn-press"
                   onClick={() => router.push(`/seances/${seance.id}/president`)}
