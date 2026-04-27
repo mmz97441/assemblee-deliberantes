@@ -44,7 +44,17 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .single()
 
   if (seanceError || !seance) {
-    console.error('Erreur chargement seance:', seanceError)
+    console.error('Erreur chargement seance:', JSON.stringify(seanceError, null, 2))
+    console.error('Seance ID requested:', id)
+
+    // Try a simple query to check if the seance exists at all
+    const { data: simpleCheck, error: simpleError } = await supabase
+      .from('seances')
+      .select('id, titre')
+      .eq('id', id)
+      .maybeSingle()
+    console.error('Simple check:', simpleCheck ? 'EXISTS' : 'NOT FOUND', simpleError?.message || '')
+
     notFound()
   }
 
