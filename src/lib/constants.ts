@@ -14,6 +14,9 @@ export const PIN_LENGTH = 6
 export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
+  FORGOT_PASSWORD: '/mot-de-passe-oublie',
+  RESET_PASSWORD: '/reset-password',
+  PROFIL: '/profil',
   DASHBOARD: '/dashboard',
   CONFIGURATION: '/configuration',
   MEMBRES: '/membres',

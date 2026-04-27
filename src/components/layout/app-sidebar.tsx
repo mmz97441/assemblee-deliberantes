@@ -195,17 +195,31 @@ export function AppSidebar({ userFullName, userRole, mobile, onNavigate, collaps
 
       {/* User section */}
       <div className="border-t px-3 py-3" style={{ borderColor: 'hsl(var(--sidebar-border))' }}>
-        <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white text-xs font-bold">
-            {initials}
-          </div>
-          {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{userFullName}</p>
-              <p className="text-xs opacity-50 truncate">{ROLE_LABELS[userRole]}</p>
-            </div>
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Link
+              href="/profil"
+              onClick={handleNavClick}
+              className={`flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors ${isCollapsed ? 'justify-center' : ''}`}
+              title="Mon profil"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 text-white text-xs font-bold">
+                {initials}
+              </div>
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{userFullName}</p>
+                  <p className="text-xs opacity-50 truncate">{ROLE_LABELS[userRole]}</p>
+                </div>
+              )}
+            </Link>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent side="right" sideOffset={8}>
+              <p>Mon profil</p>
+            </TooltipContent>
           )}
-        </div>
+        </Tooltip>
 
         <form action={logoutAction} className="mt-2" onSubmit={() => {
           // ─── SÉCURITÉ : nettoyer les données locales sensibles à la déconnexion ──

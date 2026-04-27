@@ -51,7 +51,7 @@ export async function middleware(request: NextRequest) {
     // Routes publiques
     // Note: ces routes sont dupliquees de lib/constants.ts car le middleware
     // Edge Runtime a des restrictions d'import. Garder synchronise avec PUBLIC_ROUTES.
-    const publicPaths = ['/login', '/register', '/invite', '/convocation', '/api/qr', '/api/webhooks', '/vote']
+    const publicPaths = ['/login', '/register', '/mot-de-passe-oublie', '/reset-password', '/invite', '/convocation', '/api/qr', '/api/webhooks', '/vote']
     const isPublicPath = publicPaths.some((path) =>
       pathname.startsWith(path)
     ) || /^\/seances\/[^/]+\/public$/.test(pathname)
@@ -64,8 +64,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Si connecte et sur login/register -> dashboard
-    if (user && (pathname === '/login' || pathname === '/register')) {
+    // Si connecté et sur login/register/mot-de-passe-oublié -> dashboard
+    if (user && (pathname === '/login' || pathname === '/register' || pathname === '/mot-de-passe-oublie')) {
       const url = request.nextUrl.clone()
       url.pathname = '/dashboard'
       return NextResponse.redirect(url)

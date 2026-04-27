@@ -216,6 +216,46 @@ export async function sendInvitationAction(formData: FormData) {
 }
 
 // ============================================
+// MOT DE PASSE OUBLIÉ (demande de réinitialisation)
+// ============================================
+export async function requestPasswordReset(email: string) {
+  const supabase = await createServerSupabaseClient()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/reset-password`,
+  })
+
+  if (error) {
+    // Ne pas révéler si l'email existe ou non (sécurité contre l'énumération)
+    console.error('Password reset error:', error)
+  }
+
+  // Toujours retourner succès pour empêcher l'énumération d'emails
+  return { success: true }
+}
+
+// ============================================
+// MODIFIER LE MOT DE PASSE (utilisateur connecté ou via lien de réinitialisation)
+// ============================================
+export async function updatePassword(newPassword: string) {
+  const supabase = await createServerSupabaseClient()
+
+  const passwordError = validatePassword(newPassword)
+  if (passwordError) {
+    return { error: passwordError }
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+  if (error) {
+    return { error: 'Erreur lors de la modification du mot de passe. Le lien a peut-être expiré.' }
+  }
+
+  return { success: true }
+}
+
+// ============================================
 // ACCEPT INVITATION (finaliser le compte)
 // ============================================
 export async function acceptInvitationAction(formData: FormData) {

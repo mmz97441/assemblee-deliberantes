@@ -37,6 +37,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const justRegistered = searchParams.get('registered') === 'true'
+  const passwordReset = searchParams.get('password_reset') === 'true'
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -126,6 +127,15 @@ function LoginForm() {
             </Alert>
           )}
 
+          {passwordReset && (
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <AlertDescription>
+                Mot de passe modifié avec succès. Connectez-vous avec votre nouveau mot de passe.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -152,9 +162,17 @@ function LoginForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Mot de passe
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-sm font-medium">
+                  Mot de passe
+                </Label>
+                <Link
+                  href="/mot-de-passe-oublie"
+                  className="text-xs text-institutional-blue hover:underline transition-colors"
+                >
+                  Mot de passe oublié ?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
