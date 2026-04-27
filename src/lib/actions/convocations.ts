@@ -60,7 +60,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       .select(`
         *,
         instance_config (id, nom, type_legal),
-        odj_points (position, titre, type_traitement),
+        odj_points!odj_points_seance_id_fkey (position, titre, type_traitement),
         convocataires (
           id,
           member_id,

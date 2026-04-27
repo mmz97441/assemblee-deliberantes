@@ -49,7 +49,7 @@ export default async function SeancesPage() {
     .select(`
       *,
       instance_config (id, nom),
-      odj_points (id),
+      odj_points!odj_points_seance_id_fkey (id),
       convocataires (id)
     `)
     .order('date_seance', { ascending: false })

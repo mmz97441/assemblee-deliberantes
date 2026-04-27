@@ -554,7 +554,7 @@ export async function getDeliberations(filters?: DeliberationFilters): Promise<
         seance_id, vote_id, odj_point_id,
         seances (id, titre, date_seance),
         votes (id, resultat),
-        odj_points (id, titre)
+        odj_points!odj_points_seance_id_fkey (id, titre)
       `)
 
     // Apply filters
@@ -614,7 +614,7 @@ export async function getDeliberation(id: string): Promise<
         seance_id, vote_id, odj_point_id,
         seances (id, titre, date_seance, statut),
         votes (id, resultat, pour, contre, abstention, total_votants, formule_pv, mode),
-        odj_points (id, titre, description, type_traitement, rapporteur_id)
+        odj_points!odj_points_seance_id_fkey (id, titre, description, type_traitement, rapporteur_id)
       `)
       .eq('id', id)
       .single()

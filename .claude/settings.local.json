@@ -76,7 +76,13 @@
       "Bash(sed -i '' 's/Seances participees/Séances participées/g' src/components/dashboard/elu-dashboard.tsx)",
       "Bash(git rm *)",
       "mcp__e2b26f9f-b256-4487-93a4-f19f965c4668__list_migrations",
-      "Bash(sort -t'|' -k2 -rn)"
+      "Bash(sort -t'|' -k2 -rn)",
+      "Bash(sed -i '' 's/odj_points \\(/odj_points!odj_points_seance_id_fkey \\(/g' 'src/app/api/pdf/recap/[seanceId]/route.tsx' 'src/app/seances/[id]/public/page.tsx')",
+      "Bash(sed -i '' 's/odj_points \\(id\\)/odj_points!odj_points_seance_id_fkey \\(id\\)/g; s/odj_points \\(\\\\*/odj_points!odj_points_seance_id_fkey \\(*/g; s/odj_points \\(id, titre\\)/odj_points!odj_points_seance_id_fkey \\(id, titre\\)/g' src/lib/actions/seances.ts src/lib/actions/deliberations.ts)",
+      "Bash(sed -i '' 's/odj_points \\(\\\\*, vu/odj_points!odj_points_seance_id_fkey \\(*, vu/g' src/lib/actions/pv.ts)",
+      "Bash(sed -i '' 's/'\\\\''odj_points \\(\\\\*\\), convocataires/'\\\\''odj_points!odj_points_seance_id_fkey \\(*\\), convocataires/g' src/lib/actions/seances.ts)",
+      "Bash(sed -i '' 's/odj_points \\(position, titre, type_traitement\\)/odj_points!odj_points_seance_id_fkey \\(position, titre, type_traitement\\)/g' src/lib/actions/convocations.ts)",
+      "Bash(sed -i '' 's/odj_points \\(id, titre, description, type_traitement, rapporteur_id\\)/odj_points!odj_points_seance_id_fkey \\(id, titre, description, type_traitement, rapporteur_id\\)/g' src/lib/actions/deliberations.ts)"
     ]
   }
 }

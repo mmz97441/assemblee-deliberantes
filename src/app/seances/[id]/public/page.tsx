@@ -41,7 +41,7 @@ export default async function PublicSessionPage({ params }: Props) {
         type_legal,
         ecran_public_active
       ),
-      odj_points (
+      odj_points!odj_points_seance_id_fkey (
         id,
         titre,
         position,

@@ -132,7 +132,7 @@ export async function generatePVBrouillon(seanceId: string): Promise<
         id, titre, date_seance, statut, lieu, mode, publique, reconvocation,
         heure_ouverture, heure_cloture, instance_id,
         instance_config (id, nom, type_legal, quorum_type, quorum_fraction_numerateur, quorum_fraction_denominateur, composition_max),
-        odj_points (*, vu, considerant, discussion, articles),
+        odj_points!odj_points_seance_id_fkey (*, vu, considerant, discussion, articles),
         convocataires (
           id, member_id, statut_convocation,
           member:members (id, prenom, nom, qualite_officielle)

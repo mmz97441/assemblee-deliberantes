@@ -50,7 +50,7 @@ export async function GET(
           quorum_fraction_numerateur,
           quorum_fraction_denominateur
         ),
-        odj_points (
+        odj_points!odj_points_seance_id_fkey (
           id,
           position,
           titre,

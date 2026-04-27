@@ -61,7 +61,7 @@ export async function getSeances(): Promise<{ data: SeanceListItem[] } | { error
       .select(`
         *,
         instance_config (id, nom),
-        odj_points (id),
+        odj_points!odj_points_seance_id_fkey (id),
         convocataires (id)
       `)
       .order('date_seance', { ascending: false })
@@ -101,7 +101,7 @@ export async function getSeance(id: string): Promise<{ data: SeanceWithDetails }
       .select(`
         *,
         instance_config (id, nom, type_legal),
-        odj_points (
+        odj_points!odj_points_seance_id_fkey (
           *
         ),
         convocataires (
@@ -1058,7 +1058,7 @@ export async function duplicateSeance(
       .from('seances')
       .select(`
         *,
-        odj_points (*),
+        odj_points!odj_points_seance_id_fkey (*),
         convocataires (member_id)
       `)
       .eq('id', sourceSeanceId)
@@ -1170,7 +1170,7 @@ export async function reconvoquerSeance(
     // Fetch source séance
     const { data: source } = await supabase
       .from('seances')
-      .select('*, odj_points (*), convocataires (member_id)')
+      .select('*, odj_points!odj_points_seance_id_fkey (*), convocataires (member_id)')
       .eq('id', seanceId)
       .single()
 
