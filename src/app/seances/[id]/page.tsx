@@ -22,7 +22,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Fetch seance with all details (procurations loaded separately to avoid PostgREST join issues)
+  // Fetch seance — simple query, related data loaded separately to avoid PostgREST FK ambiguity
   const { data: seance, error: seanceError } = await supabase
     .from('seances')
     .select(`
@@ -36,29 +36,39 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         envoye_at,
         confirme_at,
         member:members (id, prenom, nom, email, role, qualite_officielle)
-      ),
-      president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
-      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom)
+      )
     `)
     .eq('id', id)
     .single()
 
   if (seanceError || !seance) {
-    console.error('Erreur chargement seance:', JSON.stringify(seanceError, null, 2))
-    console.error('Seance ID requested:', id)
-
-    // Try a simple query to check if the seance exists at all
-    const { data: simpleCheck, error: simpleError } = await supabase
-      .from('seances')
-      .select('id, titre')
-      .eq('id', id)
-      .maybeSingle()
-    console.error('Simple check:', simpleCheck ? 'EXISTS' : 'NOT FOUND', simpleError?.message || '')
-
+    console.error('Erreur chargement seance:', seanceError?.message, seanceError?.code)
     notFound()
   }
 
-  // Load procurations separately (nested FK joins can cause PostgREST issues)
+  // Load president + secretaire separately (2 FK to same table = PostgREST ambiguity)
+  let presidentEffectif = null
+  let secretaireSeance = null
+
+  if (seance.president_effectif_seance_id) {
+    const { data } = await supabase
+      .from('members')
+      .select('id, prenom, nom')
+      .eq('id', seance.president_effectif_seance_id)
+      .maybeSingle()
+    presidentEffectif = data
+  }
+
+  if (seance.secretaire_seance_id) {
+    const { data } = await supabase
+      .from('members')
+      .select('id, prenom, nom')
+      .eq('id', seance.secretaire_seance_id)
+      .maybeSingle()
+    secretaireSeance = data
+  }
+
+  // Load procurations separately
   const { data: procurationsData } = await supabase
     .from('procurations')
     .select(`
@@ -73,8 +83,13 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     `)
     .eq('seance_id', id)
 
-  // Attach procurations to seance object
-  const seanceWithProcurations = { ...seance, procurations: procurationsData || [] }
+  // Compose the full seance object
+  const seanceWithProcurations = {
+    ...seance,
+    president_effectif: presidentEffectif,
+    secretaire_seance: secretaireSeance,
+    procurations: procurationsData || [],
+  }
 
   // Sort ODJ by position
   if (seance.odj_points && Array.isArray(seance.odj_points)) {
