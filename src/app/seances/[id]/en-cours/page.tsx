@@ -59,7 +59,7 @@ export default async function SeanceEnCoursPage({ params }: Props) {
         voix_preponderante,
         mode_arrivee_tardive
       ),
-      odj_points (*),
+      odj_points!odj_points_seance_id_fkey (*),
       convocataires (
         id,
         member_id,

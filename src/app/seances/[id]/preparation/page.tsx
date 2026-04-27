@@ -44,7 +44,7 @@ export default async function PreparationPage({ params }: PageProps) {
       lieu,
       instance_id,
       instance_config (id, nom, type_legal),
-      odj_points (*),
+      odj_points!odj_points_seance_id_fkey (*),
       convocataires (
         id,
         member_id

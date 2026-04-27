@@ -58,7 +58,7 @@ export default async function PresidentPage({ params }: Props) {
         voix_preponderante,
         tablette_president_active
       ),
-      odj_points (*),
+      odj_points!odj_points_seance_id_fkey (*),
       convocataires (
         id,
         member_id,

@@ -33,7 +33,7 @@ export default async function GrandeScenePage({ params }: Props) {
         nom,
         type_legal
       ),
-      odj_points (*),
+      odj_points!odj_points_seance_id_fkey (*),
       votes (id, odj_point_id, type_vote, statut, total_votants, question)
     `)
     .eq('id', id)

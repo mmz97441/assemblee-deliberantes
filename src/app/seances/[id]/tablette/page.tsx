@@ -35,7 +35,7 @@ export default async function TablettePage({ params }: Props) {
         type_legal,
         voix_preponderante
       ),
-      odj_points (*),
+      odj_points!odj_points_seance_id_fkey (*),
       convocataires (id, member_id, member:members (id, prenom, nom)),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
       secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
