@@ -1,6 +1,8 @@
 export const dynamic = 'force-dynamic'
 
-import { redirect, notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { getEffectiveRole } from '@/lib/auth/get-effective-role'
@@ -42,8 +44,19 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .single()
 
   if (seanceError || !seance) {
-    console.error('Erreur chargement seance:', seanceError?.message, seanceError?.code)
-    notFound()
+    // DEBUG: afficher l'erreur au lieu de 404
+    return (
+      <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
+        <h1 style={{ color: 'red' }}>DEBUG — Erreur chargement séance</h1>
+        <p><strong>ID demandé :</strong> {id}</p>
+        <p><strong>Erreur Supabase :</strong> {seanceError?.message || 'null'}</p>
+        <p><strong>Code :</strong> {seanceError?.code || 'null'}</p>
+        <p><strong>Details :</strong> {JSON.stringify(seanceError, null, 2)}</p>
+        <p><strong>Seance data :</strong> {seance ? 'exists' : 'null'}</p>
+        <p><strong>User ID :</strong> {userData?.user?.id || 'null'}</p>
+        <p><strong>User email :</strong> {userData?.user?.email || 'null'}</p>
+      </div>
+    )
   }
 
   // Load president + secretaire separately (2 FK to same table = PostgREST ambiguity)
