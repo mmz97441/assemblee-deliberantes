@@ -292,6 +292,26 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
       return { error: 'Cette séance est clôturée ou archivée — aucune modification n\'est possible.' }
     }
 
+    // For CONVOQUEE: only allow notes and secretaire updates (ODJ + convocataires are locked after envoi)
+    if (currentSeance && currentSeance.statut === 'CONVOQUEE') {
+      const notes = (formData.get('notes') as string)?.trim() || null
+      const secretaireId = (formData.get('secretaire_seance_id') as string) || null
+      const restrictedPayload: Record<string, unknown> = {}
+      if (notes !== undefined) restrictedPayload.notes = notes
+      if (secretaireId !== undefined) restrictedPayload.secretaire_seance_id = secretaireId
+
+      const { error } = await supabase
+        .from('seances')
+        .update(restrictedPayload)
+        .eq('id', id)
+
+      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.SEANCES)
+      revalidatePath(`${ROUTES.SEANCES}/${id}`)
+      return { success: true }
+    }
+
     // For EN_COURS/SUSPENDUE, only allow notes and secretaire updates
     if (currentSeance && ['EN_COURS', 'SUSPENDUE'].includes(currentSeance.statut || '')) {
       const notes = (formData.get('notes') as string)?.trim() || null
@@ -1350,6 +1370,8 @@ export interface CreateSeanceWizardInput {
   mode: 'PRESENTIEL' | 'HYBRIDE' | 'VISIO'
   publique: boolean
   urgence: boolean
+  presidentId?: string | null
+  secretaireId?: string | null
   odjPoints: WizardODJPoint[]
   convocataireIds: string[]
   sendConvocations: boolean
@@ -1396,22 +1418,29 @@ export async function createSeanceWizard(
       return { error: 'Cette instance est désactivée.' }
     }
 
-    // Auto-fill président et secrétaire depuis le bureau
-    let presidentId: string | null = null
-    let secretaireId: string | null = null
+    // Président et secrétaire : utiliser les valeurs explicites si fournies, sinon le bureau
+    let presidentId: string | null = input.presidentId || null
+    let secretaireId: string | null = input.secretaireId || null
 
-    const { data: bureauMembers } = await supabase
-      .from('instance_members')
-      .select('member_id, bureau_role')
-      .eq('instance_config_id', input.instanceId)
-      .not('bureau_role', 'is', null)
-      .eq('actif', true)
+    // Auto-fill from bureau if not explicitly set
+    if (!presidentId || !secretaireId) {
+      const { data: bureauMembers } = await supabase
+        .from('instance_members')
+        .select('member_id, bureau_role')
+        .eq('instance_config_id', input.instanceId)
+        .not('bureau_role', 'is', null)
+        .eq('actif', true)
 
-    if (bureauMembers) {
-      const bp = bureauMembers.find(m => m.bureau_role === 'president')
-      if (bp) presidentId = bp.member_id
-      const bs = bureauMembers.find(m => m.bureau_role === 'secretaire')
-      if (bs) secretaireId = bs.member_id
+      if (bureauMembers) {
+        if (!presidentId) {
+          const bp = bureauMembers.find(m => m.bureau_role === 'president')
+          if (bp) presidentId = bp.member_id
+        }
+        if (!secretaireId) {
+          const bs = bureauMembers.find(m => m.bureau_role === 'secretaire')
+          if (bs) secretaireId = bs.member_id
+        }
+      }
     }
 
     // Build notes

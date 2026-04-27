@@ -103,6 +103,13 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .eq('statut', 'ACTIF')
     .order('nom', { ascending: true })
 
+  // Fetch all instances (for edit dialog)
+  const { data: allInstances } = await supabase
+    .from('instance_config')
+    .select('*')
+    .eq('actif', true)
+    .order('nom', { ascending: true })
+
   // Fetch instance members for this instance
   const { data: instanceMembers } = await supabase
     .from('instance_members')
@@ -139,6 +146,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         <SeanceDetail
           seance={seanceWithProcurations}
           allMembers={allMembers || []}
+          allInstances={allInstances || []}
           instanceMemberIds={(instanceMembers || []).map(im => im.member_id)}
           canManage={canManage}
         />

@@ -128,6 +128,7 @@ import {
   deleteODJPoint,
   reorderODJPoints,
   updateSeanceStatut,
+  updateSeance,
   addConvocataire,
   removeConvocataire,
   addStandardODJPoints,
@@ -136,7 +137,8 @@ import {
 import { sendConvocations, resendConvocation, sendReminders } from '@/lib/actions/convocations'
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
-import type { ODJPointRow } from '@/lib/supabase/types'
+import type { ODJPointRow, InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
+import { SeanceFormDialog } from '@/components/seance/seance-form'
 import { SEANCE_STATUT_CONFIG } from '@/lib/constants'
 import { formatDate, formatTime, formatRelativeDate } from '@/lib/utils/format-date'
 
@@ -208,6 +210,7 @@ interface SeanceData extends Record<string, any> {
 interface SeanceDetailProps {
   seance: SeanceData
   allMembers: MemberOption[]
+  allInstances: InstanceConfigRow[]
   instanceMemberIds: string[]
   canManage: boolean
 }
@@ -232,7 +235,7 @@ const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage }: SeanceDetailProps) {
+export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage }: SeanceDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const statutConfig = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
@@ -271,7 +274,59 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
 
+  // Edit séance dialog
+  const [editSeanceOpen, setEditSeanceOpen] = useState(false)
+
+  // Inline president/secretary selectors
+  const [presidentPopoverOpen, setPresidentPopoverOpen] = useState(false)
+  const [secretairePopoverOpen, setSecretairePopoverOpen] = useState(false)
+
   const ModeIcon = seance.mode === 'VISIO' ? Video : seance.mode === 'HYBRIDE' ? Monitor : Building2
+
+  // ─── Helper: build SeanceListItem for the edit dialog ─────────────────────
+  // SeanceData extends Record<string, any> so all SeanceRow fields are present from the * select
+  const seanceForEditDialog = useMemo(() => {
+    const base = seance as unknown as SeanceRow
+    return {
+      ...base,
+      instance_config: seance.instance_config ? { id: seance.instance_config.id, nom: seance.instance_config.nom } : null,
+      _count_odj: seance.odj_points.length,
+      _count_convocataires: seance.convocataires.length,
+    }
+  }, [seance])
+
+  // ─── Inline update president/secretary ─────────────────────────────────────
+  function handleInlineMemberUpdate(field: 'president_effectif_seance_id' | 'secretaire_seance_id', memberId: string | null) {
+    startTransition(async () => {
+      const formData = new FormData()
+      formData.set('id', seance.id)
+      formData.set('titre', seance.titre)
+      formData.set('instance_id', seance.instance_id)
+      formData.set('date_seance', seance.date_seance)
+      formData.set('mode', seance.mode || 'PRESENTIEL')
+      formData.set('lieu', seance.lieu || '')
+      formData.set('publique', seance.publique ? 'true' : 'false')
+      formData.set('notes', seance.notes || '')
+      // Preserve existing values, update only the changed field
+      const presId = field === 'president_effectif_seance_id'
+        ? (memberId || '')
+        : (seance.president_effectif?.id || '')
+      const secId = field === 'secretaire_seance_id'
+        ? (memberId || '')
+        : (seance.secretaire_seance?.id || '')
+      if (presId) formData.set('president_effectif_seance_id', presId)
+      if (secId) formData.set('secretaire_seance_id', secId)
+
+      const result = await updateSeance(formData)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      const label = field === 'president_effectif_seance_id' ? 'Président(e)' : 'Secrétaire'
+      toast.success(`${label} mis(e) à jour`)
+      router.refresh()
+    })
+  }
 
   // Warnings
   const warnings: string[] = []
@@ -638,13 +693,33 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
             <TabsContent value="resume" className="space-y-4 mt-0 tab-content-enter">
               {/* Session info card */}
               <div className="rounded-xl border bg-card p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <Badge className={`${statutConfig.color} border-0 text-sm px-3 py-1`}>
-                    {statutConfig.label}
-                  </Badge>
-                  <Badge variant="outline">{seance.instance_config?.nom}</Badge>
-                  {seance.reconvocation && (
-                    <Badge variant="outline" className="border-amber-300 text-amber-700">Reconvocation</Badge>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Badge className={`${statutConfig.color} border-0 text-sm px-3 py-1`}>
+                      {statutConfig.label}
+                    </Badge>
+                    <Badge variant="outline">{seance.instance_config?.nom}</Badge>
+                    {seance.reconvocation && (
+                      <Badge variant="outline" className="border-amber-300 text-amber-700">Reconvocation</Badge>
+                    )}
+                  </div>
+                  {canManage && isBrouillon && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditSeanceOpen(true)}
+                          className="min-h-[36px]"
+                        >
+                          <Pencil className="h-4 w-4 mr-1.5" />
+                          Modifier la séance
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Modifier tous les paramètres de la séance (date, lieu, mode, président, secrétaire...)
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
 
@@ -688,19 +763,131 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground text-xs mb-0.5">Président(e)</p>
-                    <p className="font-medium">
-                      {seance.president_effectif
-                        ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
-                        : 'Non désigné'}
-                    </p>
+                    {isBrouillon && canManage ? (
+                      <Popover open={presidentPopoverOpen} onOpenChange={setPresidentPopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            className={`font-medium text-left flex items-center gap-1 transition-colors ${
+                              seance.president_effectif
+                                ? 'hover:text-blue-600'
+                                : 'text-blue-600 hover:text-blue-700'
+                            }`}
+                            title="Cliquer pour désigner le/la président(e)"
+                          >
+                            {seance.president_effectif
+                              ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
+                              : 'Cliquer pour désigner'}
+                            <Pencil className="h-3 w-3 opacity-50" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Rechercher un membre..." />
+                            <CommandList>
+                              <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="_none_president"
+                                  onSelect={() => {
+                                    handleInlineMemberUpdate('president_effectif_seance_id', null)
+                                    setPresidentPopoverOpen(false)
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${!seance.president_effectif ? 'opacity-100' : 'opacity-0'}`} />
+                                  Non désigné
+                                </CommandItem>
+                                {allMembers.map(m => (
+                                  <CommandItem
+                                    key={m.id}
+                                    value={`${m.prenom} ${m.nom} ${m.qualite_officielle || ''}`}
+                                    onSelect={() => {
+                                      handleInlineMemberUpdate('president_effectif_seance_id', m.id)
+                                      setPresidentPopoverOpen(false)
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-4 w-4 ${seance.president_effectif?.id === m.id ? 'opacity-100' : 'opacity-0'}`} />
+                                    {m.prenom} {m.nom}
+                                    {m.qualite_officielle && (
+                                      <span className="text-xs text-muted-foreground ml-1">({m.qualite_officielle})</span>
+                                    )}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <p className="font-medium">
+                        {seance.president_effectif
+                          ? `${seance.president_effectif.prenom} ${seance.president_effectif.nom}`
+                          : 'Non désigné'}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs mb-0.5">Secrétaire</p>
-                    <p className="font-medium">
-                      {seance.secretaire_seance
-                        ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
-                        : 'Non désigné'}
-                    </p>
+                    {(isBrouillon || seance.statut === 'CONVOQUEE' || seance.statut === 'EN_COURS') && canManage ? (
+                      <Popover open={secretairePopoverOpen} onOpenChange={setSecretairePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <button
+                            className={`font-medium text-left flex items-center gap-1 transition-colors ${
+                              seance.secretaire_seance
+                                ? 'hover:text-blue-600'
+                                : 'text-blue-600 hover:text-blue-700'
+                            }`}
+                            title="Cliquer pour désigner le/la secrétaire"
+                          >
+                            {seance.secretaire_seance
+                              ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
+                              : 'Cliquer pour désigner'}
+                            <Pencil className="h-3 w-3 opacity-50" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[280px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Rechercher un membre..." />
+                            <CommandList>
+                              <CommandEmpty>Aucun membre trouvé.</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="_none_secretaire"
+                                  onSelect={() => {
+                                    handleInlineMemberUpdate('secretaire_seance_id', null)
+                                    setSecretairePopoverOpen(false)
+                                  }}
+                                >
+                                  <Check className={`mr-2 h-4 w-4 ${!seance.secretaire_seance ? 'opacity-100' : 'opacity-0'}`} />
+                                  Non désigné
+                                </CommandItem>
+                                {allMembers.map(m => (
+                                  <CommandItem
+                                    key={m.id}
+                                    value={`${m.prenom} ${m.nom} ${m.qualite_officielle || ''}`}
+                                    onSelect={() => {
+                                      handleInlineMemberUpdate('secretaire_seance_id', m.id)
+                                      setSecretairePopoverOpen(false)
+                                    }}
+                                  >
+                                    <Check className={`mr-2 h-4 w-4 ${seance.secretaire_seance?.id === m.id ? 'opacity-100' : 'opacity-0'}`} />
+                                    {m.prenom} {m.nom}
+                                    {m.qualite_officielle && (
+                                      <span className="text-xs text-muted-foreground ml-1">({m.qualite_officielle})</span>
+                                    )}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <p className="font-medium">
+                        {seance.secretaire_seance
+                          ? `${seance.secretaire_seance.prenom} ${seance.secretaire_seance.nom}`
+                          : 'Non désigné'}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs mb-0.5">Publique</p>
@@ -811,16 +998,28 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
                         </Button>
                       )}
                       {nextIncompleteStep.id === 'president' && (
-                        <p className="text-xs text-red-600 flex items-center gap-1.5 bg-red-50 rounded-lg p-2.5">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          Modifiez la séance pour désigner un président (obligatoire — CGCT L2121-10)
-                        </p>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="w-full"
+                          onClick={() => setEditSeanceOpen(true)}
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          Désigner le/la président(e) (obligatoire — CGCT L2121-10)
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
                       )}
                       {nextIncompleteStep.id === 'secretaire' && (
-                        <p className="text-xs text-amber-600 flex items-center gap-1.5 bg-amber-50 rounded-lg p-2.5">
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                          Modifiez la séance pour désigner un secrétaire (non bloquant)
-                        </p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => setEditSeanceOpen(true)}
+                        >
+                          <PenLine className="h-4 w-4 mr-2" />
+                          Désigner le/la secrétaire (recommandé)
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
                       )}
                       {nextIncompleteStep.id === 'convocations' && (
                         <Button
@@ -2440,6 +2639,23 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
         convocataires={seance.convocataires}
         existingProcurations={(seance.procurations || []) as ProcurationItem[]}
       />
+
+      {/* Edit séance dialog (BROUILLON only) */}
+      {canManage && isBrouillon && (
+        <SeanceFormDialog
+          open={editSeanceOpen}
+          onClose={() => setEditSeanceOpen(false)}
+          seance={seanceForEditDialog}
+          instances={allInstances}
+          members={allMembers.map(m => ({
+            id: m.id,
+            prenom: m.prenom,
+            nom: m.nom,
+            role: m.role,
+            qualite_officielle: m.qualite_officielle,
+          }))}
+        />
+      )}
     </div>
   )
 }

@@ -198,6 +198,8 @@ export function SeanceCreationWizard({
   const [mode, setMode] = useState<'PRESENTIEL' | 'HYBRIDE' | 'VISIO'>('PRESENTIEL')
   const [publique, setPublique] = useState(true)
   const [urgence, setUrgence] = useState(false)
+  const [presidentId, setPresidentId] = useState<string>('_auto')
+  const [secretaireId, setSecretaireId] = useState<string>('_auto')
 
   // Step 3: ODJ
   const [odjPoints, setOdjPoints] = useState<WizardODJPoint[]>(getStandardPoints())
@@ -431,6 +433,8 @@ export function SeanceCreationWizard({
       mode,
       publique,
       urgence,
+      presidentId: presidentId === '_auto' ? null : presidentId === '_none' ? null : presidentId,
+      secretaireId: secretaireId === '_auto' ? null : secretaireId === '_none' ? null : secretaireId,
       odjPoints: odjPoints.filter(p => p.titre.trim()),
       convocataireIds: Array.from(selectedMemberIds),
       sendConvocations: sendConvocationsToggle,
@@ -692,6 +696,49 @@ export function SeanceCreationWizard({
                     </Tooltip>
                   </div>
                   <Switch checked={urgence} onCheckedChange={setUrgence} />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Président et secrétaire */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Président(e) de séance</Label>
+                  <MemberCombobox
+                    members={instanceMembersList}
+                    value={presidentId === '_auto' ? (bureauPresident?.id || '') : presidentId}
+                    onChange={(v) => setPresidentId(v === '_none' ? '_none' : v)}
+                    placeholder="Rechercher le/la président(e)..."
+                    emptyLabel="Non désigné"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {presidentId === '_auto' && bureauPresident
+                      ? `Hérité du bureau : ${bureauPresident.prenom} ${bureauPresident.nom}`
+                      : presidentId === '_auto'
+                        ? 'Aucun président dans le bureau — à désigner'
+                        : 'Modifiable après la création'
+                    }
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Secrétaire de séance</Label>
+                  <MemberCombobox
+                    members={instanceMembersList}
+                    value={secretaireId === '_auto' ? (bureauSecretaire?.id || '') : secretaireId}
+                    onChange={(v) => setSecretaireId(v === '_none' ? '_none' : v)}
+                    placeholder="Rechercher le/la secrétaire..."
+                    emptyLabel="Non désigné"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {secretaireId === '_auto' && bureauSecretaire
+                      ? `Hérité du bureau : ${bureauSecretaire.prenom} ${bureauSecretaire.nom}`
+                      : secretaireId === '_auto'
+                        ? 'Aucun secrétaire dans le bureau — non bloquant'
+                        : 'Non bloquant — modifiable après la création'
+                    }
+                  </p>
                 </div>
               </div>
 
@@ -1182,20 +1229,30 @@ export function SeanceCreationWizard({
                 <div className="rounded-lg bg-muted/50 p-3">
                   <p className="text-xs text-muted-foreground mb-1">Président(e) de séance</p>
                   <p className="text-sm font-medium">
-                    {bureauPresident
-                      ? `${bureauPresident.prenom} ${bureauPresident.nom}`
-                      : 'Non désigné dans le bureau'
-                    }
+                    {(() => {
+                      const effectivePresidentId = presidentId === '_auto' ? bureauPresident?.id : presidentId === '_none' ? null : presidentId
+                      if (!effectivePresidentId) return 'Non désigné'
+                      const m = members.find(mb => mb.id === effectivePresidentId)
+                      return m ? `${m.prenom} ${m.nom}` : 'Non désigné'
+                    })()}
                   </p>
+                  {presidentId === '_auto' && bureauPresident && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Hérité du bureau</p>
+                  )}
                 </div>
                 <div className="rounded-lg bg-muted/50 p-3">
                   <p className="text-xs text-muted-foreground mb-1">Secrétaire de séance</p>
                   <p className="text-sm font-medium">
-                    {bureauSecretaire
-                      ? `${bureauSecretaire.prenom} ${bureauSecretaire.nom}`
-                      : 'À désigner'
-                    }
+                    {(() => {
+                      const effectiveSecretaireId = secretaireId === '_auto' ? bureauSecretaire?.id : secretaireId === '_none' ? null : secretaireId
+                      if (!effectiveSecretaireId) return 'À désigner'
+                      const m = members.find(mb => mb.id === effectiveSecretaireId)
+                      return m ? `${m.prenom} ${m.nom}` : 'À désigner'
+                    })()}
                   </p>
+                  {secretaireId === '_auto' && bureauSecretaire && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Hérité du bureau</p>
+                  )}
                 </div>
               </div>
 
@@ -1211,10 +1268,13 @@ export function SeanceCreationWizard({
                       : 'La séance sera créée en brouillon. Envoyez les convocations plus tard.'
                     }
                   </p>
-                  {sendConvocationsToggle && !bureauPresident && (
+                  {sendConvocationsToggle && (() => {
+                    const effectivePresId = presidentId === '_auto' ? bureauPresident?.id : presidentId === '_none' ? null : presidentId
+                    return !effectivePresId
+                  })() && (
                     <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                       <AlertTriangle className="h-3 w-3" />
-                      Aucun président désigné dans le bureau — les convocations ne pourront pas être envoyées automatiquement.
+                      Aucun président désigné — les convocations ne pourront pas être envoyées automatiquement. Désignez un président à l&apos;étape 2.
                     </p>
                   )}
                 </div>
