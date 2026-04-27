@@ -22,7 +22,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Fetch seance with all details
+  // Fetch seance with all details (procurations loaded separately to avoid PostgREST join issues)
   const { data: seance, error: seanceError } = await supabase
     .from('seances')
     .select(`
@@ -38,17 +38,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         member:members (id, prenom, nom, email, role, qualite_officielle)
       ),
       president_effectif:members!seances_president_effectif_seance_id_fkey (id, prenom, nom),
-      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom),
-      procurations (
-        id,
-        mandant_id,
-        mandataire_id,
-        valide,
-        canal_communication,
-        created_at,
-        mandant:members!procurations_mandant_id_fkey (id, prenom, nom, email),
-        mandataire:members!procurations_mandataire_id_fkey (id, prenom, nom, email)
-      )
+      secretaire_seance:members!seances_secretaire_seance_id_fkey (id, prenom, nom)
     `)
     .eq('id', id)
     .single()
@@ -57,6 +47,24 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     console.error('Erreur chargement seance:', seanceError)
     notFound()
   }
+
+  // Load procurations separately (nested FK joins can cause PostgREST issues)
+  const { data: procurationsData } = await supabase
+    .from('procurations')
+    .select(`
+      id,
+      mandant_id,
+      mandataire_id,
+      valide,
+      canal_communication,
+      created_at,
+      mandant:members!procurations_mandant_id_fkey (id, prenom, nom, email),
+      mandataire:members!procurations_mandataire_id_fkey (id, prenom, nom, email)
+    `)
+    .eq('seance_id', id)
+
+  // Attach procurations to seance object
+  const seanceWithProcurations = { ...seance, procurations: procurationsData || [] }
 
   // Sort ODJ by position
   if (seance.odj_points && Array.isArray(seance.odj_points)) {
@@ -104,7 +112,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
 
       <main className="px-4 sm:px-8 py-6 page-enter">
         <SeanceDetail
-          seance={seance}
+          seance={seanceWithProcurations}
           allMembers={allMembers || []}
           instanceMemberIds={(instanceMembers || []).map(im => im.member_id)}
           canManage={canManage}
