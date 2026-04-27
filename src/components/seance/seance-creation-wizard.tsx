@@ -444,12 +444,18 @@ export function SeanceCreationWizard({
       }
 
       if (result.convocationsSent > 0) {
-        toast.success(`Séance créée — ${result.convocationsSent} convocation(s) envoyée(s)`)
+        toast.success(`Séance créée — ${result.convocationsSent} convocation(s) envoyée(s)`, { duration: 5000 })
       } else {
-        toast.success('Séance créée avec succès')
+        toast.success('Séance créée avec succès', { duration: 5000 })
       }
 
-      router.push(`/seances/${result.id}`)
+      // Redirect to séance detail with ODJ tab open + prompt to add documents
+      const hasDocumentablePoints = odjPoints.some(p => p.type_traitement !== 'QUESTION_DIVERSE' && p.type_traitement !== 'INFORMATION')
+      if (hasDocumentablePoints) {
+        toast.info('💡 Pensez à ajouter les documents (rapports, budgets, annexes) à chaque point de l\'ordre du jour.', { duration: 8000 })
+      }
+
+      router.push(`/seances/${result.id}?tab=odj`)
     })
   }
 

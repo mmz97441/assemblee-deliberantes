@@ -436,8 +436,14 @@ export function SeanceDetail({ seance, allMembers, instanceMemberIds, canManage 
   const totalSteps = preparationSteps.length
   const nextIncompleteStep = preparationSteps.find(s => !s.done)
 
-  // Active tab state for navigation from stepper
-  const [activeTab, setActiveTab] = useState('resume')
+  // Active tab state — read initial tab from URL if provided (e.g., ?tab=odj)
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      return params.get('tab') || 'resume'
+    }
+    return 'resume'
+  })
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
