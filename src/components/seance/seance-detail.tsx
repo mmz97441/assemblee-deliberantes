@@ -2062,9 +2062,21 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                 </Button>
               )}
 
-              {/* Écran public & vue président — EN_COURS (conditionné par la config instance) */}
-              {seance.statut === 'EN_COURS' && (
+              {/* Écrans de séance — visibles dès CONVOQUÉE */}
+              {(seance.statut === 'CONVOQUEE' || seance.statut === 'EN_COURS' || seance.statut === 'SUSPENDUE') && (
                 <>
+                  {/* Grande scène (vidéoprojecteur) */}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => window.open(`/seances/${seance.id}/grande-scene`, '_blank')}
+                    title="Ouvrir l'écran vidéoprojecteur pour la salle — affiche le point en cours en grand"
+                  >
+                    <Monitor className="h-4 w-4 mr-2" />
+                    Grande scène (vidéoprojecteur)
+                  </Button>
+
+                  {/* Écran public */}
                   {(seance.instance_config?.ecran_public_active !== false) && (
                     <Button
                       className="w-full"
@@ -2072,14 +2084,16 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                       onClick={() => {
                         const url = `${window.location.origin}/seances/${seance.id}/public`
                         navigator.clipboard.writeText(url)
-                        toast.success('Lien public copié !')
+                        toast.success('Lien écran public copié dans le presse-papier !')
                       }}
                       title="Copier le lien de l'écran public — accessible sans connexion pour affichage en salle ou suivi citoyen"
                     >
                       <Globe className="h-4 w-4 mr-2" />
-                      Lien écran public
+                      Copier lien écran public
                     </Button>
                   )}
+
+                  {/* Vue président */}
                   {(seance.instance_config?.tablette_president_active === true) && (
                     <Button
                       className="w-full"

@@ -227,10 +227,13 @@ export function SeanceCreationWizard({
   }, [selectedInstanceId, instanceMembers])
 
   const instanceMembersList = useMemo(() => {
-    return members.filter(m => instanceMemberIds.has(m.id))
+    const filtered = members.filter(m => instanceMemberIds.has(m.id))
+    // Si aucun membre n'est assigné à l'instance, utiliser tous les membres
+    return filtered.length > 0 ? filtered : members
   }, [members, instanceMemberIds])
 
   const nonInstanceMembers = useMemo(() => {
+    if (instanceMemberIds.size === 0) return [] // Tous les membres sont déjà dans instanceMembersList
     return members.filter(m => !instanceMemberIds.has(m.id))
   }, [members, instanceMemberIds])
 
