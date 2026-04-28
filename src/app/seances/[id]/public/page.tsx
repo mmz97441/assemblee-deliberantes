@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 import { PublicSessionView } from '@/components/seance/public-session-view'
 
 interface Props {
@@ -14,14 +14,18 @@ interface Props {
  * - Un écran dans la salle des délibérations
  * - Un citoyen qui suit la séance depuis son téléphone
  * - Un embed sur un site web
+ *
+ * Utilise le service role car les visiteurs non authentifiés
+ * n'ont pas de session Supabase. La sécurité est assurée par
+ * les gardes applicatives ci-dessous (publique, statut, ecran_public_active).
  */
 export default async function PublicSessionPage({ params }: Props) {
   const { id } = params
 
-  // Utiliser le service role n'est pas nécessaire ici —
-  // on crée un client anonyme (pas de session) pour lire les données publiques.
-  // Les RLS doivent autoriser SELECT anonyme sur ces tables, OU on utilise le server client.
-  const supabase = await createServerSupabaseClient()
+  // Service role nécessaire : les visiteurs publics n'ont pas de session,
+  // et les RLS bloquent les SELECT anonymes. Les gardes de sécurité
+  // sont assurées dans le code (publique, statut, ecran_public_active).
+  const supabase = await createServiceRoleClient()
 
   // Charger la séance avec les données nécessaires (pas de données personnelles)
   const { data: seance, error: seanceError } = await supabase
@@ -72,8 +76,26 @@ export default async function PublicSessionPage({ params }: Props) {
     .single()
 
   if (seanceError || !seance) {
+    // Log l'erreur pour le debugging (visible dans les logs serveur)
+    if (seanceError) {
+      console.error('[Page publique] Erreur chargement séance:', seanceError.message, seanceError.code)
+    }
     notFound()
   }
+
+  // ─── Normalisation des données ───────────────────────────────────────
+  // Le service role client (non typé) peut retourner les relations FK
+  // sous forme d'objet ou de tableau selon la configuration PostgREST.
+  // On normalise pour garantir le bon type.
+  const rawInstanceConfig = seance.instance_config
+  const instanceConfig = Array.isArray(rawInstanceConfig)
+    ? (rawInstanceConfig[0] as { id: string; nom: string; type_legal: string; ecran_public_active?: boolean | null } | undefined) ?? null
+    : (rawInstanceConfig as { id: string; nom: string; type_legal: string; ecran_public_active?: boolean | null } | null)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const odjPoints = (Array.isArray(seance.odj_points) ? seance.odj_points : []) as any[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const votes = (Array.isArray(seance.votes) ? seance.votes : []) as any[]
 
   // ─── SÉCURITÉ : bloquer l'accès aux séances non publiques ───────────
   // Les séances à huis clos (publique === false) ne doivent pas être accessibles
@@ -87,7 +109,6 @@ export default async function PublicSessionPage({ params }: Props) {
   }
 
   // ─── SÉCURITÉ : vérifier que l'écran public est activé pour cette instance ──
-  const instanceConfig = seance.instance_config as { ecran_public_active?: boolean | null } | null
   if (instanceConfig?.ecran_public_active === false) {
     notFound()
   }
@@ -95,11 +116,20 @@ export default async function PublicSessionPage({ params }: Props) {
   // ─── SÉCURITÉ : masquer les descriptions des points à huis clos ──────
   // Le public ne doit pas voir le contenu des points marqués huis clos
   const sanitizedSeance = {
-    ...seance,
-    odj_points: seance.odj_points.map((point) => ({
+    id: seance.id as string,
+    titre: seance.titre as string,
+    date_seance: seance.date_seance as string,
+    statut: seance.statut as string | null,
+    lieu: seance.lieu as string | null,
+    heure_ouverture: seance.heure_ouverture as string | null,
+    heure_cloture: seance.heure_cloture as string | null,
+    publique: seance.publique as boolean | null,
+    instance_config: instanceConfig ? { id: instanceConfig.id, nom: instanceConfig.nom, type_legal: instanceConfig.type_legal } : null,
+    odj_points: odjPoints.map((point) => ({
       ...point,
       description: point.huis_clos ? null : point.description,
     })),
+    votes,
   }
 
   // Compter les présences (pas les noms — vie privée)

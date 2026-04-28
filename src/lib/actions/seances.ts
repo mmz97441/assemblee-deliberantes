@@ -397,7 +397,7 @@ export async function updateSeanceStatut(
     // Validate transition
     const { data: currentSeance } = await supabase
       .from('seances')
-      .select('statut, president_effectif_seance_id')
+      .select('statut, president_effectif_seance_id, date_seance')
       .eq('id', id)
       .single()
 
@@ -457,6 +457,24 @@ export async function updateSeanceStatut(
 
       if (!sentCount || sentCount === 0) {
         return { error: 'Impossible d\'ouvrir la séance : aucune convocation n\'a été effectivement envoyée. Envoyez les convocations depuis l\'onglet « Convocataires » (CGCT L2121-10).' }
+      }
+
+      // Vérifier que la date de la séance n'est pas dépassée.
+      // La séance ne peut être ouverte QUE le jour prévu (jusqu'à 23h59).
+      // Après minuit → date dépassée → reconvocation nécessaire.
+      if (currentSeance?.date_seance) {
+        const seanceDate = new Date(currentSeance.date_seance)
+        const seanceDateOnly = new Date(seanceDate)
+        seanceDateOnly.setHours(0, 0, 0, 0)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        if (today > seanceDateOnly) {
+          const dateStr = seanceDateOnly.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+          return {
+            error: `Cette séance était prévue le ${dateStr}. La date étant dépassée, la séance ne peut plus être ouverte. Créez une nouvelle séance ou reconvoquez.`
+          }
+        }
       }
     }
 

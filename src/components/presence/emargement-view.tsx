@@ -9,6 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,8 +41,10 @@ import {
   MoreVertical,
   UserX,
   Ban,
+  HandMetal,
+  QrCode,
 } from 'lucide-react'
-import { markPresence, markPresenceManual, scanQREmargement } from '@/lib/actions/presences'
+import { markPresenceManual, scanQREmargement } from '@/lib/actions/presences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -141,6 +153,9 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
   const [scanInput, setScanInput] = useState('')
   const [lastScanResult, setLastScanResult] = useState<{ success: boolean; message: string } | null>(null)
 
+  // ─── Confirmation dialog for manual check-in (mode assisté) ───────────
+  const [manualConfirmMember, setManualConfirmMember] = useState<MemberInfo | null>(null)
+
   // ─── Realtime subscription for live émargement updates ──────────────────
   const { isConnected: isRealtimeConnected } = useRealtime({
     channel: `emargement-${seance.id}`,
@@ -222,20 +237,31 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
     })
   }
 
-  // ─── Manual presence (gestionnaire checks in a member) ────────────────
-  function handleManualCheckIn(member: MemberInfo) {
+  // ─── Manual presence (gestionnaire checks in a member — mode assisté) ──
+  // Sécurité : requiert un dialog de confirmation pour éviter le pointage
+  // accidentel sans scan QR. Le mode assisté est tracé dans l'audit_log.
+  function handleManualCheckInRequest(member: MemberInfo) {
     const existing = presenceMap.get(member.id)
     // If already present, don't re-mark (use the dropdown for status changes)
     if (existing?.statut === 'PRESENT') {
       return
     }
+    // Open confirmation dialog instead of marking directly
+    setManualConfirmMember(member)
+  }
+
+  function handleManualCheckInConfirmed() {
+    if (!manualConfirmMember) return
+    const member = manualConfirmMember
+    setManualConfirmMember(null)
 
     startTransition(async () => {
-      const result = await markPresence(seance.id, member.id, null, 'PRESENT')
+      // Use markPresenceManual which sets mode_authentification = 'ASSISTE'
+      const result = await markPresenceManual(seance.id, member.id, 'PRESENT')
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success(`${member.prenom} ${member.nom} — Présent(e) ✓`, { duration: 2000 })
+        toast.success(`${member.prenom} ${member.nom} — Pointage manuel (mode assisté) ✓`, { duration: 3000 })
         router.refresh()
       }
     })
@@ -697,9 +723,11 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                 `}
               >
                 {/* Click zone for check-in (only if not already present) */}
+                {/* Sécurité : le clic ouvre un dialog de confirmation (mode assisté) */}
+                {/* Le scan QR reste le mode principal d'émargement */}
                 {!isPresent && !isExcuse && !isProcuration ? (
                   <button
-                    onClick={() => handleManualCheckIn(member)}
+                    onClick={() => handleManualCheckInRequest(member)}
                     disabled={isPending}
                     className="flex flex-col items-center gap-2 w-full active:scale-95 transition-transform"
                   >
@@ -713,7 +741,10 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                         <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{member.qualite_officielle}</p>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Appuyez pour pointer</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <HandMetal className="h-3 w-3" />
+                      Pointage manuel
+                    </p>
                   </button>
                 ) : (
                   <>
@@ -732,12 +763,33 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
                         <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">{member.qualite_officielle}</p>
                       )}
                     </div>
-                    {isPresent && arrivalTime && (
-                      <p className="text-[10px] text-emerald-600 flex items-center gap-1" suppressHydrationWarning>
-                        <Clock className="h-2.5 w-2.5" />
-                        {arrivalTime}
-                        {hasSigned && <PenLine className="h-2.5 w-2.5 ml-1" />}
-                      </p>
+                    {isPresent && (
+                      <div className="flex flex-col items-center gap-1">
+                        {arrivalTime && (
+                          <p className="text-[10px] text-emerald-600 flex items-center gap-1" suppressHydrationWarning>
+                            <Clock className="h-2.5 w-2.5" />
+                            {arrivalTime}
+                            {hasSigned && <PenLine className="h-2.5 w-2.5 ml-1" />}
+                          </p>
+                        )}
+                        {/* Badge mode d'authentification : QR scanné vs Pointage manuel */}
+                        {presence?.mode_authentification === 'QR_CODE' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-[9px] font-medium" title="Présence vérifiée par scan QR">
+                            <QrCode className="h-2.5 w-2.5" />
+                            QR scanné
+                          </span>
+                        ) : presence?.mode_authentification === 'ASSISTE' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-[9px] font-medium" title="Présence enregistrée manuellement par le gestionnaire (mode assisté)">
+                            <HandMetal className="h-2.5 w-2.5" />
+                            Pointage manuel
+                          </span>
+                        ) : presence?.mode_authentification === 'WEBAUTHN' ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-[9px] font-medium" title="Présence vérifiée par empreinte biométrique">
+                            <Shield className="h-2.5 w-2.5" />
+                            Biométrique
+                          </span>
+                        ) : null}
+                      </div>
                     )}
                   </>
                 )}
@@ -819,6 +871,45 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
           </div>
         )}
       </main>
+
+      {/* ─── Dialog de confirmation pour le pointage manuel (mode assisté) ─── */}
+      <AlertDialog
+        open={!!manualConfirmMember}
+        onOpenChange={(open) => { if (!open) setManualConfirmMember(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <HandMetal className="h-5 w-5 text-amber-600" />
+              Pointage manuel — mode assisté
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Vous allez marquer <strong className="text-foreground">{manualConfirmMember?.prenom} {manualConfirmMember?.nom}</strong> comme présent(e) <strong className="text-amber-700">sans scan QR</strong>.
+                </p>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                  <p className="font-medium mb-1">Mode assisté :</p>
+                  <p>Le gestionnaire identifie visuellement la personne et valide manuellement sa présence. Ce mode est tracé dans le registre d&apos;émargement.</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Privilégiez le scan QR (onglet « Scanner QR ») pour une traçabilité optimale.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleManualCheckInConfirmed}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <HandMetal className="h-4 w-4 mr-2" />
+              Confirmer le pointage manuel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
