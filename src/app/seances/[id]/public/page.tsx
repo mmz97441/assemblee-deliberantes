@@ -76,11 +76,16 @@ export default async function PublicSessionPage({ params }: Props) {
     .single()
 
   if (seanceError || !seance) {
-    // Log l'erreur pour le debugging (visible dans les logs serveur)
-    if (seanceError) {
-      console.error('[Page publique] Erreur chargement séance:', seanceError.message, seanceError.code)
-    }
-    notFound()
+    // DEBUG temporaire — afficher l'erreur au lieu de 404
+    return (
+      <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
+        <h1 style={{ color: 'red' }}>DEBUG — Erreur page publique</h1>
+        <p><strong>ID :</strong> {id}</p>
+        <p><strong>Erreur :</strong> {seanceError?.message || 'Aucune donnée retournée'}</p>
+        <p><strong>Code :</strong> {seanceError?.code || 'null'}</p>
+        <p><strong>Details :</strong> {JSON.stringify(seanceError, null, 2)}</p>
+      </div>
+    )
   }
 
   // ─── Normalisation des données ───────────────────────────────────────

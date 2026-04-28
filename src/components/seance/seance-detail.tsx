@@ -2032,16 +2032,25 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                 </Button>
               )}
 
-              {seance.statut === 'CONVOQUEE' && (
-                <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 btn-press"
-                  onClick={() => setStatusChangeDialog('EN_COURS')}
-                  disabled={isPending}
-                >
-                  <Clock className="h-4 w-4 mr-2" />
-                  Ouvrir la seance
-                </Button>
-              )}
+              {seance.statut === 'CONVOQUEE' && (() => {
+                const seanceDateOnly = new Date(seance.date_seance)
+                seanceDateOnly.setHours(0, 0, 0, 0)
+                const todayOnly = new Date()
+                todayOnly.setHours(0, 0, 0, 0)
+                const isDatePassed = todayOnly > seanceDateOnly
+
+                return (
+                  <Button
+                    className={`w-full btn-press ${isDatePassed ? 'bg-muted text-muted-foreground' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    onClick={() => isDatePassed ? toast.error('La date de cette séance est dépassée. Créez une nouvelle séance ou reconvoquez.') : setStatusChangeDialog('EN_COURS')}
+                    disabled={isPending}
+                    title={isDatePassed ? 'La date de cette séance est dépassée — reconvocation nécessaire' : 'Ouvrir la séance'}
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    {isDatePassed ? 'Date dépassée' : 'Ouvrir la séance'}
+                  </Button>
+                )
+              })()}
 
               {/* Conduct session — EN_COURS */}
               {seance.statut === 'EN_COURS' && (
