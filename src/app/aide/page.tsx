@@ -17,6 +17,7 @@ import { GuideGestionnaire } from '@/components/aide/guide-gestionnaire'
 import { GuideElu } from '@/components/aide/guide-elu'
 import { GuidePresident } from '@/components/aide/guide-president'
 import { GuideSecretaire } from '@/components/aide/guide-secretaire'
+import { Glossaire } from '@/components/aide/glossaire'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,10 +81,10 @@ const ROLE_CARDS: RoleCard[] = [
 ]
 
 const ROLE_TITLES: Record<RoleKey, string> = {
-  gestionnaire: 'Guide rapide — Gestionnaire',
-  elu: 'Guide rapide — Élu / Membre votant',
-  president: 'Guide rapide — Président(e)',
-  secretaire: 'Guide rapide — Secrétaire de séance',
+  gestionnaire: 'Guide complet — Gestionnaire',
+  elu: 'Guide complet — Élu / Membre votant',
+  president: 'Guide complet — Président(e)',
+  secretaire: 'Guide complet — Secrétaire de séance',
 }
 
 const ROLE_EMOJIS: Record<RoleKey, string> = {
@@ -351,6 +352,11 @@ export default function AidePage() {
               </p>
             </div>
           )}
+        </section>
+
+        {/* ─── Glossaire ──────────────────────────────────────────────── */}
+        <section className="mt-12 print:break-before-page">
+          <Glossaire />
         </section>
 
         {/* ─── Footer ─────────────────────────────────────────────────── */}

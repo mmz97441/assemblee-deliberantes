@@ -139,7 +139,9 @@ import { createProcuration, revokeProcuration } from '@/lib/actions/procurations
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow, InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
 import { SeanceFormDialog } from '@/components/seance/seance-form'
+import { HelpTip } from '@/components/ui/help-tip'
 import { SEANCE_STATUT_CONFIG } from '@/lib/constants'
+import { HELP_TEXTS } from '@/lib/constants/help-texts'
 import { formatDate, formatTime, formatRelativeDate } from '@/lib/utils/format-date'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -669,7 +671,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="convocations">
+              <TabsTrigger value="convocations" title={HELP_TEXTS.convocations_section}>
                 Convocations
                 {seance.convocataires.length > 0 && (
                   <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
@@ -677,7 +679,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="procurations">
+              <TabsTrigger value="procurations" title={HELP_TEXTS.procurations_tab}>
                 Procurations
                 {seance.procurations && (seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length > 0 && (
                   <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
@@ -917,6 +919,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                     <h3 className="text-sm font-semibold flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-institutional-blue" />
                       Préparation de la séance
+                      <HelpTip text={HELP_TEXTS.preparation_seance} />
                     </h3>
                     <span className="text-xs text-muted-foreground font-medium">
                       {completedSteps}/{totalSteps} étapes
@@ -1140,6 +1143,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
                     Convocations
+                    <HelpTip text={HELP_TEXTS.convocations_section} />
                     {convocationStats.nonEnvoyes > 0 && (
                       <Badge variant="outline" className="ml-1 bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-medium">
                         {convocationStats.nonEnvoyes} non envoyée{convocationStats.nonEnvoyes > 1 ? 's' : ''}
@@ -1833,6 +1837,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   <h2 className="text-lg font-semibold flex items-center gap-2">
                     <Handshake className="h-5 w-5 text-muted-foreground" />
                     Procurations
+                    <HelpTip text={HELP_TEXTS.procurations_tab} />
                   </h2>
                   {canManage && (
                     <Button size="sm" onClick={() => setProcurationDialogOpen(true)}>

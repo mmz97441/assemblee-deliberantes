@@ -774,7 +774,7 @@ export function SeanceCreationWizard({
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        Copier l&apos;ordre du jour de la dernière séance : {lastSeance.titre}
+                        {HELP_TEXTS.copier_derniere_seance} ({lastSeance.titre})
                       </TooltipContent>
                     </Tooltip>
                   )}

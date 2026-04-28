@@ -88,6 +88,8 @@ import { createClient } from '@/lib/supabase/client'
 import { LateArrivalBanner } from '@/components/seance/late-arrival-banner'
 import { SecretaryDesignation } from '@/components/seance/secretary-designation'
 import { PVApprovalBanner } from '@/components/seance/pv-approval-banner'
+import { HelpTip } from '@/components/ui/help-tip'
+import { HELP_TEXTS } from '@/lib/constants/help-texts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1055,6 +1057,7 @@ export function SessionConductor({ seance, instanceMemberCount, recusations = []
                       <h3 className="text-sm font-semibold flex items-center gap-1.5">
                         <UserMinus className="h-4 w-4 text-amber-600" />
                         Récusations (conflits d&apos;intérêt)
+                        <HelpTip text={HELP_TEXTS.recusation} />
                         {currentRecusations.length > 0 && (
                           <Badge className="bg-amber-100 text-amber-700 border-0 text-xs ml-1">
                             {currentRecusations.length}

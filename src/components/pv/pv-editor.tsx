@@ -62,6 +62,8 @@ import {
 } from '@/lib/actions/pv'
 import { improvePVSection } from '@/lib/actions/ai-pv'
 import { designateSeanceOfficer } from '@/lib/actions/phase2-features'
+import { HelpTip } from '@/components/ui/help-tip'
+import { HELP_TEXTS } from '@/lib/constants/help-texts'
 import {
   Select,
   SelectContent,
@@ -1259,21 +1261,24 @@ function StepDiscussions({
                   rows={4}
                   className="text-sm resize-y min-h-[100px]"
                 />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onImproveDiscussion(currentPointIndex)}
-                  disabled={aiLoadingPoint === currentPointIndex}
-                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
-                >
-                  {aiLoadingPoint === currentPointIndex ? (
-                    <><Loader2 className="h-3 w-3 animate-spin" /> Reformulation en cours...</>
-                  ) : point.discussion ? (
-                    <><Sparkles className="h-3 w-3" /> Reformuler avec l&apos;IA</>
-                  ) : (
-                    <><Sparkles className="h-3 w-3" /> Suggérer un texte</>
-                  )}
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onImproveDiscussion(currentPointIndex)}
+                    disabled={aiLoadingPoint === currentPointIndex}
+                    className="gap-1.5 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
+                  >
+                    {aiLoadingPoint === currentPointIndex ? (
+                      <><Loader2 className="h-3 w-3 animate-spin" /> Reformulation en cours...</>
+                    ) : point.discussion ? (
+                      <><Sparkles className="h-3 w-3" /> Reformuler avec l&apos;IA</>
+                    ) : (
+                      <><Sparkles className="h-3 w-3" /> Suggérer un texte</>
+                    )}
+                  </Button>
+                  <HelpTip text={HELP_TEXTS.reformuler_ia} />
+                </div>
               </div>
             ) : (
               point.discussion ? (
@@ -1581,7 +1586,10 @@ function StepFinaliser({
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 mb-4">
           <CheckCircle2 className="h-8 w-8 text-emerald-600" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Le procès-verbal est prêt</h2>
+        <div className="flex items-center justify-center gap-2">
+          <h2 className="text-xl font-semibold mb-2">Le procès-verbal est prêt</h2>
+          <HelpTip text={HELP_TEXTS.finaliser_pv} className="mb-2" />
+        </div>
         <p className="text-muted-foreground text-sm max-w-md mx-auto">
           Vous avez terminé la rédaction. Envoyez les notifications pour inviter
           le président et le secrétaire à signer.

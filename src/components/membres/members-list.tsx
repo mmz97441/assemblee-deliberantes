@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/alert-dialog'
 import { MemberFormDialog } from './member-form'
 import { MemberImportDialog } from './member-import'
+import { HelpTip } from '@/components/ui/help-tip'
+import { HELP_TEXTS } from '@/lib/constants/help-texts'
 import { toggleMemberStatus, sendMemberInvitation } from '@/lib/actions/members'
 import type { MemberWithInstances } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole, MemberStatut } from '@/lib/supabase/types'
@@ -302,7 +304,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
               <TableRow>
                 <TableHead className="w-[280px]">Membre</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Rôle</TableHead>
+                <TableHead><span className="flex items-center gap-1">Rôle<HelpTip text={HELP_TEXTS.role_membre} /></span></TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead>Instances</TableHead>
                 {canManage && <TableHead className="w-[50px]" />}

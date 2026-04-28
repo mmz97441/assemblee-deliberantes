@@ -50,6 +50,8 @@ import {
 } from '@/lib/actions/deliberations'
 import type { InstanceConfigRow } from '@/lib/supabase/types'
 import { VOTE_RESULTAT_CONFIG } from '@/lib/constants'
+import { HelpTip } from '@/components/ui/help-tip'
+import { HELP_TEXTS } from '@/lib/constants/help-texts'
 import { formatShortDate, formatDateNumeric } from '@/lib/utils/format-date'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -666,13 +668,13 @@ function DeliberationCard({
                 </span>
               )}
               {delib.affiche_at && (
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1" title={HELP_TEXTS.affichage_deliberation}>
                   <Megaphone className="h-3.5 w-3.5 text-emerald-600" />
                   Affichée le {formatDateShort(delib.affiche_at)}
                 </span>
               )}
               {delib.transmis_prefecture_at && (
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1" title={HELP_TEXTS.transmission_prefecture}>
                   <Send className="h-3.5 w-3.5 text-purple-600" />
                   Transmise le {formatDateShort(delib.transmis_prefecture_at)}
                 </span>
@@ -681,15 +683,17 @@ function DeliberationCard({
 
             {/* Warnings */}
             {showAffichageWarning && (
-              <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1">
+              <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1" title={HELP_TEXTS.affichage_deliberation}>
                 <Clock className="h-3 w-3" />
                 Affichage en attente depuis plus de 24h
+                <HelpTip text={HELP_TEXTS.affichage_deliberation} />
               </div>
             )}
             {showTransmissionWarning && (
-              <div className="mt-2 ml-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1">
+              <div className="mt-2 ml-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 inline-flex items-center gap-1" title={HELP_TEXTS.transmission_prefecture}>
                 <Clock className="h-3 w-3" />
                 Transmission en attente depuis plus de 10 jours
+                <HelpTip text={HELP_TEXTS.transmission_prefecture} />
               </div>
             )}
 
