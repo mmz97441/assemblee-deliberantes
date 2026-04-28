@@ -15,6 +15,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  HelpCircle,
 } from 'lucide-react'
 import { useState } from 'react'
 import { logoutAction } from '@/lib/auth/actions'
@@ -171,6 +172,28 @@ export function AppSidebar({ userFullName, userRole, mobile, onNavigate, collaps
           )
         })}
       </nav>
+
+      {/* Aide link */}
+      <div className="px-3 pb-1">
+        <Tooltip delayDuration={0}>
+          <TooltipTrigger asChild>
+            <Link
+              href="/aide"
+              onClick={handleNavClick}
+              className={`sidebar-link w-full ${isCollapsed ? 'justify-center px-0' : ''}`}
+              title="Centre d'aide"
+            >
+              <HelpCircle className="h-[18px] w-[18px] shrink-0" />
+              {!isCollapsed && <span>Aide</span>}
+            </Link>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent side="right" sideOffset={8}>
+              <p>{"Centre d'aide"}</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </div>
 
       {/* Collapse toggle — desktop only */}
       {!mobile && (

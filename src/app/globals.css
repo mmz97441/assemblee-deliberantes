@@ -245,6 +245,46 @@
     page-break-inside: avoid;
   }
 
+  /* ─── Aide / Help center print styles ─────────────────────────────────── */
+
+  /* Guide steps: keep step blocks together */
+  #guide-gestionnaire > div,
+  #guide-elu > div,
+  #guide-president > div,
+  #guide-secretaire > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Astuce boxes: preserve blue background */
+  #guide-gestionnaire .bg-blue-50,
+  #guide-elu .bg-blue-50,
+  #guide-president .bg-blue-50,
+  #guide-secretaire .bg-blue-50 {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background-color: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+  }
+
+  /* Time-saved boxes: preserve green gradient */
+  .from-emerald-50 {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #ecfdf5 !important;
+    border: 1px solid #a7f3d0 !important;
+  }
+
+  /* Step numbers: visible circle in print */
+  #guide-gestionnaire span[class*="rounded-full"],
+  #guide-elu span[class*="rounded-full"],
+  #guide-president span[class*="rounded-full"],
+  #guide-secretaire span[class*="rounded-full"] {
+    border: 2px solid #1e3a5f !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* Page margins */
   @page {
     margin: 2cm;
