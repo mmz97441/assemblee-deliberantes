@@ -1,8 +1,22 @@
 export const dynamic = 'force-dynamic'
 
-import { notFound } from 'next/navigation'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { PublicSessionView } from '@/components/seance/public-session-view'
+
+// DEBUG temporaire : panneau d'erreur verbeux à la place de notFound()
+function DebugPanel(props: { title: string; data: Record<string, unknown> }) {
+  return (
+    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: 900, margin: '0 auto' }}>
+      <h1 style={{ color: '#b91c1c' }}>DEBUG — {props.title}</h1>
+      <pre style={{ background: '#f3f4f6', padding: '1rem', borderRadius: 8, whiteSpace: 'pre-wrap' }}>
+        {JSON.stringify(props.data, null, 2)}
+      </pre>
+      <p style={{ color: '#6b7280', marginTop: '1rem' }}>
+        Cette page de debug est temporaire. Retire-la quand le bug est résolu.
+      </p>
+    </div>
+  )
+}
 
 interface Props {
   params: { id: string }
@@ -107,15 +121,22 @@ export default async function PublicSessionPage({ params }: Props) {
   // Les séances en BROUILLON ne doivent pas être visibles publiquement
   const ALLOWED_PUBLIC_STATUTS = ['CONVOQUEE', 'EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE']
   if (seance.publique === false) {
-    notFound()
+    return <DebugPanel title="Bloqué — seance.publique === false" data={{
+      id, publique: seance.publique, statut: seance.statut, titre: seance.titre,
+    }} />
   }
-  if (!seance.statut || !ALLOWED_PUBLIC_STATUTS.includes(seance.statut)) {
-    notFound()
+  if (!seance.statut || !ALLOWED_PUBLIC_STATUTS.includes(seance.statut as string)) {
+    return <DebugPanel title="Bloqué — statut non autorisé" data={{
+      id, statut: seance.statut, allowed: ALLOWED_PUBLIC_STATUTS,
+      publique: seance.publique, titre: seance.titre,
+    }} />
   }
 
   // ─── SÉCURITÉ : vérifier que l'écran public est activé pour cette instance ──
   if (instanceConfig?.ecran_public_active === false) {
-    notFound()
+    return <DebugPanel title="Bloqué — ecran_public_active === false" data={{
+      id, instance: instanceConfig, statut: seance.statut, publique: seance.publique,
+    }} />
   }
 
   // ─── SÉCURITÉ : masquer les descriptions des points à huis clos ──────
