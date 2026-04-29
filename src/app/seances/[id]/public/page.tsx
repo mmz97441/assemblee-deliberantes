@@ -35,13 +35,16 @@ interface Props {
  */
 export default async function PublicSessionPage({ params }: Props) {
   const { id } = params
-
+  let step = 'init'
+  try {
+  step = 'createServiceRoleClient'
   // Service role nécessaire : les visiteurs publics n'ont pas de session,
   // et les RLS bloquent les SELECT anonymes. Les gardes de sécurité
   // sont assurées dans le code (publique, statut, ecran_public_active).
   const supabase = await createServiceRoleClient()
 
   // Charger la séance avec les données nécessaires (pas de données personnelles)
+  step = 'query seances'
   const { data: seance, error: seanceError } = await supabase
     .from('seances')
     .select(`
@@ -159,25 +162,32 @@ export default async function PublicSessionPage({ params }: Props) {
   }
 
   // Compter les présences (pas les noms — vie privée)
-  const { count: presenceCount } = await supabase
+  step = 'count presences'
+  const { count: presenceCount, error: presenceError } = await supabase
     .from('presences')
     .select('*', { count: 'exact', head: true })
     .eq('seance_id', id)
     .in('statut', ['PRESENT', 'PROCURATION'])
+  if (presenceError) throw new Error(`presences: ${presenceError.message} (code=${presenceError.code})`)
 
   // Compter le total de convocataires
-  const { count: totalConvocataires } = await supabase
+  step = 'count convocataires'
+  const { count: totalConvocataires, error: convocError } = await supabase
     .from('convocataires')
     .select('*', { count: 'exact', head: true })
     .eq('seance_id', id)
+  if (convocError) throw new Error(`convocataires: ${convocError.message} (code=${convocError.code})`)
 
   // Nom de l'institution
-  const { data: institution } = await supabase
+  step = 'query institution_config'
+  const { data: institution, error: institutionError } = await supabase
     .from('institution_config')
     .select('nom_officiel')
     .limit(1)
     .maybeSingle()
+  if (institutionError) throw new Error(`institution_config: ${institutionError.message} (code=${institutionError.code})`)
 
+  step = 'render PublicSessionView'
   return (
     <PublicSessionView
       seance={sanitizedSeance}
@@ -186,4 +196,14 @@ export default async function PublicSessionPage({ params }: Props) {
       totalConvocataires={totalConvocataires || 0}
     />
   )
+  } catch (e) {
+    const err = e as Error
+    return <DebugPanel title={`Exception @ ${step}`} data={{
+      id,
+      step,
+      message: err?.message ?? String(err),
+      name: err?.name,
+      stack: err?.stack?.split('\n').slice(0, 25),
+    }} />
+  }
 }
