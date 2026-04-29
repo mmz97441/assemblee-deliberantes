@@ -139,6 +139,7 @@ import { createProcuration, revokeProcuration } from '@/lib/actions/procurations
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow, InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
 import { SeanceFormDialog } from '@/components/seance/seance-form'
+import { PublicVisibilityToggle } from '@/components/seance/public-visibility-toggle'
 import { HelpTip } from '@/components/ui/help-tip'
 import { SEANCE_STATUT_CONFIG } from '@/lib/constants'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
@@ -892,8 +893,19 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                     )}
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs mb-0.5">Publique</p>
-                    <p className="font-medium">{seance.publique ? 'Oui' : 'Non (huis clos)'}</p>
+                    <div className="flex items-center gap-1 mb-1">
+                      <p className="text-muted-foreground text-xs">Publique</p>
+                      <HelpTip text={HELP_TEXTS.seance_publique} />
+                    </div>
+                    {canManage ? (
+                      <PublicVisibilityToggle
+                        seanceId={seance.id}
+                        initialValue={seance.publique !== false}
+                        statut={seance.statut}
+                      />
+                    ) : (
+                      <p className="font-medium">{seance.publique ? 'Oui' : 'Non (huis clos)'}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-muted-foreground text-xs mb-0.5">Instance</p>

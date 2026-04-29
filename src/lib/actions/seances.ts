@@ -368,6 +368,49 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
   }
 }
 
+// ─── Toggle rapide du flag "publique" (huis clos ↔ public) ──────────────────
+// Action dédiée car updateSeance verrouille `publique` après convocation.
+// Ce flag peut légitimement être basculé à tout moment avant clôture
+// (ex: décision en amont de séance de passer à huis clos sur un sujet sensible).
+export async function toggleSeancePublique(
+  id: string,
+  publique: boolean
+): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president'])
+    if (roleError) return { error: roleError }
+
+    if (!id) return { error: 'ID de la séance manquant' }
+
+    const { data: currentSeance } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', id)
+      .single()
+
+    if (!currentSeance) return { error: 'Séance introuvable' }
+    if (['CLOTUREE', 'ARCHIVEE'].includes(currentSeance.statut || '')) {
+      return { error: 'Cette séance est clôturée — impossible de modifier la visibilité publique.' }
+    }
+
+    const { error } = await supabase
+      .from('seances')
+      .update({ publique })
+      .eq('id', id)
+
+    if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+    revalidatePath(ROUTES.SEANCES)
+    revalidatePath(`${ROUTES.SEANCES}/${id}`)
+    revalidatePath(`${ROUTES.SEANCES}/${id}/public`)
+    return { success: true }
+  } catch (err) {
+    console.error('toggleSeancePublique error:', err)
+    return { error: 'Erreur inattendue lors du changement de visibilité' }
+  }
+}
+
 // ─── Changement de statut ────────────────────────────────────────────────────
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
