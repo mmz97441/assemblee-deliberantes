@@ -82,7 +82,8 @@
       "Bash(sed -i '' 's/odj_points \\(\\\\*, vu/odj_points!odj_points_seance_id_fkey \\(*, vu/g' src/lib/actions/pv.ts)",
       "Bash(sed -i '' 's/'\\\\''odj_points \\(\\\\*\\), convocataires/'\\\\''odj_points!odj_points_seance_id_fkey \\(*\\), convocataires/g' src/lib/actions/seances.ts)",
       "Bash(sed -i '' 's/odj_points \\(position, titre, type_traitement\\)/odj_points!odj_points_seance_id_fkey \\(position, titre, type_traitement\\)/g' src/lib/actions/convocations.ts)",
-      "Bash(sed -i '' 's/odj_points \\(id, titre, description, type_traitement, rapporteur_id\\)/odj_points!odj_points_seance_id_fkey \\(id, titre, description, type_traitement, rapporteur_id\\)/g' src/lib/actions/deliberations.ts)"
+      "Bash(sed -i '' 's/odj_points \\(id, titre, description, type_traitement, rapporteur_id\\)/odj_points!odj_points_seance_id_fkey \\(id, titre, description, type_traitement, rapporteur_id\\)/g' src/lib/actions/deliberations.ts)",
+      "Bash(node -e \"console.log\\(/^\\\\/seances\\\\/[^/]+\\\\/public$/.test\\('/seances/72215f32-6713-4fde-9c64-9ffce6b884cd/public'\\)\\)\")"
     ]
   }
 }
