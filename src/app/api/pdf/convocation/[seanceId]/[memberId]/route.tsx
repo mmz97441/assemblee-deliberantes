@@ -103,10 +103,10 @@ export async function GET(
       .limit(1)
       .single()
 
-    // Load ODJ points
+    // Load ODJ points (note_synthese inclus pour CGCT L2121-12)
     const { data: odjPoints } = await supabase
       .from('odj_points')
-      .select('position, titre, type_traitement')
+      .select('position, titre, type_traitement, note_synthese')
       .eq('seance_id', seanceId)
       .order('position', { ascending: true })
 
@@ -170,6 +170,7 @@ export async function GET(
         position: p.position,
         titre: p.titre,
         type: p.type_traitement || 'INFORMATION',
+        note_synthese: p.note_synthese,
       })),
       qrCodeUrl,
       dateFait,

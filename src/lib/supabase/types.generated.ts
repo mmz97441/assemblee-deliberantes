@@ -1,7 +1,3 @@
-// Types generes automatiquement depuis Supabase
-// NE PAS MODIFIER A LA MAIN — regenerer avec: npx supabase gen types typescript --project-id rvcyxgtqxqzmqecerjvy
-// Derniere generation: 2026-03-20
-
 export type Json =
   | string
   | number
@@ -162,6 +158,7 @@ export type Database = {
           canal_communication: string | null
           confirme_at: string | null
           created_at: string | null
+          emargement_scanne_at: string | null
           envoye_at: string | null
           erreur_detail: string | null
           id: string
@@ -173,7 +170,6 @@ export type Database = {
             | null
           token_confirmation: string | null
           token_emargement: string | null
-          emargement_scanne_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -181,6 +177,7 @@ export type Database = {
           canal_communication?: string | null
           confirme_at?: string | null
           created_at?: string | null
+          emargement_scanne_at?: string | null
           envoye_at?: string | null
           erreur_detail?: string | null
           id?: string
@@ -192,7 +189,6 @@ export type Database = {
             | null
           token_confirmation?: string | null
           token_emargement?: string | null
-          emargement_scanne_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -200,6 +196,7 @@ export type Database = {
           canal_communication?: string | null
           confirme_at?: string | null
           created_at?: string | null
+          emargement_scanne_at?: string | null
           envoye_at?: string | null
           erreur_detail?: string | null
           id?: string
@@ -211,7 +208,6 @@ export type Database = {
             | null
           token_confirmation?: string | null
           token_emargement?: string | null
-          emargement_scanne_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -309,51 +305,51 @@ export type Database = {
       }
       device_sessions: {
         Row: {
-          id: string
-          seance_id: string
-          member_id: string
-          device_fingerprint: string
+          active: boolean | null
           auth_method: string
           authenticated_at: string | null
-          webauthn_credential_id: string | null
-          active: boolean | null
           created_at: string | null
+          device_fingerprint: string
+          id: string
+          member_id: string
+          seance_id: string
+          webauthn_credential_id: string | null
         }
         Insert: {
-          id?: string
-          seance_id: string
-          member_id: string
-          device_fingerprint: string
+          active?: boolean | null
           auth_method?: string
           authenticated_at?: string | null
-          webauthn_credential_id?: string | null
-          active?: boolean | null
           created_at?: string | null
+          device_fingerprint: string
+          id?: string
+          member_id: string
+          seance_id: string
+          webauthn_credential_id?: string | null
         }
         Update: {
-          id?: string
-          seance_id?: string
-          member_id?: string
-          device_fingerprint?: string
+          active?: boolean | null
           auth_method?: string
           authenticated_at?: string | null
-          webauthn_credential_id?: string | null
-          active?: boolean | null
           created_at?: string | null
+          device_fingerprint?: string
+          id?: string
+          member_id?: string
+          seance_id?: string
+          webauthn_credential_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "device_sessions_seance_id_fkey"
-            columns: ["seance_id"]
-            isOneToOne: false
-            referencedRelation: "seances"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "device_sessions_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_sessions_seance_id_fkey"
+            columns: ["seance_id"]
+            isOneToOne: false
+            referencedRelation: "seances"
             referencedColumns: ["id"]
           },
         ]
@@ -505,8 +501,11 @@ export type Database = {
           logo_url: string | null
           longueur_mdp_min: number | null
           nom_officiel: string
+          note_synthese_obligatoire: boolean | null
+          note_synthese_seuil_population: number | null
           numero_depart: number | null
           otp_expiration_minutes: number | null
+          population_habitants: number | null
           prefecture_rattachement: string | null
           prefixe_numero_deliberation: string | null
           remise_zero_annuelle: boolean | null
@@ -531,8 +530,11 @@ export type Database = {
           logo_url?: string | null
           longueur_mdp_min?: number | null
           nom_officiel: string
+          note_synthese_obligatoire?: boolean | null
+          note_synthese_seuil_population?: number | null
           numero_depart?: number | null
           otp_expiration_minutes?: number | null
+          population_habitants?: number | null
           prefecture_rattachement?: string | null
           prefixe_numero_deliberation?: string | null
           remise_zero_annuelle?: boolean | null
@@ -557,8 +559,11 @@ export type Database = {
           logo_url?: string | null
           longueur_mdp_min?: number | null
           nom_officiel?: string
+          note_synthese_obligatoire?: boolean | null
+          note_synthese_seuil_population?: number | null
           numero_depart?: number | null
           otp_expiration_minutes?: number | null
+          population_habitants?: number | null
           prefecture_rattachement?: string | null
           prefixe_numero_deliberation?: string | null
           remise_zero_annuelle?: boolean | null
@@ -722,8 +727,11 @@ export type Database = {
       odj_points: {
         Row: {
           ajout_en_seance: boolean | null
+          articles: Json | null
+          considerant: string | null
           created_at: string | null
           description: string | null
+          discussion: string | null
           documents: Json | null
           huis_clos: boolean | null
           huis_clos_active: boolean | null
@@ -731,6 +739,7 @@ export type Database = {
           majorite_requise:
             | Database["public"]["Enums"]["majorite_requise"]
             | null
+          note_synthese: string | null
           notes_seance: string | null
           position: number
           projet_deliberation: string | null
@@ -743,11 +752,15 @@ export type Database = {
           type_traitement: Database["public"]["Enums"]["odj_point_type"] | null
           updated_at: string | null
           votes_interdits: boolean | null
+          vu: string | null
         }
         Insert: {
           ajout_en_seance?: boolean | null
+          articles?: Json | null
+          considerant?: string | null
           created_at?: string | null
           description?: string | null
+          discussion?: string | null
           documents?: Json | null
           huis_clos?: boolean | null
           huis_clos_active?: boolean | null
@@ -755,6 +768,7 @@ export type Database = {
           majorite_requise?:
             | Database["public"]["Enums"]["majorite_requise"]
             | null
+          note_synthese?: string | null
           notes_seance?: string | null
           position: number
           projet_deliberation?: string | null
@@ -767,11 +781,15 @@ export type Database = {
           type_traitement?: Database["public"]["Enums"]["odj_point_type"] | null
           updated_at?: string | null
           votes_interdits?: boolean | null
+          vu?: string | null
         }
         Update: {
           ajout_en_seance?: boolean | null
+          articles?: Json | null
+          considerant?: string | null
           created_at?: string | null
           description?: string | null
+          discussion?: string | null
           documents?: Json | null
           huis_clos?: boolean | null
           huis_clos_active?: boolean | null
@@ -779,9 +797,10 @@ export type Database = {
           majorite_requise?:
             | Database["public"]["Enums"]["majorite_requise"]
             | null
+          note_synthese?: string | null
           notes_seance?: string | null
-          projet_deliberation?: string | null
           position?: number
+          projet_deliberation?: string | null
           pv_precedent_seance_id?: string | null
           rapporteur_id?: string | null
           seance_id?: string
@@ -791,8 +810,16 @@ export type Database = {
           type_traitement?: Database["public"]["Enums"]["odj_point_type"] | null
           updated_at?: string | null
           votes_interdits?: boolean | null
+          vu?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "odj_points_pv_precedent_seance_id_fkey"
+            columns: ["pv_precedent_seance_id"]
+            isOneToOne: false
+            referencedRelation: "seances"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "odj_points_rapporteur_id_fkey"
             columns: ["rapporteur_id"]
@@ -1004,11 +1031,14 @@ export type Database = {
           approuve_en_seance_id: string | null
           contenu_json: Json | null
           created_at: string | null
+          hash_integrite: string | null
           id: string
           pdf_url: string | null
           seance_id: string
           signe_at: string | null
           signe_par: Json | null
+          signe_president_at: string | null
+          signe_secretaire_at: string | null
           statut: Database["public"]["Enums"]["pv_statut"] | null
           updated_at: string | null
           version: number | null
@@ -1017,11 +1047,14 @@ export type Database = {
           approuve_en_seance_id?: string | null
           contenu_json?: Json | null
           created_at?: string | null
+          hash_integrite?: string | null
           id?: string
           pdf_url?: string | null
           seance_id: string
           signe_at?: string | null
           signe_par?: Json | null
+          signe_president_at?: string | null
+          signe_secretaire_at?: string | null
           statut?: Database["public"]["Enums"]["pv_statut"] | null
           updated_at?: string | null
           version?: number | null
@@ -1030,11 +1063,14 @@ export type Database = {
           approuve_en_seance_id?: string | null
           contenu_json?: Json | null
           created_at?: string | null
+          hash_integrite?: string | null
           id?: string
           pdf_url?: string | null
           seance_id?: string
           signe_at?: string | null
           signe_par?: Json | null
+          signe_president_at?: string | null
+          signe_secretaire_at?: string | null
           statut?: Database["public"]["Enums"]["pv_statut"] | null
           updated_at?: string | null
           version?: number | null
@@ -1052,6 +1088,44 @@ export type Database = {
             columns: ["seance_id"]
             isOneToOne: true
             referencedRelation: "seances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pv_comments: {
+        Row: {
+          contenu: string
+          created_at: string | null
+          id: string
+          pv_id: string
+          resolu: boolean | null
+          section_key: string
+          user_id: string
+        }
+        Insert: {
+          contenu: string
+          created_at?: string | null
+          id?: string
+          pv_id: string
+          resolu?: boolean | null
+          section_key: string
+          user_id: string
+        }
+        Update: {
+          contenu?: string
+          created_at?: string | null
+          id?: string
+          pv_id?: string
+          resolu?: boolean | null
+          section_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_comments_pv_id_fkey"
+            columns: ["pv_id"]
+            isOneToOne: false
+            referencedRelation: "pv"
             referencedColumns: ["id"]
           },
         ]
@@ -1108,6 +1182,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rate_limits: {
+        Row: {
+          action_key: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action_key: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action_key?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       recusations: {
         Row: {
@@ -1267,6 +1362,63 @@ export type Database = {
           },
         ]
       }
+      televote_otps: {
+        Row: {
+          choix: string | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          member_id: string
+          otp_hash: string
+          resend_count: number | null
+          sms_sid: string | null
+          used: boolean | null
+          used_at: string | null
+          vote_id: string
+        }
+        Insert: {
+          choix?: string | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          member_id: string
+          otp_hash: string
+          resend_count?: number | null
+          sms_sid?: string | null
+          used?: boolean | null
+          used_at?: string | null
+          vote_id: string
+        }
+        Update: {
+          choix?: string | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          member_id?: string
+          otp_hash?: string
+          resend_count?: number | null
+          sms_sid?: string | null
+          used?: boolean | null
+          used_at?: string | null
+          vote_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "televote_otps_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "televote_otps_vote_id_fkey"
+            columns: ["vote_id"]
+            isOneToOne: false
+            referencedRelation: "votes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       votes: {
         Row: {
           abstention: number | null
@@ -1279,6 +1431,7 @@ export type Database = {
           id: string
           noms_abstention: string[] | null
           noms_contre: string[] | null
+          noms_pour: string[] | null
           nul: number | null
           odj_point_id: string
           ouvert_at: string | null
@@ -1305,6 +1458,7 @@ export type Database = {
           id?: string
           noms_abstention?: string[] | null
           noms_contre?: string[] | null
+          noms_pour?: string[] | null
           nul?: number | null
           odj_point_id: string
           ouvert_at?: string | null
@@ -1331,6 +1485,7 @@ export type Database = {
           id?: string
           noms_abstention?: string[] | null
           noms_contre?: string[] | null
+          noms_pour?: string[] | null
           nul?: number | null
           odj_point_id?: string
           ouvert_at?: string | null
@@ -1359,63 +1514,6 @@ export type Database = {
             columns: ["seance_id"]
             isOneToOne: false
             referencedRelation: "seances"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      televote_otps: {
-        Row: {
-          id: string
-          vote_id: string
-          member_id: string
-          otp_hash: string
-          expires_at: string
-          used: boolean | null
-          used_at: string | null
-          resend_count: number | null
-          choix: string | null
-          sms_sid: string | null
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          vote_id: string
-          member_id: string
-          otp_hash: string
-          expires_at: string
-          used?: boolean | null
-          used_at?: string | null
-          resend_count?: number | null
-          choix?: string | null
-          sms_sid?: string | null
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          vote_id?: string
-          member_id?: string
-          otp_hash?: string
-          expires_at?: string
-          used?: boolean | null
-          used_at?: string | null
-          resend_count?: number | null
-          choix?: string | null
-          sms_sid?: string | null
-          created_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "televote_otps_vote_id_fkey"
-            columns: ["vote_id"]
-            isOneToOne: false
-            referencedRelation: "votes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "televote_otps_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]
@@ -1720,6 +1818,7 @@ export const Constants = {
     },
   },
 } as const
+
 
 
 // ============================================

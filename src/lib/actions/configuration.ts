@@ -66,6 +66,12 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
       prefixe_numero_deliberation: (formData.get('prefixe_numero_deliberation') as string)?.trim() || null,
       remise_zero_annuelle: formData.get('remise_zero_annuelle') === 'true',
       numero_depart: parseInt(formData.get('numero_depart') as string) || 1,
+      population_habitants: formData.get('population_habitants')
+        ? parseInt(formData.get('population_habitants') as string) || null
+        : null,
+      note_synthese_obligatoire: formData.get('note_synthese_obligatoire') === 'true',
+      note_synthese_seuil_population:
+        parseInt(formData.get('note_synthese_seuil_population') as string) || 3500,
 
     }
 

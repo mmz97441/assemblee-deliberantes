@@ -117,6 +117,13 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .eq('instance_config_id', seance.instance_id)
     .eq('actif', true)
 
+  // Fetch institution config (note de synthèse — CGCT L2121-12)
+  const { data: institutionConfig } = await supabase
+    .from('institution_config')
+    .select('population_habitants, note_synthese_obligatoire, note_synthese_seuil_population, type_institution')
+    .limit(1)
+    .maybeSingle()
+
   const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
   const userRole = await getEffectiveRole(realUserRole)
   const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
@@ -149,6 +156,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
           allInstances={allInstances || []}
           instanceMemberIds={(instanceMembers || []).map(im => im.member_id)}
           canManage={canManage}
+          institutionConfig={institutionConfig || null}
         />
       </main>
     </AuthenticatedLayout>

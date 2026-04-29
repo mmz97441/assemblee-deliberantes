@@ -60,7 +60,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       .select(`
         *,
         instance_config (id, nom, type_legal),
-        odj_points!odj_points_seance_id_fkey (position, titre, type_traitement),
+        odj_points!odj_points_seance_id_fkey (position, titre, type_traitement, note_synthese),
         convocataires (
           id,
           member_id,
@@ -124,6 +124,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
         position: p.position,
         titre: p.titre,
         type: p.type_traitement || 'DELIBERATION',
+        note_synthese: (p.note_synthese as string | null | undefined)?.trim() || null,
       }))
 
     // Format date

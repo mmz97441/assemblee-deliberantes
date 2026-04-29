@@ -210,12 +210,20 @@ interface SeanceData extends Record<string, any> {
   procurations: ProcurationItem[]
 }
 
+interface InstitutionConfigForWarning {
+  population_habitants: number | null
+  note_synthese_obligatoire: boolean | null
+  note_synthese_seuil_population: number | null
+  type_institution: string | null
+}
+
 interface SeanceDetailProps {
   seance: SeanceData
   allMembers: MemberOption[]
   allInstances: InstanceConfigRow[]
   instanceMemberIds: string[]
   canManage: boolean
+  institutionConfig?: InstitutionConfigForWarning | null
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -238,7 +246,7 @@ const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage }: SeanceDetailProps) {
+export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage, institutionConfig }: SeanceDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const statutConfig = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
@@ -390,6 +398,24 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
       setLegalDelayWarning(null)
     }
   }, [seance.date_seance, seance.instance_config?.delai_convocation_jours, seance.convocataires])
+
+  // ─── Note de synthèse warning (CGCT L2121-12) ────────────────────────────
+  // Liste les points DELIBERATION sans note de synthèse renseignée — uniquement
+  // si la règle est active et la collectivité atteint le seuil de population.
+  const noteSyntheseWarning = useMemo(() => {
+    if (!institutionConfig?.note_synthese_obligatoire) return null
+    const pop = institutionConfig.population_habitants ?? 0
+    const seuil = institutionConfig.note_synthese_seuil_population ?? 3500
+    if (pop < seuil) return null
+
+    const missing = seance.odj_points.filter((p) => {
+      const isDelib = (p.type_traitement || 'DELIBERATION') === 'DELIBERATION'
+      const note = (p.note_synthese || '').trim()
+      return isDelib && !note
+    })
+    if (missing.length === 0) return null
+    return { count: missing.length, titles: missing.slice(0, 3).map((p) => p.titre) }
+  }, [institutionConfig, seance.odj_points])
 
   // ─── ODJ quick stats ─────────────────────────────────────────────────────
   const odjStats = useMemo(() => {
@@ -2605,6 +2631,30 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   </p>
                 </div>
               )}
+              {noteSyntheseWarning && (
+                <div className="rounded-lg bg-amber-50 border-2 border-amber-400 p-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
+                    <AlertOctagon className="h-4 w-4 shrink-0" />
+                    Note de synthèse manquante (CGCT L2121-12)
+                  </p>
+                  <p className="text-xs text-amber-700">
+                    {noteSyntheseWarning.count} point{noteSyntheseWarning.count > 1 ? 's' : ''} soumis à délibération
+                    {noteSyntheseWarning.count > 1 ? ' n\'ont' : ' n\'a'} pas de note explicative de synthèse :
+                  </p>
+                  <ul className="text-xs text-amber-700 list-disc list-inside ml-1">
+                    {noteSyntheseWarning.titles.map((t, i) => (
+                      <li key={i} className="truncate">{t}</li>
+                    ))}
+                    {noteSyntheseWarning.count > noteSyntheseWarning.titles.length && (
+                      <li>… et {noteSyntheseWarning.count - noteSyntheseWarning.titles.length} autre{noteSyntheseWarning.count - noteSyntheseWarning.titles.length > 1 ? 's' : ''}</li>
+                    )}
+                  </ul>
+                  <p className="text-xs text-amber-700">
+                    Les notes de synthèse doivent accompagner la convocation. Vous pouvez les
+                    renseigner depuis l&apos;onglet « Ordre du jour » ou continuer à vos risques.
+                  </p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
                 L&apos;email contient le lien de confirmation de presence et l&apos;ordre du jour.
               </p>
@@ -2615,7 +2665,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
             <AlertDialogAction
               onClick={handleSendConvocationsConfirmed}
               disabled={isPending}
-              className={legalDelayWarning ? 'bg-amber-600 hover:bg-amber-700' : undefined}
+              className={legalDelayWarning || noteSyntheseWarning ? 'bg-amber-600 hover:bg-amber-700' : undefined}
             >
               {isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Envoi en cours...</>
@@ -2979,6 +3029,8 @@ function ODJPointFormDialog({
   const [huisClos, setHuisClos] = useState(point?.huis_clos || false)
   const [votesInterdits, setVotesInterdits] = useState(point?.votes_interdits || false)
   const [projetDeliberation, setProjetDeliberation] = useState(point?.projet_deliberation || '')
+  const [noteSynthese, setNoteSynthese] = useState(point?.note_synthese || '')
+  const [isGeneratingNote, setIsGeneratingNote] = useState(false)
 
   // Reset
   const resetKey = `${point?.id || 'new'}-${open}`
@@ -2993,6 +3045,7 @@ function ODJPointFormDialog({
     setHuisClos(point?.huis_clos || false)
     setVotesInterdits(point?.votes_interdits || false)
     setProjetDeliberation(point?.projet_deliberation || '')
+    setNoteSynthese(point?.note_synthese || '')
   }
 
   function handleSubmit() {
@@ -3010,6 +3063,7 @@ function ODJPointFormDialog({
       formData.set('huis_clos', huisClos ? 'true' : 'false')
       formData.set('votes_interdits', votesInterdits ? 'true' : 'false')
       if (projetDeliberation.trim()) formData.set('projet_deliberation', projetDeliberation.trim())
+      if (noteSynthese.trim()) formData.set('note_synthese', noteSynthese.trim())
 
       const result = isEditing
         ? await updateODJPoint(formData)
@@ -3074,6 +3128,59 @@ function ODJPointFormDialog({
                 placeholder="Le conseil / l'assemblee decide de... Apres en avoir delibere, il est propose de..."
                 rows={5}
                 className="font-mono text-sm"
+              />
+            </div>
+          )}
+
+          {/* Note de synthèse — points soumis à délibération uniquement (CGCT L2121-12) */}
+          {typeTraitement === 'DELIBERATION' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="odj_note_synthese">Note explicative de synthèse</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!point?.id || isGeneratingNote || !titre.trim()}
+                  title={
+                    !point?.id
+                      ? 'Enregistrez d\'abord le point pour utiliser la suggestion IA'
+                      : !titre.trim()
+                        ? 'Saisissez un titre avant de demander une suggestion'
+                        : 'Génère un brouillon de note de synthèse à partir du titre, de la description et du projet de délibération'
+                  }
+                  onClick={async () => {
+                    if (!point?.id) return
+                    setIsGeneratingNote(true)
+                    try {
+                      const { generateNoteSyntheseForPoint } = await import('@/lib/actions/seances')
+                      const result = await generateNoteSyntheseForPoint(point.id)
+                      if ('error' in result) {
+                        toast.error(result.error)
+                        return
+                      }
+                      setNoteSynthese(result.text)
+                      toast.success('Brouillon généré — relisez avant de sauvegarder')
+                    } catch {
+                      toast.error('Erreur lors de la génération')
+                    } finally {
+                      setIsGeneratingNote(false)
+                    }
+                  }}
+                >
+                  {isGeneratingNote ? 'Génération…' : '✨ Suggérer (IA)'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Résumé pédagogique adressé aux élus avec la convocation. Obligatoire pour les
+                communes ≥ 3 500 hab (CGCT L2121-12).
+              </p>
+              <Textarea
+                id="odj_note_synthese"
+                value={noteSynthese}
+                onChange={e => setNoteSynthese(e.target.value)}
+                placeholder="Contexte, enjeu, proposition, conséquences…"
+                rows={6}
               />
             </div>
           )}

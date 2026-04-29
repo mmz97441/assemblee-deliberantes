@@ -40,6 +40,7 @@ export interface ConvocationPDFData {
     position: number
     titre: string
     type: string
+    note_synthese?: string | null
   }[]
   qrCodeUrl: string | null
   dateFait: string
@@ -146,6 +147,37 @@ const styles = StyleSheet.create({
     color: '#666666',
     fontFamily: 'Helvetica-Oblique',
     marginLeft: 8,
+  },
+  // Notes de synthèse
+  notesSyntheseTitle: {
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+    marginTop: 18,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  notesSyntheseSubtitle: {
+    fontSize: 9,
+    color: '#666666',
+    fontStyle: 'italic',
+    marginBottom: 10,
+  },
+  noteSyntheseBlock: {
+    marginBottom: 10,
+    paddingLeft: 10,
+    borderLeftWidth: 2,
+    borderLeftColor: '#1e3a5f',
+    borderLeftStyle: 'solid',
+  },
+  noteSyntheseLabel: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: '#1e3a5f',
+    marginBottom: 3,
+  },
+  noteSyntheseText: {
+    fontSize: 10,
+    lineHeight: 1.4,
   },
   // QR code
   qrSection: {
@@ -288,6 +320,26 @@ export function ConvocationPDFDocument({ data }: ConvocationPDFDocumentProps) {
             </Text>
           </View>
         ))}
+
+        {/* Notes explicatives de synthèse (CGCT L2121-12) */}
+        {odjPoints.some((p) => (p.note_synthese || '').trim().length > 0) && (
+          <>
+            <Text style={styles.notesSyntheseTitle}>Notes explicatives de synthèse</Text>
+            <Text style={styles.notesSyntheseSubtitle}>
+              CGCT L2121-12 — adressées avec la convocation
+            </Text>
+            {odjPoints
+              .filter((p) => (p.note_synthese || '').trim().length > 0)
+              .map((p) => (
+                <View key={`note-${p.position}`} style={styles.noteSyntheseBlock} wrap={false}>
+                  <Text style={styles.noteSyntheseLabel}>
+                    Point {p.position} — {p.titre}
+                  </Text>
+                  <Text style={styles.noteSyntheseText}>{p.note_synthese}</Text>
+                </View>
+              ))}
+          </>
+        )}
 
         {/* QR code for émargement */}
         {qrCodeUrl && (

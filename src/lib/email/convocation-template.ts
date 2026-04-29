@@ -14,7 +14,7 @@ interface ConvocationEmailData {
   heureSeance: string
   lieu: string | null
   mode: string
-  odjPoints: { position: number; titre: string; type: string }[]
+  odjPoints: { position: number; titre: string; type: string; note_synthese?: string | null }[]
   confirmationUrl: string
   institutionNom: string
   qrCodeUrl?: string // URL de l'image QR code d'émargement
@@ -68,6 +68,21 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
       </table>
     `
     : '<p style="color: #64748b; font-style: italic;">L\'ordre du jour sera communiqué ultérieurement.</p>'
+
+  // ─── Notes explicatives de synthèse (CGCT L2121-12) ──────────────────────
+  const pointsWithNote = data.odjPoints.filter((p) => (p.note_synthese || '').trim().length > 0)
+  const notesSyntheseHTML = pointsWithNote.length > 0
+    ? `
+      <h2 style="margin: 24px 0 8px; color: #1e3a5f; font-size: 15px; font-weight: 600;">Notes explicatives de synthèse</h2>
+      <p style="margin: 0 0 12px; color: #64748b; font-size: 12px; font-style: italic;">CGCT L2121-12 — adressées avec la convocation</p>
+      ${pointsWithNote.map(p => `
+        <div style="margin: 0 0 16px; padding: 12px 16px; background: #f8fafc; border-left: 3px solid #1e3a5f; border-radius: 4px;">
+          <p style="margin: 0 0 6px; font-size: 13px; font-weight: 600; color: #1e3a5f;">Point ${p.position} — ${escapeHtml(p.titre)}</p>
+          <p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.5; white-space: pre-wrap;">${escapeHtml(p.note_synthese || '')}</p>
+        </div>
+      `).join('')}
+    `
+    : ''
 
   return `
 <!DOCTYPE html>
@@ -144,6 +159,7 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
           Ordre du jour
         </h3>
         ${odjHTML}
+        ${notesSyntheseHTML}
 
         <!-- CTA -->
         <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 28px 0 16px;">

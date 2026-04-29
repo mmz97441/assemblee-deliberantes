@@ -83,10 +83,10 @@ export async function GET(
       .limit(1)
       .single()
 
-    // Load ODJ points with rapporteurs
+    // Load ODJ points with rapporteurs (note_synthese inclus pour CGCT L2121-12)
     const { data: odjPoints } = await supabase
       .from('odj_points')
-      .select('position, titre, type_traitement, description, projet_deliberation, rapporteur_id')
+      .select('position, titre, type_traitement, description, projet_deliberation, rapporteur_id, note_synthese')
       .eq('seance_id', seanceId)
       .order('position', { ascending: true })
 
@@ -133,6 +133,7 @@ export async function GET(
         rapporteur: p.rapporteur_id ? rapporteurNames[p.rapporteur_id] || null : null,
         description: p.description,
         projetDeliberation: p.projet_deliberation,
+        noteSynthese: p.note_synthese,
         vu: (raw.vu as string) ?? null,
         considerant: (raw.considerant as string) ?? null,
       }

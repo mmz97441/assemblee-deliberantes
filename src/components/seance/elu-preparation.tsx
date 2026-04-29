@@ -452,6 +452,21 @@ export function EluPreparation({
                           </div>
                         )}
 
+                        {/* Note explicative de synthèse (CGCT L2121-12) */}
+                        {point.note_synthese && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              Note explicative de synthèse
+                            </h4>
+                            <div className="rounded-lg bg-blue-50/60 border border-blue-100 p-4">
+                              <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
+                                {point.note_synthese}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
                         <Separator className="print:hidden" />
 
                         {/* ─── Personal notes ─── */}

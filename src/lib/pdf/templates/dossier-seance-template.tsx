@@ -31,6 +31,7 @@ export interface DossierSeancePDFData {
     rapporteur: string | null
     description: string | null
     projetDeliberation: string | null
+    noteSynthese: string | null
     vu: string | null
     considerant: string | null
   }[]
@@ -397,6 +398,16 @@ export function DossierSeancePDFDocument({ data }: DossierSeancePDFDocumentProps
             <>
               <Text style={styles.sectionLabel}>Description</Text>
               <Text style={styles.bodyText}>{point.description}</Text>
+            </>
+          )}
+
+          {/* Note explicative de synthèse (CGCT L2121-12) */}
+          {point.noteSynthese && (
+            <>
+              <Text style={styles.sectionLabel}>Note explicative de synthèse</Text>
+              <View style={styles.projetBlock}>
+                <Text style={styles.projetText}>{point.noteSynthese}</Text>
+              </View>
             </>
           )}
 

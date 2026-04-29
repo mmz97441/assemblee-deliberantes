@@ -811,6 +811,7 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
       huis_clos: formData.get('huis_clos') === 'true',
       votes_interdits: formData.get('votes_interdits') === 'true',
       projet_deliberation: (formData.get('projet_deliberation') as string)?.trim() || null,
+      note_synthese: (formData.get('note_synthese') as string)?.trim() || null,
       position: nextPosition,
       statut: 'A_TRAITER',
       // Points ajoutés en cours de séance : marqués pour mention dans le PV
@@ -879,6 +880,7 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
       huis_clos: formData.get('huis_clos') === 'true',
       votes_interdits: formData.get('votes_interdits') === 'true',
       projet_deliberation: (formData.get('projet_deliberation') as string)?.trim() || null,
+      note_synthese: (formData.get('note_synthese') as string)?.trim() || null,
     }
 
     const { error } = await supabase
@@ -893,6 +895,59 @@ export async function updateODJPoint(formData: FormData): Promise<ActionResult> 
   } catch (err) {
     console.error('updateODJPoint error:', err)
     return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Génération IA d'une note de synthèse pour un point ODJ ─────────────────
+// Anonymisation obligatoire avant tout appel à l'API Anthropic.
+export async function generateNoteSyntheseForPoint(
+  pointId: string
+): Promise<{ success: true; text: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    if (!pointId) return { error: 'ID du point manquant' }
+
+    const { data: point } = await supabase
+      .from('odj_points')
+      .select('titre, description, projet_deliberation, type_traitement')
+      .eq('id', pointId)
+      .single()
+    if (!point) return { error: 'Point introuvable' }
+
+    if (point.type_traitement !== 'DELIBERATION') {
+      return { error: 'La note de synthèse ne s\'applique qu\'aux points soumis à délibération.' }
+    }
+
+    const { data: institution } = await supabase
+      .from('institution_config')
+      .select('nom_officiel, type_institution')
+      .limit(1)
+      .maybeSingle()
+    if (!institution) return { error: "Configuration de l'institution introuvable" }
+
+    const { data: members } = await supabase
+      .from('members')
+      .select('prenom, nom')
+    const memberNames = (members || []).map((m) => `${m.prenom} ${m.nom}`)
+
+    const { generateNoteSynthese } = await import('@/lib/ai/note-synthese-assistant')
+    const text = await generateNoteSynthese({
+      pointTitle: point.titre,
+      pointDescription: point.description,
+      projetDeliberation: point.projet_deliberation,
+      institutionType: institution.type_institution,
+      institutionName: institution.nom_officiel,
+      memberNames,
+    })
+
+    return { success: true, text }
+  } catch (err) {
+    console.error('generateNoteSyntheseForPoint error:', err)
+    const message = err instanceof Error ? err.message : 'Erreur inattendue lors de la génération'
+    return { error: message }
   }
 }
 

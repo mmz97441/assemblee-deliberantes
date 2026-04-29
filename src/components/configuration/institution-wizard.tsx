@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback, useMemo, useEffect } from 'react'
+import { useState, useTransition, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
@@ -108,6 +108,9 @@ type FormValues = {
   prefixe_numero_deliberation: string
   remise_zero_annuelle: boolean
   numero_depart: number
+  population_habitants: string
+  note_synthese_obligatoire: boolean
+  note_synthese_seuil_population: number
 }
 
 // Instance being edited (local state, not yet saved)
@@ -158,6 +161,9 @@ function getInitialValues(data: InstitutionConfigRow | null): FormValues {
     prefixe_numero_deliberation: data?.prefixe_numero_deliberation || '',
     remise_zero_annuelle: data?.remise_zero_annuelle ?? true,
     numero_depart: data?.numero_depart ?? 1,
+    population_habitants: data?.population_habitants != null ? String(data.population_habitants) : '',
+    note_synthese_obligatoire: data?.note_synthese_obligatoire ?? false,
+    note_synthese_seuil_population: data?.note_synthese_seuil_population ?? 3500,
   }
 }
 
@@ -577,6 +583,9 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
   const [editingInstance, setEditingInstance] = useState<EditableInstance | null>(null)
   const [isSavingInstance, setIsSavingInstance] = useState(false)
   const [isDirty, setIsDirty] = useState(false)
+  // Suivi : l'utilisateur a-t-il touché manuellement au flag note_synthese_obligatoire ?
+  // Permet d'auto-cocher la règle CGCT L2121-12 sans écraser un choix explicite.
+  const noteSyntheseUserTouched = useRef(false)
 
   // Build editable instances from existing DB rows + templates
   const [instances, setInstances] = useState<EditableInstance[]>(() => {
@@ -599,6 +608,23 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
     url.searchParams.set('step', String(currentStep))
     window.history.replaceState({}, '', url.toString())
   }, [currentStep])
+
+  // Auto-coche la règle CGCT L2121-12 si commune et population >= seuil.
+  // N'écrase jamais un choix manuel (ref noteSyntheseUserTouched).
+  useEffect(() => {
+    if (noteSyntheseUserTouched.current) return
+    const pop = parseInt(values.population_habitants) || 0
+    const seuil = values.note_synthese_seuil_population || 3500
+    const eligible = values.type_institution === 'commune' && pop >= seuil
+    if (eligible && !values.note_synthese_obligatoire) {
+      setValues((v) => ({ ...v, note_synthese_obligatoire: true }))
+    }
+  }, [
+    values.type_institution,
+    values.population_habitants,
+    values.note_synthese_seuil_population,
+    values.note_synthese_obligatoire,
+  ])
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -940,6 +966,75 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
                   <Label htmlFor="siret">SIRET</Label>
                   <Input id="siret" value={values.siret} onChange={(e) => updateField('siret', e.target.value)} placeholder="12345678900014" maxLength={14} className="h-11 font-mono" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="population_habitants">Population (habitants)</Label>
+                  <Input
+                    id="population_habitants"
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={values.population_habitants}
+                    onChange={(e) => updateField('population_habitants', e.target.value)}
+                    placeholder="Ex : 4 200"
+                    className="h-11 font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Utilisé pour appliquer la règle de la note de synthèse (CGCT L2121-12).
+                  </p>
+                </div>
+              </div>
+
+              {/* ─── Note de synthèse — CGCT L2121-12 ─────────── */}
+              <div className="rounded-xl border bg-muted/30 p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Note de synthèse</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    L&apos;article L2121-12 du CGCT impose une note explicative de synthèse pour
+                    chaque affaire soumise à délibération, dans les communes de 3 500 habitants
+                    et plus. Vous pouvez ajuster le seuil ou désactiver la règle.
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="note_synthese_obligatoire" className="text-sm cursor-pointer">
+                      Avertir si une note de synthèse manque
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Affiche un avertissement à l&apos;envoi des convocations si un point de
+                      type DÉLIBÉRATION n&apos;a pas de note de synthèse renseignée.
+                    </p>
+                  </div>
+                  <Switch
+                    id="note_synthese_obligatoire"
+                    checked={values.note_synthese_obligatoire}
+                    onCheckedChange={(c) => {
+                      noteSyntheseUserTouched.current = true
+                      updateField('note_synthese_obligatoire', c)
+                    }}
+                  />
+                </div>
+                {values.note_synthese_obligatoire && (
+                  <div className="space-y-2">
+                    <Label htmlFor="note_synthese_seuil_population" className="text-sm">
+                      Seuil de population au-delà duquel la règle s&apos;applique
+                    </Label>
+                    <Input
+                      id="note_synthese_seuil_population"
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={values.note_synthese_seuil_population}
+                      onChange={(e) =>
+                        updateField('note_synthese_seuil_population', parseInt(e.target.value) || 0)
+                      }
+                      className="h-11 font-mono w-40"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Par défaut 3 500 (CGCT L2121-12). En dessous de ce seuil, aucun
+                      avertissement n&apos;est affiché.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
