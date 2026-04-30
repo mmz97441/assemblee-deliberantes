@@ -20,8 +20,7 @@ export default async function EmargementPage({ params }: Props) {
   }
 
   // Emargement is gestionnaire/super_admin only
-  const realRole = (userData.user.user_metadata?.role as string) || ''
-  const role = await getEffectiveRole(realRole)
+  const role = await getEffectiveRole(supabase, userData.user.id)
   if (!['super_admin', 'gestionnaire'].includes(role)) {
     redirect(`/seances/${id}`)
   }

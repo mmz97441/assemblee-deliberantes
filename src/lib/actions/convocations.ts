@@ -23,12 +23,7 @@ async function getAuthenticatedUser() {
   return { user: data.user, supabase }
 }
 
-function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifié'
-  const role = (user.user_metadata?.role as string) || ''
-  if (!roles.includes(role)) return 'Permissions insuffisantes'
-  return null
-}
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -43,7 +38,7 @@ export interface SendConvocationResult {
 export async function sendConvocations(seanceId: string): Promise<SendConvocationResult | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president'])
     if (roleError) return { error: roleError }
 
     // Rate limiting: max 5 envois par séance par heure
@@ -363,7 +358,7 @@ export async function confirmPresence(token: string): Promise<
 export async function resendConvocation(seanceId: string, memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // Block resend if member already confirmed presence (no point)
@@ -411,7 +406,7 @@ export async function resendConvocation(seanceId: string, memberId: string): Pro
 export async function sendReminders(seanceId: string): Promise<{ sent: number; error?: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { sent: 0, error: roleError }
 
     // Rate limiting: max 3 rappels par séance par heure

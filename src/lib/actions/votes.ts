@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 import { determineVoteResult, generateFormulePV, type MajoriteRequise } from '@/lib/validators/vote-result'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import { getVerifiedRole } from '@/lib/auth/get-user-role'
@@ -56,12 +57,8 @@ export async function openVote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    // SÉCURITÉ : vérification du rôle via la table members (action critique — votes)
-    const metadataRole = (user.user_metadata?.role as string) || ''
-    const role = await getVerifiedRole(supabase, user.id, metadataRole)
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut ouvrir un vote' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVote on seance ${seanceId}, point ${odjPointId}`)
@@ -219,12 +216,8 @@ export async function closeVoteMainLevee(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    // SÉCURITÉ : vérification du rôle via la table members (action critique — votes)
-    const metadataRole = (user.user_metadata?.role as string) || ''
-    const role = await getVerifiedRole(supabase, user.id, metadataRole)
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut clore un vote' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut clore un vote' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteMainLevee on vote ${voteId}`)
@@ -374,10 +367,8 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Rate limiting
     const rateCheck = await checkRateLimit(supabase, user.id, {
@@ -476,10 +467,8 @@ export async function openVoteSecret(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut ouvrir un vote secret' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote secret' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteSecret on seance ${seanceId}, point ${odjPointId}`)
@@ -786,10 +775,8 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut clore un vote secret' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut clore un vote secret' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteSecret on vote ${voteId}`)
@@ -1086,10 +1073,8 @@ export async function openVoteTelevote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteTelevote on seance ${seanceId}, point ${odjPointId}`)
@@ -1371,10 +1356,8 @@ export async function resendTelevoteOTP(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     const { data: existing } = await televoteOtps(supabase)
       .select('id, resend_count, used')
@@ -1513,10 +1496,8 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut clore un télévote' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut clore un télévote' }
 
     if (role === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteTelevote on vote ${voteId}`)

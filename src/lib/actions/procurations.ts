@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -29,10 +30,8 @@ export async function createProcuration(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Validate: mandant ≠ mandataire
     if (mandantId === mandataireId) {
@@ -146,10 +145,8 @@ export async function revokeProcuration(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Get the procuration to find the mandant
     const { data: proc } = await supabase

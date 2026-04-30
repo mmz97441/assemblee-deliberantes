@@ -2,6 +2,7 @@
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 import {
   generateVuConsiderantArticles,
   improveSection,
@@ -46,10 +47,8 @@ export async function generatePointContent(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Rate limit: 10 per hour
     const rateCheck = await checkRateLimit(supabase, user.id, {
@@ -173,10 +172,8 @@ export async function improvePVSection(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Rate limit: 10 per hour (same pool as generation)
     const rateCheck = await checkRateLimit(supabase, user.id, {

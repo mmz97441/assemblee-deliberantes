@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -39,10 +40,8 @@ export async function updateBureauRole(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const userRole = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(userRole)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Si on assigne le rôle président, retirer l'ancien président d'abord
     if (role === 'president') {

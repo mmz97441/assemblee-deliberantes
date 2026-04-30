@@ -40,8 +40,7 @@ export default async function DeliberationDetailPage({ params }: Props) {
     notFound()
   }
 
-  const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const userRole = await getEffectiveRole(realUserRole)
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
   const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
   const isSuperAdmin = userRole === 'super_admin'
 

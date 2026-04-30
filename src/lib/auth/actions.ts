@@ -176,7 +176,9 @@ export async function sendInvitationAction(formData: FormData) {
     .eq('user_id', user.id)
     .maybeSingle()
 
-  const currentRole = (currentMember?.role || user.user_metadata?.role) as UserRole
+  // SÉCURITÉ : on s'appuie EXCLUSIVEMENT sur la table members
+  // (user_metadata.role est modifiable côté client → escalation possible).
+  const currentRole = currentMember?.role as UserRole | undefined
   if (currentRole !== 'super_admin' && currentRole !== 'gestionnaire') {
     return { error: 'Permission refusée' }
   }

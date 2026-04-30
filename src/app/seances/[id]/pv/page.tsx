@@ -51,8 +51,7 @@ export default async function PVPage({ params }: Props) {
     .eq('user_id', userData.user.id)
     .maybeSingle()
 
-  const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const userRole = await getEffectiveRole(realUserRole)
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
   let canEdit = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
   const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
 

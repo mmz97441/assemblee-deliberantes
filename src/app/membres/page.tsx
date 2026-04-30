@@ -61,8 +61,7 @@ export default async function MembresPage() {
     console.error('Erreur chargement membres:', err)
   }
 
-  const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const userRole = await getEffectiveRole(realUserRole)
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
   const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
 
   return (

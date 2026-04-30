@@ -5,6 +5,7 @@ import { createHash } from 'crypto'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
 import { resend, FROM_EMAIL, FROM_NAME } from '@/lib/email/resend'
+import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
 import {
   generatePVSignatureSubject,
   generatePVSignatureHTML,
@@ -109,10 +110,8 @@ export async function generatePVBrouillon(seanceId: string): Promise<
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check séance is closed before generating PV
     const { data: seanceCheck } = await supabase
@@ -398,10 +397,8 @@ export async function savePVContent(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check PV is not locked (signed or published)
     const { data: pvCheck } = await supabase
@@ -447,8 +444,7 @@ export async function getPV(seanceId: string) {
     if (error) return { error: error.message }
 
     // Élus can only see PV that has been signed or published
-    const role = (user.user_metadata?.role as string) || ''
-    const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
+    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
     if (!isManager && data && data.statut !== 'SIGNE' && data.statut !== 'PUBLIE') {
       return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
@@ -477,10 +473,8 @@ export async function updatePVStatus(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Fetch current PV
     const { data: pv, error: pvError } = await supabase
@@ -782,8 +776,7 @@ export async function getPVWithComments(seanceId: string): Promise<
     if (!pv) return { error: 'Aucun procès-verbal trouvé pour cette séance' }
 
     // Élus can only see PV that has been signed or published
-    const role = (user.user_metadata?.role as string) || ''
-    const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)
+    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
     if (!isManager && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
       return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
@@ -822,10 +815,8 @@ export async function sendPVSignatureNotifications(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire', 'secretaire_seance'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Load seance with president and secretary member data
     const { data: seance, error: seanceError } = await supabase

@@ -24,8 +24,7 @@ export default async function PresidentPage({ params }: Props) {
   }
 
   // Vérifier le rôle global
-  const realRole = (userData.user.user_metadata?.role as string) || ''
-  const role = await getEffectiveRole(realRole)
+  const role = await getEffectiveRole(supabase, userData.user.id)
 
   // super_admin et gestionnaire ont accès à toutes les vues président
   const isManager = ['super_admin', 'gestionnaire'].includes(role)

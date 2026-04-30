@@ -16,8 +16,7 @@ export default async function NewSeancePage() {
     redirect(ROUTES.LOGIN)
   }
 
-  const realUserRole = (userData.user.user_metadata?.role as string) || 'elu'
-  const userRole = await getEffectiveRole(realUserRole)
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
 
   if (!['super_admin', 'gestionnaire', 'president', 'secretaire_seance'].includes(userRole)) {
     redirect(ROUTES.SEANCES)

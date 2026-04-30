@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
-import { getVerifiedRole } from '@/lib/auth/get-user-role'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { success: true; id: string } | { error: string }
 
@@ -14,23 +14,6 @@ async function getAuthenticatedUser() {
     return { user: null, supabase }
   }
   return { user: data.user, supabase }
-}
-
-/**
- * SÉCURITÉ : Vérifie le rôle via la table members (pas user_metadata modifiable).
- * Utilise getVerifiedRole pour les actions critiques de configuration.
- */
-async function requireVerifiedRole(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  user: { id: string; user_metadata?: Record<string, unknown> } | null,
-  roles: string[]
-): Promise<string | null> {
-  if (!user) return 'Non authentifié'
-  const metadataRole = (user.user_metadata?.role as string) || ''
-  const verifiedRole = await getVerifiedRole(supabase, user.id, metadataRole)
-  if (!roles.includes(verifiedRole)) return 'Permissions insuffisantes'
-  return null
 }
 
 export async function saveInstitutionConfig(formData: FormData): Promise<ActionResult> {

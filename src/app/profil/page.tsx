@@ -10,10 +10,10 @@ import { UserProfile } from '@/components/profil/user-profile'
 import type { UserRole } from '@/lib/supabase/types'
 
 export default async function ProfilPage() {
+  const supabase = await createServerSupabaseClient()
   let user = null
 
   try {
-    const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase.auth.getUser()
     if (!error && data?.user) {
       user = data.user
@@ -26,8 +26,7 @@ export default async function ProfilPage() {
     redirect(ROUTES.LOGIN)
   }
 
-  const realRole = (user.user_metadata?.role as UserRole) || 'elu'
-  const effectiveRole = await getEffectiveRole(realRole) as UserRole
+  const effectiveRole = await getEffectiveRole(supabase, user.id) as UserRole
   const fullName = user.user_metadata?.full_name || user.email || ''
   const email = user.email || ''
 

@@ -72,9 +72,20 @@ export async function middleware(request: NextRequest) {
     }
 
     // Protection routes admin (configuration)
+    // SÉCURITÉ : on lit le rôle depuis la table members (user_metadata est
+    // modifiable côté client, donc inutilisable comme garde sécurité).
     if (pathname.startsWith('/configuration')) {
-      const role = user?.user_metadata?.role
-      if (role !== 'super_admin') {
+      if (!user) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+      }
+      const { data: member } = await supabase
+        .from('members')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (!member || member.role !== 'super_admin') {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
         return NextResponse.redirect(url)

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,8 +52,7 @@ export async function recuseFromPoint(
     if (!user) return { error: 'Non authentifié' }
 
     // M1: Role validation for recusation
-    const role = (user.user_metadata?.role as string) || ''
-    if (declarePar === 'GESTIONNAIRE' && !['super_admin', 'gestionnaire'].includes(role)) {
+    if (declarePar === 'GESTIONNAIRE' && !(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Seul le gestionnaire peut déclarer une récusation pour un autre membre' }
     }
     if (declarePar === 'ELU') {
@@ -155,8 +155,7 @@ export async function cancelRecusation(
     if (!recusation) return { error: 'Récusation introuvable' }
 
     // M2: Require gestionnaire role OR the member who created the recusation
-    const cancelRole = (user.user_metadata?.role as string) || ''
-    const isGestionnaire = ['super_admin', 'gestionnaire'].includes(cancelRole)
+    const isGestionnaire = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (!isGestionnaire && recusation.declared_by !== user.id) {
       return { error: 'Seul le gestionnaire ou le membre concerné peut annuler cette récusation' }
     }
@@ -298,10 +297,8 @@ export async function activateHuisClos(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut activer le huis clos' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut activer le huis clos' }
 
     // Verify seance is EN_COURS
     const { data: seance } = await supabase
@@ -352,10 +349,8 @@ export async function deactivateHuisClos(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Seul le gestionnaire peut désactiver le huis clos' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Seul le gestionnaire peut désactiver le huis clos' }
 
     const { error: updateError } = await supabase
       .from('odj_points')

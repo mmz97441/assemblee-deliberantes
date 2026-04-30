@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import type { MemberRow, InstanceConfigRow, UserRole } from '@/lib/supabase/types'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -15,13 +16,6 @@ async function getAuthenticatedUser() {
     return { user: null, supabase }
   }
   return { user: data.user, supabase }
-}
-
-function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifié'
-  const role = (user.user_metadata?.role as string) || ''
-  if (!roles.includes(role)) return 'Permissions insuffisantes'
-  return null
 }
 
 export interface MemberWithInstances extends MemberRow {
@@ -69,7 +63,7 @@ export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { 
 export async function createMember(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const prenom = (formData.get('prenom') as string)?.trim()
@@ -136,7 +130,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 export async function updateMember(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const id = formData.get('id') as string
@@ -184,7 +178,7 @@ export async function toggleMemberStatus(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!id) return { error: 'ID du membre manquant' }
@@ -252,7 +246,7 @@ export async function assignMemberToInstances(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!memberId) return { error: 'ID du membre manquant' }
@@ -292,7 +286,7 @@ export async function assignMemberToInstances(
 export async function sendMemberInvitation(memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // M5: Rate limit invitations — max 5 per hour
@@ -380,7 +374,7 @@ const VALID_ROLES = ['super_admin', 'president', 'gestionnaire', 'secretaire_sea
 export async function importMembers(rows: ImportRow[]): Promise<ImportResult | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // M7: Rate limit imports — max 3 per hour

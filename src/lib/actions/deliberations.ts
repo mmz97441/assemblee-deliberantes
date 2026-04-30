@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Json } from '@/lib/supabase/types'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
-import { getVerifiedRole } from '@/lib/auth/get-user-role'
+import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,10 +34,8 @@ async function getAuthenticatedUser() {
   return { user: data.user, supabase }
 }
 
-function checkRole(user: { user_metadata?: Record<string, unknown> }, allowedRoles: string[]): boolean {
-  const role = (user.user_metadata?.role as string) || ''
-  return allowedRoles.includes(role)
-}
+// Helper local supprimé : utiliser requireVerifiedRole(supabase, user, roles) à la place
+// (lit la table members, pas user_metadata modifiable côté client).
 
 // ─── Numbering engine ────────────────────────────────────────────────────────
 
@@ -146,7 +144,7 @@ export async function createDeliberationFromVote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -278,7 +276,7 @@ export async function updateDeliberationContent(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -330,11 +328,8 @@ export async function publishDeliberation(
     if (!user) return { error: 'Non authentifié' }
 
     // SÉCURITÉ : vérification du rôle via la table members (action critique — publication)
-    const metadataRole = (user.user_metadata?.role as string) || ''
-    const verifiedRole = await getVerifiedRole(supabase, user.id, metadataRole)
-    if (!['super_admin', 'gestionnaire'].includes(verifiedRole)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
 
     // Rate limiting
     const rateCheck = await checkRateLimit(supabase, user.id, {
@@ -402,7 +397,7 @@ export async function annulDeliberation(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin']))) {
       return { error: 'Seul un super administrateur peut annuler une délibération' }
     }
 
@@ -453,7 +448,7 @@ export async function markAffichage(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -499,7 +494,7 @@ export async function markTransmissionPrefecture(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -641,7 +636,7 @@ export async function deleteDeliberationDraft(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -685,7 +680,7 @@ export async function updateDeliberationTitle(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -740,7 +735,7 @@ export async function autoCreateDeliberationsForSeance(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!checkRole(user, ['super_admin', 'gestionnaire'])) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 

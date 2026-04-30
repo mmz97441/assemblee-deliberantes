@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UserRole } from '@/lib/supabase/types'
+import { getUserRole } from '@/lib/auth/get-user-role'
 
 const OVERRIDABLE_ROLES: UserRole[] = [
   'gestionnaire',
@@ -10,14 +12,26 @@ const OVERRIDABLE_ROLES: UserRole[] = [
 ]
 
 /**
- * Returns the effective role for the current user.
- * If the real role is super_admin and a dev override cookie is set,
- * returns the overridden role instead. This allows super_admins to
- * preview the app as different roles without changing their actual role.
+ * Retourne le rôle effectif de l'utilisateur courant.
+ *
+ * SÉCURITÉ : Le rôle est lu depuis la table `members` (vérifié), pas
+ * depuis `user_metadata.role` qui est modifiable côté client. Ne JAMAIS
+ * passer un rôle issu de `user_metadata` à cette fonction.
+ *
+ * Pour les super_admins, supporte un override via cookie `dev_role_override`
+ * pour permettre la prévisualisation des autres rôles sans changer le rôle
+ * en base. L'override n'est appliqué que si le RÔLE RÉEL en DB est super_admin.
  */
-export async function getEffectiveRole(realRole: string): Promise<string> {
-  if (realRole !== 'super_admin') return realRole
+export async function getEffectiveRole(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string> {
+  const dbRole = await getUserRole(supabase, userId)
+  if (!dbRole) return 'elu' // fallback sûr si pas d'entrée members
 
+  if (dbRole !== 'super_admin') return dbRole
+
+  // Le rôle réel en DB est super_admin → l'override par cookie est autorisé.
   try {
     const cookieStore = await cookies()
     const override = cookieStore.get('dev_role_override')?.value
@@ -27,5 +41,5 @@ export async function getEffectiveRole(realRole: string): Promise<string> {
   } catch {
     // cookies() not available (e.g. during static generation)
   }
-  return realRole
+  return dbRole
 }

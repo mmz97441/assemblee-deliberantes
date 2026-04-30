@@ -22,8 +22,7 @@ export default async function ConfigurationPage() {
   }
 
   // Configuration is super_admin only
-  const realRole = (userData.user.user_metadata?.role as string) || ''
-  const role = await getEffectiveRole(realRole)
+  const role = await getEffectiveRole(supabase, userData.user.id)
   if (role !== 'super_admin') {
     redirect(ROUTES.DASHBOARD)
   }

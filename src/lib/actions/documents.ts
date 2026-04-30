@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import type { Json } from '@/lib/supabase/types'
+import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -14,13 +15,6 @@ async function getAuthenticatedUser() {
     return { user: null, supabase }
   }
   return { user: data.user, supabase }
-}
-
-function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifié'
-  const role = (user.user_metadata?.role as string) || ''
-  if (!roles.includes(role)) return 'Permissions insuffisantes'
-  return null
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -41,7 +35,7 @@ export async function uploadODJDocument(
 ): Promise<{ success: true; document: DocumentInfo } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const file = formData.get('file') as File | null
@@ -143,7 +137,7 @@ export async function removeODJDocument(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Get current documents
@@ -195,8 +189,7 @@ export async function getDocumentUrl(
     const seanceId = pathParts[0] === 'seances' ? pathParts[1] : null
 
     if (seanceId) {
-      const role = (user.user_metadata?.role as string) || ''
-      const isManager = ['super_admin', 'gestionnaire'].includes(role)
+      const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
 
       if (!isManager) {
         // Check user is convoqué to this séance

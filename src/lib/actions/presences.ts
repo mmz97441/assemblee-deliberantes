@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
+import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,8 +55,7 @@ export async function markPresence(
     }
 
     // Allow gestionnaire to mark anyone, OR allow member to mark only themselves
-    const role = (user.user_metadata?.role as string) || ''
-    const isGestionnaire = ['super_admin', 'gestionnaire'].includes(role)
+    const isGestionnaire = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
 
     if (!isGestionnaire) {
       // Check if the user is marking themselves
@@ -179,10 +179,8 @@ export async function markPresenceManual(
     if (!user) return { error: 'Non authentifié' }
 
     // Check role
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // M14: Check seance status
     const { data: seanceCheckManual } = await supabase
@@ -241,10 +239,8 @@ export async function markDeparture(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const role = (user.user_metadata?.role as string) || ''
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
-      return { error: 'Permissions insuffisantes' }
-    }
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check seance is EN_COURS
     const { data: seanceForDeparture } = await supabase

@@ -28,10 +28,10 @@ import type { UserRole } from '@/lib/supabase/types'
 import React from 'react'
 
 export default async function DashboardPage() {
+  const supabase = await createServerSupabaseClient()
   let user = null
 
   try {
-    const supabase = await createServerSupabaseClient()
     const { data, error } = await supabase.auth.getUser()
     if (!error && data?.user) {
       user = data.user
@@ -44,8 +44,7 @@ export default async function DashboardPage() {
     redirect(ROUTES.LOGIN)
   }
 
-  const realRole = (user.user_metadata?.role as UserRole) || 'elu'
-  const role = await getEffectiveRole(realRole) as UserRole
+  const role = await getEffectiveRole(supabase, user.id) as UserRole
   const fullName = user.user_metadata?.full_name || user.email
   const firstName = fullName?.split(' ')[0] || ''
 

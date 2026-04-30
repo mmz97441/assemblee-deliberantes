@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -12,13 +13,6 @@ async function getAuthenticatedUser() {
     return { user: null, supabase }
   }
   return { user: data.user, supabase }
-}
-
-function requireRole(user: { user_metadata?: Record<string, unknown> } | null, roles: string[]): string | null {
-  if (!user) return 'Non authentifié'
-  const role = (user.user_metadata?.role as string) || ''
-  if (!roles.includes(role)) return 'Permissions insuffisantes'
-  return null
 }
 
 // ─── PART 1: Arrivée tardive ────────────────────────────────────────────────
@@ -37,7 +31,7 @@ export async function handleLateArrival(
 ): Promise<LateArrivalHandlerResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Get séance with instance config
@@ -135,7 +129,7 @@ export async function designateSecretary(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president'])
     if (roleError) return { error: roleError }
 
     if (!seanceId || !memberId) {
@@ -220,7 +214,7 @@ export async function designateSeanceOfficer(
 ): Promise<{ success: true; memberName: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     if (!seanceId || !memberId) {
@@ -376,7 +370,7 @@ export async function addPVApprovalODJPoint(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const pvInfo = await getPreviousSeancePVForApproval(instanceId, seanceId)
@@ -454,7 +448,7 @@ export async function handlePVApprovalResult(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = requireRole(user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Find the ODJ point to get the linked PV
