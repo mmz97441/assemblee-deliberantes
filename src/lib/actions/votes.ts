@@ -43,6 +43,60 @@ async function getAuthenticatedUser() {
   return { user: data.user, supabase }
 }
 
+/**
+ * SÉCURITÉ : Vérifie que l'utilisateur authentifié a le droit de voter pour
+ * le membre `targetMemberId` :
+ *   - soit `targetMemberId` correspond bien à l'utilisateur connecté
+ *     (member.user_id === user.id),
+ *   - soit l'utilisateur connecté est le mandataire d'une procuration valide
+ *     dont le mandant est `targetMemberId` pour cette séance.
+ *
+ * Retourne null si OK, sinon une chaîne d'erreur.
+ *
+ * Sans cette garde, n'importe quel élu pourrait voter à la place d'un autre
+ * (vol de vote). Voir CGCT L2121-20 pour les procurations.
+ */
+async function assertCanVoteForMember(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  targetMemberId: string,
+  seanceId: string
+): Promise<string | null> {
+  // Cas 1 — l'utilisateur connecté EST le membre cible (vote pour soi-même)
+  const { data: self } = await supabase
+    .from('members')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('id', targetMemberId)
+    .maybeSingle()
+  if (self) return null
+
+  // Cas 2 — l'utilisateur connecté est mandataire d'une procuration valide
+  // pour ce membre, sur cette séance. La procuration doit être validée et
+  // le mandataire doit correspondre à l'utilisateur authentifié.
+  const { data: mandataireSelf } = await supabase
+    .from('members')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!mandataireSelf) return 'Vous ne pouvez pas voter pour ce membre.'
+
+  const { data: procuration } = await supabase
+    .from('procurations')
+    .select('id, valide')
+    .eq('seance_id', seanceId)
+    .eq('mandant_id', targetMemberId)
+    .eq('mandataire_id', mandataireSelf.id)
+    .maybeSingle()
+
+  if (!procuration || procuration.valide === false) {
+    return 'Vous ne pouvez pas voter pour ce membre (ni soi-même, ni procuration valide).'
+  }
+
+  return null
+}
+
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
 /**
@@ -665,6 +719,18 @@ export async function submitSecretBallot(
     if (vote.statut !== 'OUVERT') return { error: 'Ce vote n\'est plus ouvert' }
     if (vote.type_vote !== 'SECRET') return { error: 'Ce vote n\'est pas un scrutin secret' }
     if (!vote.encrypted_session_key) return { error: 'Erreur de configuration : clé de session manquante' }
+
+    // SÉCURITÉ : vérifier que l'utilisateur authentifié a le DROIT de voter
+    // pour ce membre. Soit c'est lui-même, soit il porte une procuration valide
+    // (mandataire) pour ce membre dans le cadre de cette séance.
+    // Sans cette garde, un élu pourrait voter à la place d'un autre — vol de vote.
+    const ownershipError = await assertCanVoteForMember(
+      supabase,
+      user.id,
+      memberId,
+      vote.seance_id
+    )
+    if (ownershipError) return { error: ownershipError }
 
     // Check if member is recused for this point (CGCT L2131-11)
     const { data: recusationCheck } = await supabase
