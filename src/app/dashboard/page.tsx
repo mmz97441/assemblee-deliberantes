@@ -517,7 +517,7 @@ export default async function DashboardPage() {
         // ── PV en attente ──
         const { data: pvData } = await supabase
           .from('pv')
-          .select('seance_id, statut')
+          .select('seance_id, statut, signe_par')
           .in('seance_id', seanceIds)
           .in('statut', ['BROUILLON', 'EN_RELECTURE'])
 
@@ -769,11 +769,15 @@ export default async function DashboardPage() {
 
           props.pvEnAttenteDetails = pvData.map((pv) => {
             const s = pvSeanceMap.get(pv.seance_id)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const signatures = ((pv.signe_par as any[]) || []) as { role?: string }[]
             return {
               seance_id: pv.seance_id,
               seance_titre: s?.titre || 'Seance',
               seance_date: s?.date || '',
               pv_statut: pv.statut || 'BROUILLON',
+              has_president_signature: signatures.some((sig) => sig?.role === 'president'),
+              has_secretaire_signature: signatures.some((sig) => sig?.role === 'secretaire'),
             }
           })
         }
@@ -1217,10 +1221,10 @@ export default async function DashboardPage() {
   // PV en attente details
   const { data: pvEnAttenteData } = await supabase
     .from('pv')
-    .select('seance_id, statut')
+    .select('seance_id, statut, signe_par')
     .in('statut', ['BROUILLON', 'EN_RELECTURE'])
 
-  let pvEnAttenteDetailsGest: { seance_id: string; seance_titre: string; seance_date: string; pv_statut: string }[] = []
+  let pvEnAttenteDetailsGest: { seance_id: string; seance_titre: string; seance_date: string; pv_statut: string; has_president_signature: boolean; has_secretaire_signature: boolean }[] = []
   if (pvEnAttenteData && pvEnAttenteData.length > 0) {
     const pvSeanceIds = pvEnAttenteData.map((p) => p.seance_id)
     const { data: pvSeances } = await supabase
@@ -1234,11 +1238,15 @@ export default async function DashboardPage() {
 
     pvEnAttenteDetailsGest = pvEnAttenteData.map((pv) => {
       const s = pvSeanceMap.get(pv.seance_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signatures = ((pv.signe_par as any[]) || []) as { role?: string }[]
       return {
         seance_id: pv.seance_id,
         seance_titre: s?.titre || 'Seance',
         seance_date: s?.date || '',
         pv_statut: pv.statut || 'BROUILLON',
+        has_president_signature: signatures.some((sig) => sig?.role === 'president'),
+        has_secretaire_signature: signatures.some((sig) => sig?.role === 'secretaire'),
       }
     })
   }

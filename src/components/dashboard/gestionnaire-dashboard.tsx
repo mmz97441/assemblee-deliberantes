@@ -89,6 +89,8 @@ interface PVDetail {
   seance_titre: string
   seance_date: string
   pv_statut: string
+  has_president_signature?: boolean
+  has_secretaire_signature?: boolean
 }
 
 interface MembreDetail {
@@ -728,25 +730,52 @@ export function GestionnaireDashboard({
           </DialogHeader>
           <div className="space-y-2 mt-2">
             {pvEnAttenteDetails && pvEnAttenteDetails.length > 0 ? (
-              pvEnAttenteDetails.map((pv) => (
-                <div key={pv.seance_id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{pv.seance_titre}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-muted-foreground">{formatDateWeekdayShort(pv.seance_date)}</span>
-                      <Badge className={`border-0 text-xs ${pv.pv_statut === 'EN_RELECTURE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                        {pv.pv_statut === 'EN_RELECTURE' ? 'En relecture' : 'Brouillon'}
-                      </Badge>
+              pvEnAttenteDetails.map((pv) => {
+                const hasPresident = pv.has_president_signature ?? false
+                const hasSecretaire = pv.has_secretaire_signature ?? false
+                const onlyOneMissing = (hasPresident && !hasSecretaire) || (!hasPresident && hasSecretaire)
+                const missingRole = !hasPresident ? 'président' : 'secrétaire'
+
+                let badgeLabel: string
+                let badgeClass: string
+                let actionLabel: string
+                let actionStep: string
+
+                if (onlyOneMissing) {
+                  badgeLabel = `Attente signature ${missingRole}`
+                  badgeClass = 'bg-amber-100 text-amber-700'
+                  actionLabel = 'Voir / relancer'
+                  actionStep = '?step=signatures'
+                } else if (pv.pv_statut === 'EN_RELECTURE') {
+                  badgeLabel = 'En relecture'
+                  badgeClass = 'bg-amber-100 text-amber-700'
+                  actionLabel = 'Voir'
+                  actionStep = '?step=relecture'
+                } else {
+                  badgeLabel = 'Brouillon'
+                  badgeClass = 'bg-slate-100 text-slate-700'
+                  actionLabel = 'Rédiger'
+                  actionStep = ''
+                }
+
+                return (
+                  <div key={pv.seance_id} className="rounded-lg border bg-card p-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{pv.seance_titre}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{formatDateWeekdayShort(pv.seance_date)}</span>
+                        <Badge className={`border-0 text-xs ${badgeClass}`}>{badgeLabel}</Badge>
+                      </div>
                     </div>
+                    <Button asChild size="sm" className="shrink-0">
+                      <Link href={`/seances/${pv.seance_id}/pv${actionStep}`}>
+                        <PenLine className="h-3.5 w-3.5 mr-1.5" />
+                        {actionLabel}
+                      </Link>
+                    </Button>
                   </div>
-                  <Button asChild size="sm" className="shrink-0">
-                    <Link href={`/seances/${pv.seance_id}/pv`}>
-                      <PenLine className="h-3.5 w-3.5 mr-1.5" />
-                      Rediger
-                    </Link>
-                  </Button>
-                </div>
-              ))
+                )
+              })
             ) : (
               <div className="text-center py-6">
                 <CheckCircle2 className="h-8 w-8 text-emerald-600 mx-auto mb-2" />
