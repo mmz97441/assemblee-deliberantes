@@ -78,6 +78,8 @@ import {
   Check,
   Pencil,
   Trash2,
+  Archive,
+  ArchiveRestore,
   ChevronUp,
   ChevronDown,
   ChevronRight,
@@ -133,6 +135,8 @@ import {
   removeConvocataire,
   addStandardODJPoints,
   duplicateSeance,
+  archiveSeance,
+  unarchiveSeance,
 } from '@/lib/actions/seances'
 import { sendConvocations, resendConvocation, sendReminders } from '@/lib/actions/convocations'
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
@@ -284,6 +288,8 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
   const [removeConvocataireDialog, setRemoveConvocataireDialog] = useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+  const [unarchiveDialogOpen, setUnarchiveDialogOpen] = useState(false)
 
   // Edit séance dialog
   const [editSeanceOpen, setEditSeanceOpen] = useState(false)
@@ -662,6 +668,32 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
           },
         })
         router.push(`/seances/${result.newSeanceId}`)
+      }
+    })
+  }
+
+  function handleArchive() {
+    setArchiveDialogOpen(false)
+    startTransition(async () => {
+      const result = await archiveSeance(seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Séance archivée')
+        router.refresh()
+      }
+    })
+  }
+
+  function handleUnarchive() {
+    setUnarchiveDialogOpen(false)
+    startTransition(async () => {
+      const result = await unarchiveSeance(seance.id)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Séance désarchivée')
+        router.refresh()
       }
     })
   }
@@ -2273,6 +2305,32 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                 </Button>
               )}
 
+              {seance.statut === 'CLOTUREE' && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => setArchiveDialogOpen(true)}
+                  disabled={isPending}
+                  title="Déplacer cette séance dans les archives — la séance et son PV signé restent consultables, mais la séance n'apparaît plus dans la liste active"
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archiver la séance
+                </Button>
+              )}
+
+              {seance.statut === 'ARCHIVEE' && (
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => setUnarchiveDialogOpen(true)}
+                  disabled={isPending}
+                  title="Sortir cette séance des archives et la replacer dans la liste active"
+                >
+                  <ArchiveRestore className="h-4 w-4 mr-2" />
+                  Désarchiver
+                </Button>
+              )}
+
               {/* Contextual tips */}
               {isBrouillon && seance.odj_points.length === 0 && seance.convocataires.length === 0 && (
                 <div className="rounded-lg bg-blue-50 border border-blue-200 p-3">
@@ -2360,6 +2418,57 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* Dialogs                                                            */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
+
+      {/* Archive confirmation */}
+      <AlertDialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-muted-foreground" />
+              Archiver « {seance.titre} » ?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <span className="block">
+                La séance et son procès-verbal signé restent consultables, mais
+                la séance n&apos;apparaîtra plus dans la liste active. Vous
+                pouvez la désarchiver à tout moment.
+              </span>
+              <span className="block text-xs">
+                Pour archiver : le PV doit être signé et toutes les
+                délibérations doivent être publiées.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive} disabled={isPending}>
+              {isPending ? 'Archivage...' : 'Archiver'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unarchive confirmation */}
+      <AlertDialog open={unarchiveDialogOpen} onOpenChange={setUnarchiveDialogOpen}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <ArchiveRestore className="h-5 w-5 text-muted-foreground" />
+              Désarchiver « {seance.titre} » ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              La séance retournera dans la liste active. Son statut redeviendra
+              « Clôturée ». Vous pourrez la réarchiver ensuite.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleUnarchive} disabled={isPending}>
+              {isPending ? 'Désarchivage...' : 'Désarchiver'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Duplicate confirmation */}
       <AlertDialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
