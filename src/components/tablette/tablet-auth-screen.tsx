@@ -174,8 +174,10 @@ export function TabletAuthScreen({
   const startCamera = useCallback(async () => {
     setCameraError(null)
     try {
+      // Caméra frontale (selfie) : la tablette est posée à la place de
+      // l'élu, qui présente son QR (téléphone ou papier) face à l'écran.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       })
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -261,6 +263,7 @@ export function TabletAuthScreen({
                 <video
                   ref={videoRef}
                   className="w-full h-full object-cover"
+                  style={{ transform: 'scaleX(-1)' }}
                   playsInline
                   muted
                 />

@@ -1826,15 +1826,6 @@ export const Constants = {
   },
 } as const
 
-        "ADOPTE_UNANIMITE",
-        "ADOPTE_VOIX_PREPONDERANTE",
-      ],
-      vote_statut: ["OUVERT", "CLOS", "ANNULE", "CONTESTE"],
-      vote_type: ["MAIN_LEVEE", "SECRET", "NOMINAL", "TELEVOTE"],
-    },
-  },
-} as const
-
 
 
 // ============================================
