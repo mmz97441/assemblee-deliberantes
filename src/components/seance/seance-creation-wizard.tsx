@@ -53,6 +53,10 @@ import {
   Copy,
   Sparkles,
   Loader2,
+  Upload,
+  Paperclip,
+  ExternalLink,
+  X,
   Video,
   Monitor,
   Info,
@@ -73,6 +77,7 @@ import {
   type CreateSeanceWizardInput,
 } from '@/lib/actions/seances'
 import { sendConvocations } from '@/lib/actions/convocations'
+import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -110,7 +115,8 @@ interface ExistingDraft {
   publique: boolean | null
   president_effectif_seance_id: string | null
   secretaire_seance_id: string | null
-  odj_points: { titre: string; description: string | null; type_traitement: string | null; majorite_requise: string | null; rapporteur_id: string | null; huis_clos: boolean | null; votes_interdits: boolean | null; position: number }[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  odj_points: { id: string; titre: string; description: string | null; type_traitement: string | null; majorite_requise: string | null; rapporteur_id: string | null; huis_clos: boolean | null; votes_interdits: boolean | null; position: number; documents: any[] | null }[]
   convocataire_member_ids: string[]
 }
 
@@ -250,6 +256,7 @@ export function SeanceCreationWizard({
   const [odjPoints, setOdjPoints] = useState<WizardODJPoint[]>(() => {
     if (existingDraft && existingDraft.odj_points.length > 0) {
       return existingDraft.odj_points.map((p) => ({
+        id: p.id,
         titre: p.titre,
         description: p.description,
         type_traitement: (p.type_traitement || 'DELIBERATION') as WizardODJPoint['type_traitement'],
@@ -257,6 +264,7 @@ export function SeanceCreationWizard({
         rapporteur_id: p.rapporteur_id,
         huis_clos: p.huis_clos || false,
         votes_interdits: p.votes_interdits || false,
+        documents: Array.isArray(p.documents) ? p.documents : [],
       }))
     }
     return getStandardPoints()
@@ -454,11 +462,22 @@ export function SeanceCreationWizard({
         }
       }
 
-      // À la sortie de l'étape "ODJ" (2), on persiste l'ordre du jour en DB.
+      // À la sortie de l'étape "ODJ" (2), on persiste l'ordre du jour en DB
+      // et on récupère les IDs DB pour pouvoir y rattacher des documents.
       if (currentStep === 2 && seanceId) {
         const validPoints = odjPoints.filter(p => p.titre.trim())
         const result = await setSeanceODJ(seanceId, validPoints)
         if ('error' in result) { toast.error(result.error); return }
+        // Réinjecter les IDs DB dans le state local pour permettre l'upload
+        // de documents si l'utilisateur revient en arrière sur cette étape.
+        setOdjPoints((prev) => {
+          let dbIdx = 0
+          return prev.map((p) => {
+            if (!p.titre.trim()) return p
+            const newId = result.ids[dbIdx++] || null
+            return { ...p, id: newId }
+          })
+        })
       }
 
       // À la sortie de l'étape "Convocataires" (3), on persiste la liste.
@@ -1131,6 +1150,25 @@ export function SeanceCreationWizard({
                           </label>
                         </div>
 
+                        {/* Documents joints — visible si le point est déjà persisté en DB
+                            (les nouveaux points reçoivent leur ID au passage à l'étape 4) */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Pièces jointes</Label>
+                          {point.id ? (
+                            <WizardPointDocuments
+                              seanceId={seanceId!}
+                              pointId={point.id}
+                              documents={Array.isArray(point.documents) ? point.documents : []}
+                              onDocumentsChange={(docs) => updatePoint(index, { documents: docs })}
+                            />
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Cliquez sur « Suivant » pour enregistrer les points puis revenez
+                              sur cette étape pour ajouter des pièces jointes.
+                            </p>
+                          )}
+                        </div>
+
                         <div className="flex justify-end">
                           <Button
                             variant="ghost"
@@ -1622,5 +1660,134 @@ function MemberCombobox({
         </Command>
       </PopoverContent>
     </Popover>
+  )
+}
+
+// ─── Documents joints à un point ODJ pendant le wizard ──────────────────────
+// Réutilise les mêmes server actions que la fiche détail (uploadODJDocument /
+// removeODJDocument). Le bouton n'est rendu que si le point a déjà un id DB.
+
+function WizardPointDocuments({
+  seanceId,
+  pointId,
+  documents,
+  onDocumentsChange,
+}: {
+  seanceId: string
+  pointId: string
+  documents: DocumentInfo[]
+  onDocumentsChange: (docs: DocumentInfo[]) => void
+}) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [removingPath, setRemovingPath] = useState<string | null>(null)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.set('file', file)
+      formData.set('point_id', pointId)
+      formData.set('seance_id', seanceId)
+      const result = await uploadODJDocument(formData)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        onDocumentsChange([...(documents || []), result.document])
+        toast.success(`« ${result.document.name} » ajouté`)
+      }
+    } catch {
+      toast.error('Erreur lors de l\'upload')
+    } finally {
+      setIsUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleRemove(doc: DocumentInfo) {
+    setRemovingPath(doc.path)
+    try {
+      const result = await removeODJDocument(pointId, seanceId, doc.path)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        onDocumentsChange((documents || []).filter((d) => d.path !== doc.path))
+        toast.success('Document retiré')
+      }
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      setRemovingPath(null)
+    }
+  }
+
+  async function handleOpen(doc: DocumentInfo) {
+    try {
+      const result = await getDocumentUrl(doc.path)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        window.open(result.url, '_blank')
+      }
+    } catch {
+      toast.error('Impossible d\'ouvrir le document')
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {documents.length > 0 && (
+        <ul className="space-y-1.5">
+          {documents.map((doc) => (
+            <li
+              key={doc.path}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/40 border"
+            >
+              <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs flex-1 truncate" title={doc.name}>
+                {doc.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleOpen(doc)}
+                className="text-muted-foreground hover:text-foreground"
+                title="Ouvrir le document dans un nouvel onglet"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemove(doc)}
+                disabled={removingPath === doc.path}
+                className="text-muted-foreground hover:text-destructive"
+                title="Retirer ce document"
+              >
+                {removingPath === doc.path ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+        {isUploading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Upload className="h-3.5 w-3.5" />
+        )}
+        {isUploading ? 'Upload en cours…' : 'Joindre un document'}
+        <input
+          type="file"
+          className="hidden"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt"
+          onChange={handleFileChange}
+          disabled={isUploading}
+        />
+      </label>
+    </div>
   )
 }

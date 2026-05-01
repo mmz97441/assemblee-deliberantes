@@ -1458,6 +1458,10 @@ export async function removeConvocataire(seanceId: string, memberId: string): Pr
 // ─── Wizard : création complète en une seule action ─────────────────────────
 
 export interface WizardODJPoint {
+  // ID DB du point (présent uniquement si déjà persisté en base, par exemple
+  // après setSeanceODJ ou hydration depuis un brouillon existant). Permet
+  // d'attacher des documents à un point pendant le wizard.
+  id?: string | null
   titre: string
   type_traitement: 'DELIBERATION' | 'INFORMATION' | 'QUESTION_DIVERSE' | 'ELECTION' | 'APPROBATION_PV'
   majorite_requise: 'SIMPLE' | 'ABSOLUE' | 'QUALIFIEE' | 'UNANIMITE'
@@ -1465,6 +1469,8 @@ export interface WizardODJPoint {
   description: string | null
   huis_clos: boolean
   votes_interdits: boolean
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  documents?: any[]
 }
 
 // ─── Wizard : sauvegarde progressive ─────────────────────────────────────────
@@ -1595,7 +1601,7 @@ export async function updateSeanceDraft(
 export async function setSeanceODJ(
   seanceId: string,
   points: WizardODJPoint[]
-): Promise<ActionResult> {
+): Promise<{ success: true; ids: string[] } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
@@ -1614,6 +1620,7 @@ export async function setSeanceODJ(
     // DELETE existant + INSERT batch (transactionnel par convention PostgREST sur même requête).
     await supabase.from('odj_points').delete().eq('seance_id', seanceId)
 
+    let ids: string[] = []
     if (points.length > 0) {
       const rows = points.map((p, idx) => ({
         seance_id: seanceId,
@@ -1627,12 +1634,17 @@ export async function setSeanceODJ(
         votes_interdits: p.votes_interdits,
         statut: 'A_TRAITER',
       }))
-      const { error } = await supabase.from('odj_points').insert(rows)
+      const { data, error } = await supabase.from('odj_points').insert(rows).select('id, position')
       if (error) return { error: `Erreur d'enregistrement de l'ODJ : ${error.message}` }
+      // Trier les IDs dans l'ordre des positions pour matcher les points d'entrée
+      ids = (data || [])
+        .slice()
+        .sort((a, b) => a.position - b.position)
+        .map((r) => r.id)
     }
 
     revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
-    return { success: true }
+    return { success: true, ids }
   } catch (err) {
     console.error('setSeanceODJ error:', err)
     return { error: 'Erreur inattendue' }

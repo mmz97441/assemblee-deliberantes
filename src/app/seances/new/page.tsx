@@ -38,7 +38,8 @@ export default async function NewSeancePage({ searchParams }: PageProps) {
     publique: boolean | null
     president_effectif_seance_id: string | null
     secretaire_seance_id: string | null
-    odj_points: { titre: string; description: string | null; type_traitement: string | null; majorite_requise: string | null; rapporteur_id: string | null; huis_clos: boolean | null; votes_interdits: boolean | null; position: number }[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    odj_points: { id: string; titre: string; description: string | null; type_traitement: string | null; majorite_requise: string | null; rapporteur_id: string | null; huis_clos: boolean | null; votes_interdits: boolean | null; position: number; documents: any[] | null }[]
     convocataire_member_ids: string[]
   } | null = null
 
@@ -48,7 +49,7 @@ export default async function NewSeancePage({ searchParams }: PageProps) {
       .select(`
         id, titre, instance_id, date_seance, lieu, mode, publique, statut,
         president_effectif_seance_id, secretaire_seance_id,
-        odj_points!odj_points_seance_id_fkey (titre, description, type_traitement, majorite_requise, rapporteur_id, huis_clos, votes_interdits, position),
+        odj_points!odj_points_seance_id_fkey (id, titre, description, type_traitement, majorite_requise, rapporteur_id, huis_clos, votes_interdits, position, documents),
         convocataires (member_id)
       `)
       .eq('id', searchParams.seanceId)
