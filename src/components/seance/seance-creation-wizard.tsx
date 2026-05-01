@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,9 +65,14 @@ import type { InstanceConfigRow } from '@/lib/supabase/types'
 import {
   createSeanceWizard,
   getLastSeanceODJ,
+  createSeanceDraft,
+  updateSeanceDraft,
+  setSeanceODJ,
+  setSeanceConvocataires,
   type WizardODJPoint,
   type CreateSeanceWizardInput,
 } from '@/lib/actions/seances'
+import { sendConvocations } from '@/lib/actions/convocations'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -95,11 +100,26 @@ interface LastSeanceInfo {
   titre: string
 }
 
+interface ExistingDraft {
+  id: string
+  titre: string
+  instance_id: string
+  date_seance: string
+  lieu: string | null
+  mode: string | null
+  publique: boolean | null
+  president_effectif_seance_id: string | null
+  secretaire_seance_id: string | null
+  odj_points: { titre: string; description: string | null; type_traitement: string | null; majorite_requise: string | null; rapporteur_id: string | null; huis_clos: boolean | null; votes_interdits: boolean | null; position: number }[]
+  convocataire_member_ids: string[]
+}
+
 interface SeanceCreationWizardProps {
   instances: InstanceConfigRow[]
   members: MemberOption[]
   instanceMembers: InstanceMember[]
   lastSeanceByInstance: Record<string, LastSeanceInfo>
+  existingDraft?: ExistingDraft | null
 }
 
 // ─── Step configuration ─────────────────────────────────────────────────────
@@ -173,16 +193,28 @@ export function SeanceCreationWizard({
   members,
   instanceMembers,
   lastSeanceByInstance,
+  existingDraft,
 }: SeanceCreationWizardProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
   // ─── Wizard state ─────────────────────────────────────────────────
-  const [currentStep, setCurrentStep] = useState(0)
+  // ID du brouillon DB (créé dès la sortie de l'étape "Quand"). Si l'URL
+  // contient ?seanceId=X et que le brouillon existe, on hydrate depuis la DB.
+  const [seanceId, setSeanceId] = useState<string | null>(existingDraft?.id || searchParams.get('seanceId'))
+  const [currentStep, setCurrentStep] = useState(() => {
+    const s = parseInt(searchParams.get('step') || '0')
+    if (Number.isFinite(s) && s >= 0 && s < STEPS.length) return s
+    // Si on a un brouillon mais pas de step en URL : démarrer à l'étape ODJ
+    // (les étapes 0-1 sont déjà renseignées dans le brouillon).
+    if (existingDraft) return 2
+    return 0
+  })
 
   // Step 1: Instance
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>(
-    instances.length === 1 ? instances[0].id : ''
+    existingDraft?.instance_id || (instances.length === 1 ? instances[0].id : '')
   )
 
   // Step 2: Quand et où
@@ -192,27 +224,110 @@ export function SeanceCreationWizard({
     return d.toISOString().split('T')[0]
   })()
 
-  const [dateSeance, setDateSeance] = useState(defaultDate)
-  const [heureSeance, setHeureSeance] = useState('14:00')
-  const [lieu, setLieu] = useState('')
-  const [mode, setMode] = useState<'PRESENTIEL' | 'HYBRIDE' | 'VISIO'>('PRESENTIEL')
-  const [publique, setPublique] = useState(true)
+  const draftDate = existingDraft?.date_seance ? new Date(existingDraft.date_seance) : null
+  const [dateSeance, setDateSeance] = useState(
+    draftDate ? draftDate.toISOString().split('T')[0] : defaultDate
+  )
+  const [heureSeance, setHeureSeance] = useState(
+    draftDate
+      ? `${String(draftDate.getHours()).padStart(2, '0')}:${String(draftDate.getMinutes()).padStart(2, '0')}`
+      : '14:00'
+  )
+  const [lieu, setLieu] = useState(existingDraft?.lieu || '')
+  const [mode, setMode] = useState<'PRESENTIEL' | 'HYBRIDE' | 'VISIO'>(
+    (existingDraft?.mode as 'PRESENTIEL' | 'HYBRIDE' | 'VISIO') || 'PRESENTIEL'
+  )
+  const [publique, setPublique] = useState(existingDraft?.publique ?? true)
   const [urgence, setUrgence] = useState(false)
-  const [presidentId, setPresidentId] = useState<string>('_auto')
-  const [secretaireId, setSecretaireId] = useState<string>('_auto')
+  const [presidentId, setPresidentId] = useState<string>(
+    existingDraft?.president_effectif_seance_id || '_auto'
+  )
+  const [secretaireId, setSecretaireId] = useState<string>(
+    existingDraft?.secretaire_seance_id || '_auto'
+  )
 
   // Step 3: ODJ
-  const [odjPoints, setOdjPoints] = useState<WizardODJPoint[]>(getStandardPoints())
+  const [odjPoints, setOdjPoints] = useState<WizardODJPoint[]>(() => {
+    if (existingDraft && existingDraft.odj_points.length > 0) {
+      return existingDraft.odj_points.map((p) => ({
+        titre: p.titre,
+        description: p.description,
+        type_traitement: (p.type_traitement || 'DELIBERATION') as WizardODJPoint['type_traitement'],
+        majorite_requise: (p.majorite_requise || 'SIMPLE') as WizardODJPoint['majorite_requise'],
+        rapporteur_id: p.rapporteur_id,
+        huis_clos: p.huis_clos || false,
+        votes_interdits: p.votes_interdits || false,
+      }))
+    }
+    return getStandardPoints()
+  })
   const [expandedPointIndex, setExpandedPointIndex] = useState<number | null>(null)
 
   // Step 4: Convocataires
-  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set())
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(
+    new Set(existingDraft?.convocataire_member_ids || [])
+  )
   const [convSearch, setConvSearch] = useState('')
-  const [convocatairesInitialized, setConvocatairesInitialized] = useState(false)
+  const [convocatairesInitialized, setConvocatairesInitialized] = useState(
+    !!(existingDraft && existingDraft.convocataire_member_ids.length > 0)
+  )
 
   // Step 5: Options
   const [sendConvocationsToggle, setSendConvocationsToggle] = useState(true)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+
+  // ─── Persistance URL : ?seanceId=X&step=N ────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    if (seanceId) url.searchParams.set('seanceId', seanceId)
+    else url.searchParams.delete('seanceId')
+    url.searchParams.set('step', String(currentStep))
+    window.history.replaceState({}, '', url.toString())
+  }, [seanceId, currentStep])
+
+  // ─── Persistance localStorage des étapes 3-4 (ODJ + convocataires) ───────
+  // Ces étapes restent en mémoire locale jusqu'à la finalisation. On sauvegarde
+  // en localStorage à chaque modification pour ne rien perdre si l'onglet ferme.
+  const storageKey = seanceId ? `wizard_seance_${seanceId}` : null
+  const hasHydratedLocalStorageRef = useRef(false)
+  useEffect(() => {
+    if (!storageKey) return
+    if (hasHydratedLocalStorageRef.current) return
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const data = JSON.parse(raw)
+        if (Array.isArray(data.odjPoints) && data.odjPoints.length > 0) {
+          setOdjPoints(data.odjPoints)
+        }
+        if (Array.isArray(data.selectedMemberIds)) {
+          setSelectedMemberIds(new Set(data.selectedMemberIds))
+          setConvocatairesInitialized(true)
+        }
+      }
+    } catch {
+      // localStorage corrompu, on ignore
+    }
+    hasHydratedLocalStorageRef.current = true
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!storageKey) return
+    if (!hasHydratedLocalStorageRef.current) return
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          odjPoints,
+          selectedMemberIds: Array.from(selectedMemberIds),
+          updatedAt: new Date().toISOString(),
+        })
+      )
+    } catch {
+      // Quota dépassé ou indisponible — on ignore silencieusement
+    }
+  }, [storageKey, odjPoints, selectedMemberIds])
 
   // ─── Derived data ─────────────────────────────────────────────────
   const selectedInstance = instances.find(i => i.id === selectedInstanceId)
@@ -312,12 +427,54 @@ export function SeanceCreationWizard({
 
   function goNext() {
     if (!canAdvance()) return
-    if (currentStep === 3) initializeConvocataires()
-    if (currentStep < STEPS.length - 1) {
-      // Initialize convocataires when moving to step 4
+    if (currentStep >= STEPS.length - 1) return
+
+    startTransition(async () => {
+      // À la sortie de l'étape "Quand" (1), on crée le brouillon DB s'il
+      // n'existe pas encore, sinon on met à jour ses métadonnées.
+      if (currentStep === 1) {
+        const draftInput = {
+          titre: generatedTitle,
+          instanceId: selectedInstanceId,
+          dateSeance,
+          heureSeance,
+          lieu: lieu.trim() || undefined,
+          mode,
+          publique,
+          presidentId: presidentId === '_auto' ? null : presidentId === '_none' ? null : presidentId,
+          secretaireId: secretaireId === '_auto' ? null : secretaireId === '_none' ? null : secretaireId,
+        }
+        if (!seanceId) {
+          const result = await createSeanceDraft(draftInput)
+          if ('error' in result) { toast.error(result.error); return }
+          setSeanceId(result.id)
+        } else {
+          const result = await updateSeanceDraft(seanceId, draftInput)
+          if ('error' in result) { toast.error(result.error); return }
+        }
+      }
+
+      // À la sortie de l'étape "ODJ" (2), on persiste l'ordre du jour en DB.
+      if (currentStep === 2 && seanceId) {
+        const validPoints = odjPoints.filter(p => p.titre.trim())
+        const result = await setSeanceODJ(seanceId, validPoints)
+        if ('error' in result) { toast.error(result.error); return }
+      }
+
+      // À la sortie de l'étape "Convocataires" (3), on persiste la liste.
+      if (currentStep === 3) {
+        if (seanceId) {
+          const result = await setSeanceConvocataires(seanceId, Array.from(selectedMemberIds))
+          if ('error' in result) { toast.error(result.error); return }
+        }
+        initializeConvocataires()
+      }
+
+      // Initialize convocataires when moving to step 3 (depuis 2)
       if (currentStep + 1 === 3) initializeConvocataires()
+
       setCurrentStep(s => s + 1)
-    }
+    })
   }
 
   function goBack() {
@@ -427,42 +584,57 @@ export function SeanceCreationWizard({
   function confirmSubmit() {
     setConfirmDialogOpen(false)
 
-    const input: CreateSeanceWizardInput = {
-      instanceId: selectedInstanceId,
-      titre: generatedTitle,
-      dateSeance,
-      heureSeance,
-      lieu,
-      mode,
-      publique,
-      urgence,
-      presidentId: presidentId === '_auto' ? null : presidentId === '_none' ? null : presidentId,
-      secretaireId: secretaireId === '_auto' ? null : secretaireId === '_none' ? null : secretaireId,
-      odjPoints: odjPoints.filter(p => p.titre.trim()),
-      convocataireIds: Array.from(selectedMemberIds),
-      sendConvocations: sendConvocationsToggle,
-    }
-
     startTransition(async () => {
-      const result = await createSeanceWizard(input)
-      if ('error' in result) {
-        toast.error(result.error)
+      // Si le brouillon n'a jamais été créé en DB (cas exceptionnel : l'utilisateur
+      // saute des étapes via le stepper), on tombe sur la création complète
+      // legacy via createSeanceWizard.
+      if (!seanceId) {
+        const input: CreateSeanceWizardInput = {
+          instanceId: selectedInstanceId,
+          titre: generatedTitle,
+          dateSeance,
+          heureSeance,
+          lieu,
+          mode,
+          publique,
+          urgence,
+          presidentId: presidentId === '_auto' ? null : presidentId === '_none' ? null : presidentId,
+          secretaireId: secretaireId === '_auto' ? null : secretaireId === '_none' ? null : secretaireId,
+          odjPoints: odjPoints.filter(p => p.titre.trim()),
+          convocataireIds: Array.from(selectedMemberIds),
+          sendConvocations: sendConvocationsToggle,
+        }
+        const result = await createSeanceWizard(input)
+        if ('error' in result) { toast.error(result.error); return }
+        if (storageKey) localStorage.removeItem(storageKey)
+        if (result.convocationsSent > 0) {
+          toast.success(`Séance créée — ${result.convocationsSent} convocation(s) envoyée(s)`, { duration: 5000 })
+        } else {
+          toast.success('Séance créée avec succès', { duration: 5000 })
+        }
+        router.push(`/seances/${result.id}?tab=odj`)
         return
       }
 
-      if (result.convocationsSent > 0) {
-        toast.success(`Séance créée — ${result.convocationsSent} convocation(s) envoyée(s)`, { duration: 5000 })
+      // Cas standard : le brouillon existe déjà, ODJ et convocataires aussi
+      // (sauvegardés à chaque "Suivant"). Reste juste à envoyer les
+      // convocations si demandé.
+      if (sendConvocationsToggle) {
+        const result = await sendConvocations(seanceId)
+        if ('error' in result) { toast.error(result.error); return }
+        toast.success(`Séance convoquée — ${result.sent} convocation(s) envoyée(s)`, { duration: 5000 })
       } else {
-        toast.success('Séance créée avec succès', { duration: 5000 })
+        toast.success('Séance enregistrée en brouillon', { duration: 4000 })
       }
 
-      // Redirect to séance detail with ODJ tab open + prompt to add documents
+      if (storageKey) localStorage.removeItem(storageKey)
+
       const hasDocumentablePoints = odjPoints.some(p => p.type_traitement !== 'QUESTION_DIVERSE' && p.type_traitement !== 'INFORMATION')
       if (hasDocumentablePoints) {
         toast.info('💡 Pensez à ajouter les documents (rapports, budgets, annexes) à chaque point de l\'ordre du jour.', { duration: 8000 })
       }
 
-      router.push(`/seances/${result.id}?tab=odj`)
+      router.push(`/seances/${seanceId}?tab=odj`)
     })
   }
 
