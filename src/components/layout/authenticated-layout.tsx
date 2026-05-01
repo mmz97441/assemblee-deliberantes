@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { getEffectiveRole } from '@/lib/auth/get-effective-role'
+import { getUserRole } from '@/lib/auth/get-user-role'
 import { AppLayout } from './app-layout'
 import type { UserRole } from '@/lib/supabase/types'
 
@@ -26,6 +27,9 @@ export async function AuthenticatedLayout({ children }: AuthenticatedLayoutProps
     redirect(ROUTES.LOGIN)
   }
 
+  // realRole = rôle DB sans override, effectiveRole = avec override éventuel
+  // (RoleSwitcher utilise realRole pour décider d'afficher ou non l'option).
+  const realRole = (await getUserRole(supabase, user.id)) as UserRole | null
   const effectiveRole = await getEffectiveRole(supabase, user.id) as UserRole
   const fullName = user.user_metadata?.full_name || user.email || ''
   const email = user.email || ''
@@ -34,7 +38,7 @@ export async function AuthenticatedLayout({ children }: AuthenticatedLayoutProps
     <AppLayout
       userFullName={fullName}
       userRole={effectiveRole}
-      userRealRole={realRole}
+      userRealRole={realRole ?? effectiveRole}
       userEmail={email}
     >
       {children}
