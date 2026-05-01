@@ -7,6 +7,7 @@ import { acceptInvitationAction } from '@/lib/auth/actions'
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -58,10 +59,9 @@ export default function InviteConfirmPage() {
           <form action={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caracteres`}
                 required
                 minLength={PASSWORD_MIN_LENGTH}
@@ -70,10 +70,9 @@ export default function InviteConfirmPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
                 placeholder="Retapez le mot de passe"
                 required
                 minLength={PASSWORD_MIN_LENGTH}

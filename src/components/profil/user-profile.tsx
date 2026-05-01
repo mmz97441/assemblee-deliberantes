@@ -8,6 +8,7 @@ import { ROLE_LABELS } from '@/lib/auth/helpers'
 import type { UserRole } from '@/lib/supabase/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -213,11 +214,10 @@ export function UserProfile({ fullName, email, role }: UserProfileProps) {
                 Nouveau mot de passe
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caractères`}
                   required
                   autoComplete="new-password"
@@ -234,11 +234,10 @@ export function UserProfile({ fullName, email, role }: UserProfileProps) {
                 Confirmer le mot de passe
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
                   placeholder="Retapez le mot de passe"
                   required
                   autoComplete="new-password"

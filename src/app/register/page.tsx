@@ -8,6 +8,7 @@ import { registerAction } from '@/lib/auth/actions'
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Building2, Lock, Mail, User, Shield, AlertTriangle } from 'lucide-react'
@@ -171,11 +172,10 @@ export default function RegisterPage() {
                 Mot de passe
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caractères`}
                   required
                   minLength={PASSWORD_MIN_LENGTH}
@@ -190,11 +190,10 @@ export default function RegisterPage() {
                 Confirmer le mot de passe
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
                   placeholder="Retapez le mot de passe"
                   required
                   minLength={PASSWORD_MIN_LENGTH}

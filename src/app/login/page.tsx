@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Building2, Lock, Mail, CheckCircle2 } from 'lucide-react'
+import { PasswordInput } from '@/components/ui/password-input'
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -174,11 +175,10 @@ function LoginForm() {
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   placeholder={`Minimum ${PASSWORD_MIN_LENGTH} caractères`}
                   required
                   autoComplete="current-password"
