@@ -52,7 +52,6 @@ export default async function DashboardPage() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon après-midi' : 'Bonsoir'
 
-  const supabase = await createServerSupabaseClient()
   const now = new Date()
   const yearStart = `${now.getFullYear()}-01-01`
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
