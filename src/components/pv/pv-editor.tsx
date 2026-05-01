@@ -417,6 +417,28 @@ export function PVEditor({
     ? ['presences', 'carence', 'signatures']
     : ['presences', 'discussions', 'observations', 'relecture', 'finaliser', 'signatures']
 
+  // ─── Reprise d'étape : initialiser sur la dernière étape pertinente ──────
+  // Si une signature a été posée, ou si le PV est EN_RELECTURE/SIGNE/PUBLIE,
+  // on reprend directement sur l'étape Signatures plutôt que de retomber sur
+  // Présences à chaque ouverture.
+  const stepInitializedRef = useRef(false)
+  useEffect(() => {
+    if (stepInitializedRef.current) return
+    if (steps.length === 0) return
+
+    const isSignatureLocked = ['EN_RELECTURE', 'SIGNE', 'PUBLIE'].includes(pvStatut || '')
+    const hasAnySignature = signatures.length > 0
+    if (hasAnySignature || isSignatureLocked) {
+      const i = steps.indexOf('signatures')
+      if (i >= 0) {
+        setCurrentStep(i)
+        // Marquer toutes les étapes précédentes comme complétées (pour la stepper UI)
+        setCompletedSteps(new Set(Array.from({ length: i }, (_, k) => k)))
+      }
+    }
+    stepInitializedRef.current = true
+  }, [steps, signatures.length, pvStatut])
+
   const totalSteps = steps.length
   const totalPoints = contenu?.points.length || 0
 
