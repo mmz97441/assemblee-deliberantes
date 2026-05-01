@@ -1467,6 +1467,251 @@ export interface WizardODJPoint {
   votes_interdits: boolean
 }
 
+// ─── Wizard : sauvegarde progressive ─────────────────────────────────────────
+// Le wizard de création de séance crée d'abord un brouillon DB minimal dès
+// l'étape 2 (titre + instance + date) puis enregistre chaque "Suivant" :
+// l'utilisateur ne perd plus son travail s'il ferme l'onglet, et peut reprendre
+// la séance soit dans le wizard via ?seanceId=X soit dans la fiche détail.
+
+export interface SeanceDraftInput {
+  titre: string
+  instanceId: string
+  dateSeance: string
+  heureSeance?: string
+  lieu?: string
+  mode?: 'PRESENTIEL' | 'HYBRIDE' | 'VISIO'
+  publique?: boolean
+  presidentId?: string | null
+  secretaireId?: string | null
+}
+
+export async function createSeanceDraft(
+  input: SeanceDraftInput
+): Promise<{ success: true; id: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    if (!input.titre?.trim()) return { error: 'Le titre est requis' }
+    if (!input.instanceId) return { error: "L'instance est requise" }
+    if (!input.dateSeance) return { error: 'La date est requise' }
+
+    const fullDate = input.heureSeance
+      ? `${input.dateSeance}T${input.heureSeance}:00`
+      : `${input.dateSeance}T00:00:00`
+    const parsed = new Date(fullDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (parsed < today) return { error: 'La date ne peut pas être dans le passé.' }
+
+    const { data: instanceCheck } = await supabase
+      .from('instance_config')
+      .select('actif, seances_publiques_defaut')
+      .eq('id', input.instanceId)
+      .single()
+    if (instanceCheck && instanceCheck.actif === false) {
+      return { error: 'Cette instance est désactivée.' }
+    }
+
+    const payload = {
+      titre: input.titre.trim(),
+      instance_id: input.instanceId,
+      date_seance: fullDate,
+      mode: (input.mode || 'PRESENTIEL') as 'PRESENTIEL' | 'HYBRIDE' | 'VISIO',
+      lieu: input.lieu?.trim() || null,
+      publique: input.publique ?? instanceCheck?.seances_publiques_defaut ?? true,
+      president_effectif_seance_id: input.presidentId || null,
+      secretaire_seance_id: input.secretaireId || null,
+      statut: 'BROUILLON' as const,
+      created_by: user!.id,
+    }
+
+    const { data, error } = await supabase
+      .from('seances')
+      .insert(payload)
+      .select('id')
+      .single()
+    if (error) return { error: `Erreur de création : ${error.message}` }
+
+    revalidatePath(ROUTES.SEANCES)
+    return { success: true, id: data.id }
+  } catch (err) {
+    console.error('createSeanceDraft error:', err)
+    return { error: 'Erreur inattendue lors de la création du brouillon' }
+  }
+}
+
+export async function updateSeanceDraft(
+  seanceId: string,
+  input: Partial<SeanceDraftInput>
+): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    const { data: current } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+    if (!current) return { error: 'Séance introuvable' }
+    if (current.statut !== 'BROUILLON') {
+      return { error: 'Cette action ne s\'applique qu\'aux brouillons. Utilisez la fiche séance pour modifier une séance convoquée.' }
+    }
+
+    const payload: Record<string, unknown> = {}
+    if (input.titre !== undefined) payload.titre = input.titre.trim()
+    if (input.instanceId !== undefined) payload.instance_id = input.instanceId
+    if (input.dateSeance !== undefined) {
+      const fullDate = input.heureSeance
+        ? `${input.dateSeance}T${input.heureSeance}:00`
+        : `${input.dateSeance}T00:00:00`
+      payload.date_seance = fullDate
+    }
+    if (input.mode !== undefined) payload.mode = input.mode
+    if (input.lieu !== undefined) payload.lieu = input.lieu?.trim() || null
+    if (input.publique !== undefined) payload.publique = input.publique
+    if (input.presidentId !== undefined) payload.president_effectif_seance_id = input.presidentId
+    if (input.secretaireId !== undefined) payload.secretaire_seance_id = input.secretaireId
+
+    if (Object.keys(payload).length === 0) return { success: true }
+
+    const { error } = await supabase
+      .from('seances')
+      .update(payload)
+      .eq('id', seanceId)
+    if (error) return { error: `Erreur : ${error.message}` }
+
+    revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
+    return { success: true }
+  } catch (err) {
+    console.error('updateSeanceDraft error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+export async function setSeanceODJ(
+  seanceId: string,
+  points: WizardODJPoint[]
+): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    const { data: current } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+    if (!current) return { error: 'Séance introuvable' }
+    if (current.statut !== 'BROUILLON') {
+      return { error: 'L\'ordre du jour ne peut être réécrit en bloc qu\'avant la convocation.' }
+    }
+
+    // DELETE existant + INSERT batch (transactionnel par convention PostgREST sur même requête).
+    await supabase.from('odj_points').delete().eq('seance_id', seanceId)
+
+    if (points.length > 0) {
+      const rows = points.map((p, idx) => ({
+        seance_id: seanceId,
+        position: idx + 1,
+        titre: p.titre.trim(),
+        description: p.description?.trim() || null,
+        type_traitement: p.type_traitement,
+        majorite_requise: p.majorite_requise,
+        rapporteur_id: p.rapporteur_id,
+        huis_clos: p.huis_clos,
+        votes_interdits: p.votes_interdits,
+        statut: 'A_TRAITER',
+      }))
+      const { error } = await supabase.from('odj_points').insert(rows)
+      if (error) return { error: `Erreur d'enregistrement de l'ODJ : ${error.message}` }
+    }
+
+    revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
+    return { success: true }
+  } catch (err) {
+    console.error('setSeanceODJ error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+export async function setSeanceConvocataires(
+  seanceId: string,
+  memberIds: string[]
+): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    if (roleError) return { error: roleError }
+
+    const { data: current } = await supabase
+      .from('seances')
+      .select('statut')
+      .eq('id', seanceId)
+      .single()
+    if (!current) return { error: 'Séance introuvable' }
+    if (current.statut !== 'BROUILLON') {
+      return { error: 'La liste des convocataires ne peut être réécrite en bloc qu\'avant la convocation.' }
+    }
+
+    await supabase.from('convocataires').delete().eq('seance_id', seanceId)
+
+    if (memberIds.length > 0) {
+      const rows = memberIds.map((member_id) => ({
+        seance_id: seanceId,
+        member_id,
+        statut_convocation: 'NON_ENVOYE',
+      }))
+      const { error } = await supabase.from('convocataires').insert(rows)
+      if (error) return { error: `Erreur d'enregistrement des convocataires : ${error.message}` }
+    }
+
+    revalidatePath(`${ROUTES.SEANCES}/${seanceId}`)
+    return { success: true }
+  } catch (err) {
+    console.error('setSeanceConvocataires error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+// Liste les brouillons créés par l'utilisateur courant (pour proposer la
+// reprise dans le wizard).
+export async function listMyDrafts(): Promise<{
+  data: { id: string; titre: string; date_seance: string; instance_nom: string; updated_at: string }[]
+} | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const { data, error } = await supabase
+      .from('seances')
+      .select('id, titre, date_seance, updated_at, created_by, instance_config (nom)')
+      .eq('statut', 'BROUILLON')
+      .eq('created_by', user.id)
+      .order('updated_at', { ascending: false })
+      .limit(10)
+
+    if (error) return { error: `Erreur : ${error.message}` }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (data || []).map((r: any) => ({
+      id: r.id,
+      titre: r.titre,
+      date_seance: r.date_seance,
+      updated_at: r.updated_at,
+      instance_nom: r.instance_config?.nom || '—',
+    }))
+    return { data: rows }
+  } catch (err) {
+    console.error('listMyDrafts error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
 export interface CreateSeanceWizardInput {
   instanceId: string
   titre: string
