@@ -1664,7 +1664,7 @@ export async function setSeanceConvocataires(
       const rows = memberIds.map((member_id) => ({
         seance_id: seanceId,
         member_id,
-        statut_convocation: 'NON_ENVOYE',
+        statut_convocation: 'NON_ENVOYE' as const,
       }))
       const { error } = await supabase.from('convocataires').insert(rows)
       if (error) return { error: `Erreur d'enregistrement des convocataires : ${error.message}` }
