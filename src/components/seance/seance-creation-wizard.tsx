@@ -73,6 +73,9 @@ import {
   updateSeanceDraft,
   setSeanceODJ,
   setSeanceConvocataires,
+  addODJPoint,
+  updateODJPoint,
+  deleteODJPoint,
   type WizardODJPoint,
   type CreateSeanceWizardInput,
 } from '@/lib/actions/seances'
@@ -462,22 +465,30 @@ export function SeanceCreationWizard({
         }
       }
 
-      // À la sortie de l'étape "ODJ" (2), on persiste l'ordre du jour en DB
-      // et on récupère les IDs DB pour pouvoir y rattacher des documents.
+      // À la sortie de l'étape "ODJ" (2) : les points sont auto-sauvegardés
+      // au fil de la saisie (sur blur du titre + debounce 800ms). On force ici
+      // la persistance des points qui auraient un debounce encore en attente,
+      // et on persiste les points qui n'auraient pas encore été créés.
       if (currentStep === 2 && seanceId) {
-        const validPoints = odjPoints.filter(p => p.titre.trim())
-        const result = await setSeanceODJ(seanceId, validPoints)
-        if ('error' in result) { toast.error(result.error); return }
-        // Réinjecter les IDs DB dans le state local pour permettre l'upload
-        // de documents si l'utilisateur revient en arrière sur cette étape.
-        setOdjPoints((prev) => {
-          let dbIdx = 0
-          return prev.map((p) => {
-            if (!p.titre.trim()) return p
-            const newId = result.ids[dbIdx++] || null
-            return { ...p, id: newId }
-          })
-        })
+        // Annuler tous les timers debounce en attente
+        persistTimersRef.current.forEach((t) => clearTimeout(t))
+        persistTimersRef.current.clear()
+
+        // Persister les points qui ont un titre mais pas encore d'id
+        for (let i = 0; i < odjPointsRef.current.length; i++) {
+          const p = odjPointsRef.current[i]
+          if (p.titre.trim() && !p.id) {
+            const newId = await persistPoint(i, seanceId)
+            if (!newId) return // toast d'erreur déjà émis
+          }
+        }
+
+        // Vérifier qu'au moins un point valide existe
+        const validPoints = odjPointsRef.current.filter(p => p.titre.trim())
+        if (validPoints.length === 0) {
+          toast.error('Ajoutez au moins un point à l\'ordre du jour')
+          return
+        }
       }
 
       // À la sortie de l'étape "Convocataires" (3), on persiste la liste.
@@ -513,6 +524,93 @@ export function SeanceCreationWizard({
   }
 
   // ─── ODJ management ───────────────────────────────────────────────
+  // États visuels d'auto-save par index de point (sauvegarde en cours / OK /
+  // erreur). L'utilisateur voit un mini-indicateur sur chaque point.
+  const [savingIndexes, setSavingIndexes] = useState<Set<number>>(new Set())
+  const [savedIndexes, setSavedIndexes] = useState<Set<number>>(new Set())
+  const persistTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
+  const odjPointsRef = useRef<WizardODJPoint[]>(odjPoints)
+  useEffect(() => { odjPointsRef.current = odjPoints }, [odjPoints])
+
+  // Sauvegarde un point en DB. Si le point n'a pas encore d'id, on le crée
+  // (addODJPoint), sinon on met à jour (updateODJPoint).
+  // Utilisée à la fois par l'auto-save (blur/debounce) et par le drop d'un
+  // fichier sur un point pas encore persisté.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const persistPoint = useCallback(
+    async (index: number, currentSeanceId: string | null = seanceId): Promise<string | null> => {
+      const point = odjPointsRef.current[index]
+      if (!point || !point.titre.trim() || !currentSeanceId) return point?.id || null
+
+      setSavingIndexes((prev) => new Set(prev).add(index))
+      try {
+        const fd = new FormData()
+        fd.set('seance_id', currentSeanceId)
+        fd.set('titre', point.titre.trim())
+        fd.set('type_traitement', point.type_traitement)
+        fd.set('majorite_requise', point.majorite_requise)
+        if (point.rapporteur_id) fd.set('rapporteur_id', point.rapporteur_id)
+        fd.set('huis_clos', point.huis_clos ? 'true' : 'false')
+        fd.set('votes_interdits', point.votes_interdits ? 'true' : 'false')
+        if (point.description) fd.set('description', point.description)
+
+        let savedId = point.id || null
+        if (point.id) {
+          fd.set('id', point.id)
+          const result = await updateODJPoint(fd)
+          if ('error' in result) throw new Error(result.error)
+        } else {
+          const result = await addODJPoint(fd)
+          if ('error' in result) throw new Error(result.error)
+          savedId = result.id
+          setOdjPoints((prev) => prev.map((p, i) => (i === index ? { ...p, id: result.id } : p)))
+        }
+
+        // Indicateur "✓ Sauvegardé" pendant 2s
+        setSavedIndexes((prev) => new Set(prev).add(index))
+        setTimeout(() => {
+          setSavedIndexes((prev) => {
+            const next = new Set(prev)
+            next.delete(index)
+            return next
+          })
+        }, 2000)
+        return savedId
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Erreur de sauvegarde du point')
+        return null
+      } finally {
+        setSavingIndexes((prev) => {
+          const next = new Set(prev)
+          next.delete(index)
+          return next
+        })
+      }
+    },
+    [seanceId]
+  )
+
+  // Programme une sauvegarde différée du point (debounce 800ms) — utilisé par
+  // updatePoint pendant la saisie pour éviter un appel par caractère.
+  function schedulePointSave(index: number) {
+    const existing = persistTimersRef.current.get(index)
+    if (existing) clearTimeout(existing)
+    const timer = setTimeout(() => {
+      persistTimersRef.current.delete(index)
+      void persistPoint(index)
+    }, 800)
+    persistTimersRef.current.set(index, timer)
+  }
+
+  // Cleanup des timers au démontage
+  useEffect(() => {
+    const timers = persistTimersRef.current
+    return () => {
+      timers.forEach((t) => clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
+
   function addPoint() {
     setOdjPoints(prev => {
       // Insert before "Questions diverses" if it exists at the end
@@ -522,14 +620,27 @@ export function SeanceCreationWizard({
       }
       return [...prev, createEmptyPoint()]
     })
-    // Expand the new point
     const newIndex = odjPoints.length > 0 && odjPoints[odjPoints.length - 1].type_traitement === 'QUESTION_DIVERSE'
       ? odjPoints.length - 1
       : odjPoints.length
     setExpandedPointIndex(newIndex)
+    // Pas de save immédiat — on attend que l'utilisateur saisisse un titre
   }
 
-  function removePoint(index: number) {
+  async function removePoint(index: number) {
+    const point = odjPoints[index]
+    // Annule un éventuel save en cours
+    const existingTimer = persistTimersRef.current.get(index)
+    if (existingTimer) clearTimeout(existingTimer)
+    persistTimersRef.current.delete(index)
+
+    if (point?.id && seanceId) {
+      const result = await deleteODJPoint(point.id, seanceId)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+    }
     setOdjPoints(prev => prev.filter((_, i) => i !== index))
     if (expandedPointIndex === index) setExpandedPointIndex(null)
   }
@@ -538,6 +649,7 @@ export function SeanceCreationWizard({
     setOdjPoints(prev =>
       prev.map((p, i) => (i === index ? { ...p, ...updates } : p))
     )
+    schedulePointSave(index)
   }
 
   function movePoint(from: number, to: number) {
@@ -997,13 +1109,31 @@ export function SeanceCreationWizard({
                       </span>
 
                       {expandedPointIndex === index ? (
-                        <Input
-                          value={point.titre}
-                          onChange={e => updatePoint(index, { titre: e.target.value })}
-                          placeholder="Titre du point..."
-                          className="flex-1 min-h-[40px]"
-                          autoFocus
-                        />
+                        <div className="flex-1 flex items-center gap-2">
+                          <Input
+                            value={point.titre}
+                            onChange={e => updatePoint(index, { titre: e.target.value })}
+                            onBlur={() => {
+                              const t = persistTimersRef.current.get(index)
+                              if (t) clearTimeout(t)
+                              persistTimersRef.current.delete(index)
+                              void persistPoint(index)
+                            }}
+                            placeholder="Titre du point..."
+                            className="flex-1 min-h-[40px]"
+                            autoFocus
+                          />
+                          {savingIndexes.has(index) ? (
+                            <span className="text-xs text-muted-foreground inline-flex items-center gap-1 shrink-0">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Sauvegarde…
+                            </span>
+                          ) : savedIndexes.has(index) ? (
+                            <span className="text-xs text-emerald-600 inline-flex items-center gap-1 shrink-0 animate-in fade-in">
+                              ✓ Sauvegardé
+                            </span>
+                          ) : null}
+                        </div>
                       ) : (
                         <button
                           className="flex-1 text-left text-sm font-medium truncate hover:text-primary transition-colors"
@@ -1150,23 +1280,19 @@ export function SeanceCreationWizard({
                           </label>
                         </div>
 
-                        {/* Documents joints — visible si le point est déjà persisté en DB
-                            (les nouveaux points reçoivent leur ID au passage à l'étape 4) */}
+                        {/* Documents joints — auto-save du point + drag&drop universel.
+                            Si le point n'a pas encore d'id (titre vide ou auto-save pas
+                            terminé), le drop déclenche d'abord la persistance. */}
                         <div className="space-y-1.5">
                           <Label className="text-xs">Pièces jointes</Label>
-                          {point.id ? (
-                            <WizardPointDocuments
-                              seanceId={seanceId!}
-                              pointId={point.id}
-                              documents={Array.isArray(point.documents) ? point.documents : []}
-                              onDocumentsChange={(docs) => updatePoint(index, { documents: docs })}
-                            />
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Cliquez sur « Suivant » pour enregistrer les points puis revenez
-                              sur cette étape pour ajouter des pièces jointes.
-                            </p>
-                          )}
+                          <WizardPointDocuments
+                            seanceId={seanceId}
+                            pointId={point.id || null}
+                            documents={Array.isArray(point.documents) ? point.documents : []}
+                            canPersist={!!seanceId && point.titre.trim().length > 0}
+                            onPersistFirst={async () => persistPoint(index, seanceId)}
+                            onDocumentsChange={(docs) => updatePoint(index, { documents: docs })}
+                          />
                         </div>
 
                         <div className="flex justify-end">
@@ -1671,24 +1797,45 @@ function WizardPointDocuments({
   seanceId,
   pointId,
   documents,
+  canPersist,
+  onPersistFirst,
   onDocumentsChange,
 }: {
-  seanceId: string
-  pointId: string
+  seanceId: string | null
+  pointId: string | null
   documents: DocumentInfo[]
+  canPersist: boolean
+  onPersistFirst: () => Promise<string | null>
   onDocumentsChange: (docs: DocumentInfo[]) => void
 }) {
   const [isUploading, setIsUploading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const [removingPath, setRemovingPath] = useState<string | null>(null)
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // S'assure que le point a un ID DB avant d'uploader. Si pas d'id, on
+  // déclenche la persistance via onPersistFirst (qui crée le point) puis on
+  // retourne le nouvel id.
+  async function ensurePointId(): Promise<string | null> {
+    if (pointId) return pointId
+    if (!canPersist) {
+      toast.error('Saisissez d\'abord un titre pour ce point')
+      return null
+    }
+    return await onPersistFirst()
+  }
+
+  async function uploadFile(file: File) {
+    if (!seanceId) {
+      toast.error('Brouillon non encore créé — passez d\'abord l\'étape précédente')
+      return
+    }
     setIsUploading(true)
     try {
+      const id = await ensurePointId()
+      if (!id) return
       const formData = new FormData()
       formData.set('file', file)
-      formData.set('point_id', pointId)
+      formData.set('point_id', id)
       formData.set('seance_id', seanceId)
       const result = await uploadODJDocument(formData)
       if ('error' in result) {
@@ -1701,11 +1848,30 @@ function WizardPointDocuments({
       toast.error('Erreur lors de l\'upload')
     } finally {
       setIsUploading(false)
-      e.target.value = ''
+    }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await uploadFile(file)
+    e.target.value = ''
+  }
+
+  async function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer?.files || [])
+    if (files.length === 0) return
+    // Upload séquentiel des fichiers déposés (en cas de multi-drop)
+    for (const file of files) {
+      await uploadFile(file)
     }
   }
 
   async function handleRemove(doc: DocumentInfo) {
+    if (!pointId || !seanceId) return
     setRemovingPath(doc.path)
     try {
       const result = await removeODJDocument(pointId, seanceId, doc.path)
@@ -1734,6 +1900,8 @@ function WizardPointDocuments({
       toast.error('Impossible d\'ouvrir le document')
     }
   }
+
+  const dropDisabled = !canPersist || isUploading
 
   return (
     <div className="space-y-2">
@@ -1773,19 +1941,53 @@ function WizardPointDocuments({
           ))}
         </ul>
       )}
-      <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+      <label
+        onDragOver={(e) => {
+          if (dropDisabled) return
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(true)
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setIsDragging(false)
+        }}
+        onDrop={(e) => {
+          if (dropDisabled) {
+            e.preventDefault()
+            e.stopPropagation()
+            return
+          }
+          void handleDrop(e)
+        }}
+        className={`
+          flex flex-col items-center justify-center gap-1.5 px-3 py-4 rounded-md border-2 border-dashed cursor-pointer text-xs transition-colors
+          ${isDragging ? 'border-primary bg-primary/5 text-foreground' : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/40 hover:bg-muted/40'}
+          ${dropDisabled ? 'opacity-60 cursor-not-allowed' : ''}
+        `}
+      >
         {isUploading ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Upload en cours…</span>
+          </>
         ) : (
-          <Upload className="h-3.5 w-3.5" />
+          <>
+            <Upload className="h-4 w-4" />
+            <span>
+              {canPersist
+                ? 'Glissez un fichier ici ou cliquez pour parcourir'
+                : 'Saisissez d\'abord un titre pour ajouter une pièce jointe'}
+            </span>
+          </>
         )}
-        {isUploading ? 'Upload en cours…' : 'Joindre un document'}
         <input
           type="file"
           className="hidden"
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp,.txt"
           onChange={handleFileChange}
-          disabled={isUploading}
+          disabled={dropDisabled}
         />
       </label>
     </div>
