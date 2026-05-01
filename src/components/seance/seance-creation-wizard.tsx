@@ -71,7 +71,6 @@ import {
   getLastSeanceODJ,
   createSeanceDraft,
   updateSeanceDraft,
-  setSeanceODJ,
   setSeanceConvocataires,
   addODJPoint,
   updateODJPoint,
