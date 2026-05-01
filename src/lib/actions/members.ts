@@ -478,3 +478,105 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
     return { error: 'Erreur inattendue lors de l\'import' }
   }
 }
+
+// ─── Upload de la photo de profil d'un membre ──────────────────────────────
+
+const ALLOWED_PHOTO_MIME = ['image/png', 'image/jpeg', 'image/webp']
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024 // 5 Mo
+
+export async function uploadMemberPhoto(
+  formData: FormData
+): Promise<{ success: true; url: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    const memberId = formData.get('member_id') as string
+    const file = formData.get('file') as File | null
+    if (!memberId) return { error: 'Membre manquant' }
+    if (!file) return { error: 'Aucun fichier fourni' }
+
+    if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
+      return { error: 'Format non supporté. Utilisez PNG, JPEG ou WebP.' }
+    }
+    if (file.size > MAX_PHOTO_SIZE) {
+      return { error: 'La photo dépasse 5 Mo. Réduisez sa taille.' }
+    }
+
+    // Vérifier que le membre existe
+    const { data: existing } = await supabase
+      .from('members')
+      .select('id, photo_url')
+      .eq('id', memberId)
+      .maybeSingle()
+    if (!existing) return { error: 'Membre introuvable' }
+
+    // Nom de fichier déterministe pour éviter d'accumuler des photos orphelines
+    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+    const path = `members/${memberId}.${ext}`
+
+    const arrayBuffer = await file.arrayBuffer()
+    const bytes = new Uint8Array(arrayBuffer)
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, bytes, {
+        contentType: file.type,
+        upsert: true,
+        cacheControl: '3600',
+      })
+    if (uploadError) return { error: `Erreur upload : ${uploadError.message}` }
+
+    // URL publique (bucket public)
+    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
+    const url = `${pub.publicUrl}?v=${Date.now()}` // cache-buster pour update immédiat
+
+    const { error: updateError } = await supabase
+      .from('members')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ photo_url: url } as any)
+      .eq('id', memberId)
+    if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
+
+    revalidatePath(ROUTES.MEMBRES)
+    return { success: true, url }
+  } catch (err) {
+    console.error('uploadMemberPhoto error:', err)
+    return { error: 'Erreur inattendue lors de l\'upload de la photo' }
+  }
+}
+
+export async function removeMemberPhoto(memberId: string): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    const { data: existing } = await supabase
+      .from('members')
+      .select('id, photo_url')
+      .eq('id', memberId)
+      .maybeSingle()
+    if (!existing) return { error: 'Membre introuvable' }
+
+    // Suppression best-effort des fichiers (3 extensions possibles)
+    await supabase.storage.from('avatars').remove([
+      `members/${memberId}.png`,
+      `members/${memberId}.jpg`,
+      `members/${memberId}.webp`,
+    ])
+
+    const { error: updateError } = await supabase
+      .from('members')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ photo_url: null } as any)
+      .eq('id', memberId)
+    if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
+
+    revalidatePath(ROUTES.MEMBRES)
+    return { success: true }
+  } catch (err) {
+    console.error('removeMemberPhoto error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}

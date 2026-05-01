@@ -29,12 +29,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs'
-import { createMember, updateMember, assignMemberToInstances } from '@/lib/actions/members'
+import { createMember, updateMember, assignMemberToInstances, uploadMemberPhoto, removeMemberPhoto } from '@/lib/actions/members'
 import type { MemberWithInstances } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole } from '@/lib/supabase/types'
 import { User, Briefcase, CalendarDays, Building2, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { QUALITES_OFFICIELLES, FONCTIONS_INSTANCE } from '@/lib/constants/membre-roles'
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
@@ -72,6 +73,8 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   const [role, setRole] = useState<UserRole>(member?.role || 'elu')
   const [qualiteOfficielle, setQualiteOfficielle] = useState(member?.qualite_officielle || '')
   const [groupePolitique, setGroupePolitique] = useState(member?.groupe_politique || '')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [photoUrl, setPhotoUrl] = useState<string | null>((member as any)?.photo_url || null)
   const [mandatDebut, setMandatDebut] = useState(member?.mandat_debut || '')
   const [mandatFin, setMandatFin] = useState(member?.mandat_fin || '')
 
@@ -245,6 +248,13 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
 
           {/* Tab: Identite */}
           <TabsContent value="identite" className="space-y-4 mt-4">
+            {/* Photo de profil — disponible uniquement après création */}
+            <MemberPhotoUploader
+              memberId={member?.id || null}
+              currentUrl={photoUrl}
+              memberInitials={`${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase() || '?'}
+              onChange={setPhotoUrl}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="prenom">Prénom *</Label>
@@ -286,13 +296,15 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
             </div>
             <div className="space-y-2">
               <Label htmlFor="telephone">Téléphone</Label>
-              <Input
-                id="telephone"
-                type="tel"
+              <PhoneInput
                 value={telephone}
-                onChange={e => setTelephone(e.target.value)}
-                placeholder="06 12 34 56 78"
+                onChange={setTelephone}
+                defaultCountry="RE"
               />
+              <p className="text-xs text-muted-foreground">
+                Indicatif par défaut : +262 (Réunion / Mayotte). Pour un autre
+                pays, tapez l&apos;indicatif (ex : +33 pour la France).
+              </p>
             </div>
           </TabsContent>
 
@@ -510,5 +522,130 @@ function RoleCombobox({
         </Command>
       </PopoverContent>
     </Popover>
+  )
+}
+
+// ─── Uploader de photo de profil membre ─────────────────────────────────────
+// Disponible uniquement après création (un memberId est nécessaire pour le
+// chemin Storage). Les modifications sont appliquées immédiatement via les
+// server actions uploadMemberPhoto / removeMemberPhoto.
+
+function MemberPhotoUploader({
+  memberId,
+  currentUrl,
+  memberInitials,
+  onChange,
+}: {
+  memberId: string | null
+  currentUrl: string | null
+  memberInitials: string
+  onChange: (url: string | null) => void
+}) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!memberId) {
+      toast.error('Créez d\'abord le membre, puis ajoutez sa photo')
+      e.target.value = ''
+      return
+    }
+    setIsUploading(true)
+    try {
+      const fd = new FormData()
+      fd.set('member_id', memberId)
+      fd.set('file', file)
+      const result = await uploadMemberPhoto(fd)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        onChange(result.url)
+        toast.success('Photo mise à jour')
+      }
+    } catch {
+      toast.error('Erreur lors de l\'upload')
+    } finally {
+      setIsUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleRemove() {
+    if (!memberId) return
+    setIsRemoving(true)
+    try {
+      const result = await removeMemberPhoto(memberId)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        onChange(null)
+        toast.success('Photo retirée')
+      }
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    } finally {
+      setIsRemoving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-lg border bg-muted/30">
+      <div
+        className="h-20 w-20 rounded-full bg-muted overflow-hidden border-2 border-background shadow-sm flex items-center justify-center text-xl font-semibold text-muted-foreground shrink-0"
+        title={currentUrl ? 'Photo de profil' : 'Pas de photo'}
+      >
+        {currentUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={currentUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span>{memberInitials}</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <p className="text-sm font-medium">Photo de profil</p>
+        <p className="text-xs text-muted-foreground">
+          {memberId
+            ? 'Format PNG, JPEG ou WebP — 5 Mo max. Visible dans le trombinoscope.'
+            : 'Disponible après création du membre.'}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label
+            className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border cursor-pointer transition-colors ${
+              memberId && !isUploading
+                ? 'bg-background hover:bg-muted'
+                : 'bg-muted text-muted-foreground cursor-not-allowed'
+            }`}
+          >
+            {isUploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <User className="h-3.5 w-3.5" />
+            )}
+            {isUploading ? 'Upload…' : currentUrl ? 'Changer la photo' : 'Téléverser une photo'}
+            <input
+              type="file"
+              className="hidden"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={handleFileChange}
+              disabled={!memberId || isUploading}
+            />
+          </label>
+          {currentUrl && memberId && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={handleRemove}
+              disabled={isRemoving}
+              className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+            >
+              {isRemoving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Retirer'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

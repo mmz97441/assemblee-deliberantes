@@ -55,6 +55,8 @@ import {
   UserCheck,
   Users,
   FileSpreadsheet,
+  LayoutGrid,
+  List,
 } from 'lucide-react'
 
 // --- Labels & colors ---
@@ -108,6 +110,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
   const [statutFilter, setStatutFilter] = useState<string>('all')
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [editingMember, setEditingMember] = useState<MemberWithInstances | null>(null)
@@ -259,13 +262,45 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
         )}
       </div>
 
-      {/* Count */}
-      <p className="text-sm text-muted-foreground">
-        {filteredMembers.length} membre{filteredMembers.length !== 1 ? 's' : ''}
-        {filteredMembers.length !== members.length && ` sur ${members.length}`}
-      </p>
+      {/* Count + view toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {filteredMembers.length} membre{filteredMembers.length !== 1 ? 's' : ''}
+          {filteredMembers.length !== members.length && ` sur ${members.length}`}
+        </p>
+        <div className="inline-flex items-center rounded-md border bg-background p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-sm transition-colors ${
+              viewMode === 'list'
+                ? 'bg-foreground/10 text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            aria-label="Vue liste"
+            title="Vue liste"
+          >
+            <List className="h-3.5 w-3.5" />
+            Liste
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-sm transition-colors ${
+              viewMode === 'grid'
+                ? 'bg-foreground/10 text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+            aria-label="Trombinoscope"
+            title="Trombinoscope (grille avec photos)"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Trombinoscope
+          </button>
+        </div>
+      </div>
 
-      {/* Table or empty state */}
+      {/* Table or grid or empty state */}
       {filteredMembers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
@@ -296,6 +331,59 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
               Réinitialiser les filtres
             </Button>
           )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filteredMembers.map((m) => {
+            const isInactif = m.statut !== 'ACTIF'
+            const initials = `${m.prenom.charAt(0)}${m.nom.charAt(0)}`.toUpperCase()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const photoUrl = (m as any).photo_url as string | null
+            return (
+              <div
+                key={m.id}
+                className={`relative rounded-xl border bg-card p-4 flex flex-col items-center text-center transition-all ${
+                  isInactif ? 'opacity-60' : 'hover:shadow-md'
+                }`}
+              >
+                <div className="h-24 w-24 rounded-full overflow-hidden bg-muted border-2 border-background shadow-sm mb-3 flex items-center justify-center text-xl font-semibold text-muted-foreground">
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span>{initials}</span>
+                  )}
+                </div>
+                <p className="font-medium text-sm leading-tight">
+                  {m.prenom} {m.nom}
+                </p>
+                {m.qualite_officielle && (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                    {m.qualite_officielle}
+                  </p>
+                )}
+                <Badge variant="secondary" className="mt-2 text-[10px]">
+                  {m.role}
+                </Badge>
+                {isInactif && (
+                  <Badge className="absolute top-2 right-2 bg-slate-200 text-slate-700 border-0 text-[10px]">
+                    {m.statut}
+                  </Badge>
+                )}
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-3 h-7 text-xs"
+                    onClick={() => { setEditingMember(m); setDialogOpen(true) }}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Modifier
+                  </Button>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div className="rounded-lg border">
