@@ -17,6 +17,8 @@ import {
   ClipboardList,
   BarChart3,
   PenLine,
+  Shield,
+  Download,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -575,6 +577,9 @@ export function GestionnaireDashboard({
             )}
           </div>
         </section>
+
+        {/* ─── Conformité & contrôle préfectoral ─── */}
+        <ControlePrefectureSection />
       </div>
 
       {/* ─── Detail Dialogs ──────────────────────────────────── */}
@@ -791,5 +796,99 @@ export function GestionnaireDashboard({
         </DialogContent>
       </Dialog>
     </TooltipProvider>
+  )
+}
+
+// ─── Section Contrôle de légalité préfectoral ──────────────────────────────
+//
+// Permet au gestionnaire d'exporter en un clic un dossier PDF exhaustif
+// regroupant toutes les preuves nécessaires en cas de contrôle de légalité
+// préfectoral pour une année donnée.
+
+function ControlePrefectureSection() {
+  const currentYear = new Date().getFullYear()
+  const [year, setYear] = useState(currentYear)
+  const [isGenerating, setIsGenerating] = useState(false)
+
+  function handleExport() {
+    setIsGenerating(true)
+    // Le PDF étant potentiellement gros (50-200 pages), on ouvre dans un
+    // nouvel onglet avec un message d'attente. Le navigateur affichera le
+    // PDF inline une fois le rendu terminé.
+    const url = `/api/pdf/controle-prefecture/${year}`
+    window.open(url, '_blank')
+    // On laisse l'indicateur 5s pour que l'utilisateur sache que ça mouline
+    setTimeout(() => setIsGenerating(false), 5000)
+  }
+
+  // Liste des 5 dernières années pour le sélecteur
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-foreground mb-4">Contrôle de légalité</h2>
+      <div className="rounded-xl border bg-card p-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-50 text-amber-700 shrink-0">
+            <Shield className="h-6 w-6" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-foreground">Dossier de contrôle préfectoral</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Export PDF exhaustif de toutes les preuves nécessaires en cas
+              de contrôle de légalité par la préfecture (CGCT L2131-1 et
+              suivants).
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/40 border p-3 mb-4">
+          <p className="text-xs font-semibold text-foreground mb-1.5">Le dossier contient :</p>
+          <ul className="text-xs text-muted-foreground space-y-0.5">
+            <li>• Synthèse de l&apos;année + composition du conseil</li>
+            <li>• Pour chaque séance : convocation, présences avec horodatages, quorum, votes (avec hash d&apos;intégrité), délibérations, signatures du PV</li>
+            <li>• Statistiques (taux de participation, délais transmission préfecture)</li>
+            <li>• Audit trail détaillé + conformité technique</li>
+            <li>• Hash SHA-256 du document pour preuve d&apos;intégrité</li>
+          </ul>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-foreground mb-1.5 block">
+              Année à exporter
+            </label>
+            <select
+              value={year}
+              onChange={(e) => setYear(parseInt(e.target.value, 10))}
+              disabled={isGenerating}
+              className="w-full sm:w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {years.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button
+            onClick={handleExport}
+            disabled={isGenerating}
+            className="gap-2 sm:w-auto"
+            size="lg"
+          >
+            <Download className="h-4 w-4" />
+            {isGenerating
+              ? 'Génération en cours…'
+              : `Exporter le dossier ${year}`}
+          </Button>
+        </div>
+
+        <p className="text-xs text-muted-foreground mt-3">
+          La génération peut prendre quelques minutes pour une année avec
+          beaucoup de séances. Le PDF s&apos;ouvre dans un nouvel onglet.
+        </p>
+      </div>
+    </section>
   )
 }
