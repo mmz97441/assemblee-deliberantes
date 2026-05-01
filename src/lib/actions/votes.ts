@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/server'
 import { requireVerifiedRole } from '@/lib/auth/require-role'
+import { getUserRole } from '@/lib/auth/get-user-role'
 import { determineVoteResult, generateFormulePV, type MajoriteRequise } from '@/lib/validators/vote-result'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import { sendSMS, maskPhoneNumber } from '@/lib/sms/twilio'
@@ -113,7 +114,8 @@ export async function openVote(
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVote on seance ${seanceId}, point ${odjPointId}`)
     }
 
@@ -272,7 +274,8 @@ export async function closeVoteMainLevee(
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un vote' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteMainLevee on vote ${voteId}`)
     }
 
@@ -523,7 +526,8 @@ export async function openVoteSecret(
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote secret' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteSecret on seance ${seanceId}, point ${odjPointId}`)
     }
 
@@ -843,7 +847,8 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un vote secret' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteSecret on vote ${voteId}`)
     }
 
@@ -1141,7 +1146,8 @@ export async function openVoteTelevote(
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: openVoteTelevote on seance ${seanceId}, point ${odjPointId}`)
     }
 
@@ -1564,7 +1570,8 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un télévote' }
 
-    if (role === 'super_admin') {
+    const auditRole = await getUserRole(supabase, user.id)
+    if (auditRole === 'super_admin') {
       console.warn(`[AUDIT] Super admin ${user.id} performing vote action: closeVoteTelevote on vote ${voteId}`)
     }
 
