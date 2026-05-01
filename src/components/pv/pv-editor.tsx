@@ -57,6 +57,7 @@ import {
   updatePVStatus,
   signPV,
   sendPVSignatureNotifications,
+  resendPVSignatureNotification,
   type PVContenu,
   type PVSignatureRecord,
 } from '@/lib/actions/pv'
@@ -93,6 +94,7 @@ interface PVEditorProps {
     pdf_url: string | null
   } | null
   canEdit: boolean
+  canManage?: boolean
   currentUserMemberId: string | null
   presidentMemberId: string | null
   secretaireMemberId: string | null
@@ -139,6 +141,7 @@ export function PVEditor({
   seanceReconvocation,
   existingPV,
   canEdit,
+  canManage = false,
   currentUserMemberId,
   presidentMemberId: initialPresidentMemberId,
   secretaireMemberId: initialSecretaireMemberId,
@@ -838,6 +841,7 @@ export function PVEditor({
               secretaireSignature={secretaireSignature}
               bothSigned={bothSigned}
               canSignPV={canSignPV}
+              canManage={canManage}
               isPending={isPending}
               isCurrentUserPresident={isCurrentUserPresident}
               isCurrentUserSecretaire={isCurrentUserSecretaire}
@@ -1734,6 +1738,7 @@ function StepSignatures({
   secretaireSignature,
   bothSigned,
   canSignPV,
+  canManage,
   isPending,
   isCurrentUserPresident,
   isCurrentUserSecretaire,
@@ -1751,6 +1756,7 @@ function StepSignatures({
   secretaireSignature: PVSignatureRecord | undefined
   bothSigned: boolean
   canSignPV: boolean
+  canManage: boolean
   isPending: boolean
   isCurrentUserPresident: boolean
   isCurrentUserSecretaire: boolean
@@ -1762,6 +1768,22 @@ function StepSignatures({
   convocataires: ConvocataireForDesignation[]
   onDesignate: (role: 'president' | 'secretaire', memberId: string, memberName: string) => void
 }) {
+  const [resendingRole, setResendingRole] = useState<'president' | 'secretaire' | null>(null)
+  const handleResendSignature = async (role: 'president' | 'secretaire') => {
+    setResendingRole(role)
+    try {
+      const result = await resendPVSignatureNotification(seanceId, role)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success(`Email de relance envoyé à ${result.sentTo}`)
+      }
+    } catch {
+      toast.error('Erreur lors de l\'envoi de la relance')
+    } finally {
+      setResendingRole(null)
+    }
+  }
   const [selectedPresident, setSelectedPresident] = useState('')
   const [selectedSecretaire, setSelectedSecretaire] = useState('')
   const [isSavingPresident, setIsSavingPresident] = useState(false)
@@ -1948,19 +1970,36 @@ function StepSignatures({
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
-                          <Clock className="h-3 w-3 mr-1" />
-                          En attente
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Le/La président(e) doit se connecter pour signer le PV</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
+                            <Clock className="h-3 w-3 mr-1" />
+                            En attente
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Le/La président(e) doit se connecter pour signer le PV</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {canManage && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 w-full"
+                        onClick={() => handleResendSignature('president')}
+                        disabled={resendingRole === 'president'}
+                      >
+                        {resendingRole === 'president' ? (
+                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Envoi…</>
+                        ) : (
+                          <><Send className="h-3.5 w-3.5" /> Relancer par email</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -2069,19 +2108,36 @@ function StepSignatures({
                     </AlertDialogContent>
                   </AlertDialog>
                 ) : (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
-                          <Clock className="h-3 w-3 mr-1" />
-                          En attente
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Le/La secrétaire doit se connecter pour signer le PV</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-200 cursor-help">
+                            <Clock className="h-3 w-3 mr-1" />
+                            En attente
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Le/La secrétaire doit se connecter pour signer le PV</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {canManage && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5 w-full"
+                        onClick={() => handleResendSignature('secretaire')}
+                        disabled={resendingRole === 'secretaire'}
+                      >
+                        {resendingRole === 'secretaire' ? (
+                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Envoi…</>
+                        ) : (
+                          <><Send className="h-3.5 w-3.5" /> Relancer par email</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 )}
               </>
             )}

@@ -1002,22 +1002,42 @@ export default async function DashboardPage() {
     }
   }
 
-  // Task: PV BROUILLON not sent for review
-  const { data: pvBrouillons } = await supabase
+  // Task: PV en attente d'action — distinguer 3 cas:
+  // - aucune signature → "à envoyer en relecture"
+  // - 1 signature posée, 1 manquante → "relancer X pour signature"
+  // - 2 signatures → SIGNE (rien à afficher)
+  const { data: pvActifs } = await supabase
     .from('pv')
-    .select('seance_id, statut')
-    .eq('statut', 'BROUILLON')
+    .select('seance_id, statut, signe_par')
+    .in('statut', ['BROUILLON', 'EN_RELECTURE'])
 
-  if (pvBrouillons) {
-    for (const pv of pvBrouillons) {
-      tasks.push({
-        id: `pv-brouillon-${pv.seance_id}`,
-        severity: 'amber',
-        icon: <Send className="h-5 w-5" />,
-        label: `PV en brouillon a envoyer en relecture`,
-        action_label: 'Relecture',
-        href: `/seances/${pv.seance_id}/pv`,
-      })
+  if (pvActifs) {
+    for (const pv of pvActifs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signatures = ((pv.signe_par as any[]) || []) as { role?: string }[]
+      const hasPresident = signatures.some((s) => s?.role === 'president')
+      const hasSecretaire = signatures.some((s) => s?.role === 'secretaire')
+
+      if (!hasPresident && !hasSecretaire) {
+        tasks.push({
+          id: `pv-brouillon-${pv.seance_id}`,
+          severity: 'amber',
+          icon: <Send className="h-5 w-5" />,
+          label: 'PV en brouillon à envoyer en relecture',
+          action_label: 'Relecture',
+          href: `/seances/${pv.seance_id}/pv`,
+        })
+      } else if (!hasPresident || !hasSecretaire) {
+        const missing = !hasPresident ? 'président' : 'secrétaire'
+        tasks.push({
+          id: `pv-attente-signature-${pv.seance_id}`,
+          severity: 'amber',
+          icon: <PenLine className="h-5 w-5" />,
+          label: `PV en attente de signature du ${missing}`,
+          action_label: 'Relancer',
+          href: `/seances/${pv.seance_id}/pv?action=resend-signature`,
+        })
+      }
     }
   }
 

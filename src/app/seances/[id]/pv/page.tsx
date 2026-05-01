@@ -113,6 +113,7 @@ export default async function PVPage({ params }: Props) {
             pdf_url: pv.pdf_url,
           } : null}
           canEdit={canEdit}
+          canManage={isManager}
           currentUserMemberId={currentMember?.id || null}
           presidentMemberId={seance.president_effectif_seance_id || null}
           secretaireMemberId={seance.secretaire_seance_id || null}

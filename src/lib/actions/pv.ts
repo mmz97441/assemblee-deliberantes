@@ -944,6 +944,101 @@ export async function sendPVSignatureNotifications(
   }
 }
 
+// ─── Relance ciblée d'un signataire (président OU secrétaire) ───────────────
+// Utilisé par le gestionnaire / secrétaire administratif pour relancer la
+// personne dont la signature manque encore.
+export async function resendPVSignatureNotification(
+  seanceId: string,
+  targetRole: 'president' | 'secretaire'
+): Promise<{ success: true; sentTo: string } | { error: string }> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    if (!user) return { error: 'Non authentifié' }
+
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    if (roleError) return { error: 'Permissions insuffisantes' }
+
+    // Charger PV + signatures déjà posées
+    const { data: pv, error: pvError } = await supabase
+      .from('pv')
+      .select('id, statut, signe_par')
+      .eq('seance_id', seanceId)
+      .maybeSingle()
+    if (pvError || !pv) return { error: 'Procès-verbal introuvable' }
+    if (pv.statut === 'SIGNE' || pv.statut === 'PUBLIE') {
+      return { error: 'Le procès-verbal est déjà signé.' }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const signatures = ((pv.signe_par as any[]) || []) as { role?: string }[]
+    if (signatures.some((s) => s?.role === targetRole)) {
+      return { error: `Le ${targetRole === 'president' ? 'président' : 'secrétaire'} a déjà signé.` }
+    }
+
+    // Charger la séance pour récupérer le membre cible
+    const { data: seance } = await supabase
+      .from('seances')
+      .select('titre, date_seance, president_effectif_seance_id, secretaire_seance_id')
+      .eq('id', seanceId)
+      .single()
+    if (!seance) return { error: 'Séance introuvable' }
+
+    const targetMemberId = targetRole === 'president'
+      ? seance.president_effectif_seance_id
+      : seance.secretaire_seance_id
+    if (!targetMemberId) {
+      return { error: `Aucun ${targetRole === 'president' ? 'président' : 'secrétaire'} désigné pour cette séance.` }
+    }
+
+    const { data: targetMember } = await supabase
+      .from('members')
+      .select('id, prenom, nom, email')
+      .eq('id', targetMemberId)
+      .single()
+    if (!targetMember?.email) {
+      return { error: 'Le destinataire n\'a pas d\'adresse email enregistrée.' }
+    }
+
+    // Données pour l'email
+    const { data: institution } = await supabase
+      .from('institution_config')
+      .select('nom_officiel')
+      .limit(1)
+      .maybeSingle()
+    const institutionName = institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const pvUrl = `${appUrl}/seances/${seanceId}/pv`
+    const seanceDate = new Date(seance.date_seance).toLocaleDateString('fr-FR', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+
+    try {
+      await resend.emails.send({
+        from: `${FROM_NAME} <${FROM_EMAIL}>`,
+        to: [targetMember.email],
+        subject: `Rappel — ${generatePVSignatureSubject(seanceDate)}`,
+        html: generatePVSignatureHTML({
+          memberName: `${targetMember.prenom} ${targetMember.nom}`,
+          role: targetRole === 'president' ? 'président' : 'secrétaire',
+          seanceTitre: seance.titre,
+          seanceDate,
+          institutionName,
+          pvUrl,
+        }),
+      })
+    } catch (emailErr) {
+      console.error('Erreur envoi email rappel signature:', emailErr)
+      return { error: 'L\'email n\'a pas pu être envoyé. Vérifiez la configuration Resend.' }
+    }
+
+    revalidatePath(`/seances/${seanceId}/pv`)
+    return { success: true, sentTo: `${targetMember.prenom} ${targetMember.nom}` }
+  } catch (err) {
+    console.error('resendPVSignatureNotification error:', err)
+    return { error: 'Erreur inattendue lors de la relance.' }
+  }
+}
+
 // ─── Helper: send post-signature notification emails ────────────────────────
 
 async function sendSignatureEventEmail(
