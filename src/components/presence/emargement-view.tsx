@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -96,6 +98,7 @@ interface SeanceData extends Record<string, any> {
 interface EmargementViewProps {
   seance: SeanceData
   instanceMemberCount: number
+  qrStrict?: boolean
 }
 
 // ─── Quorum calculation ───────────────────────────────────────────────────────
@@ -145,7 +148,7 @@ function calculateQuorumLocal(
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function EmargementView({ seance, instanceMemberCount }: EmargementViewProps) {
+export function EmargementView({ seance, instanceMemberCount, qrStrict = false }: EmargementViewProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState('')
@@ -155,6 +158,7 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
   // ─── Confirmation dialog for manual check-in (mode assisté) ───────────
   const [manualConfirmMember, setManualConfirmMember] = useState<MemberInfo | null>(null)
+  const [manualMotif, setManualMotif] = useState('')
 
   // ─── Realtime subscription for live émargement updates ──────────────────
   const { isConnected: isRealtimeConnected } = useRealtime({
@@ -252,12 +256,18 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
 
   function handleManualCheckInConfirmed() {
     if (!manualConfirmMember) return
+    if (qrStrict && !manualMotif.trim()) {
+      toast.error('Un motif est obligatoire en mode QR strict')
+      return
+    }
     const member = manualConfirmMember
+    const motif = manualMotif.trim() || null
     setManualConfirmMember(null)
+    setManualMotif('')
 
     startTransition(async () => {
       // Use markPresenceManual which sets mode_authentification = 'ASSISTE'
-      const result = await markPresenceManual(seance.id, member.id, 'PRESENT')
+      const result = await markPresenceManual(seance.id, member.id, 'PRESENT', motif)
       if ('error' in result) {
         toast.error(result.error)
       } else {
@@ -270,7 +280,11 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
   // ─── Change presence status (undo / mark as absent or excused) ──────
   function handleChangeStatus(memberId: string, newStatut: 'PRESENT' | 'ABSENT' | 'EXCUSE', memberName: string) {
     startTransition(async () => {
-      const result = await markPresenceManual(seance.id, memberId, newStatut)
+      // Si on passe à PRESENT en mode strict, il faudrait un motif —
+      // mais ici on est dans un changement rapide depuis la liste, donc
+      // on retombe sur le dialog si nécessaire. Pour les autres statuts
+      // (ABSENT, EXCUSE), pas besoin de motif.
+      const result = await markPresenceManual(seance.id, memberId, newStatut, null)
       if ('error' in result) {
         toast.error(result.error)
       } else {
@@ -875,37 +889,84 @@ export function EmargementView({ seance, instanceMemberCount }: EmargementViewPr
       {/* ─── Dialog de confirmation pour le pointage manuel (mode assisté) ─── */}
       <AlertDialog
         open={!!manualConfirmMember}
-        onOpenChange={(open) => { if (!open) setManualConfirmMember(null) }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setManualConfirmMember(null)
+            setManualMotif('')
+          }
+        }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <HandMetal className="h-5 w-5 text-amber-600" />
-              Pointage manuel — mode assisté
+              {qrStrict ? 'Pointage manuel — mode dégradé' : 'Pointage manuel — mode assisté'}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
                   Vous allez marquer <strong className="text-foreground">{manualConfirmMember?.prenom} {manualConfirmMember?.nom}</strong> comme présent(e) <strong className="text-amber-700">sans scan QR</strong>.
                 </p>
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
-                  <p className="font-medium mb-1">Mode assisté :</p>
-                  <p>Le gestionnaire identifie visuellement la personne et valide manuellement sa présence. Ce mode est tracé dans le registre d&apos;émargement.</p>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Privilégiez le scan QR (onglet « Scanner QR ») pour une traçabilité optimale.
-                </p>
+                {qrStrict ? (
+                  <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-800">
+                    <p className="font-medium mb-1">⚠️ Mode dégradé — émargement QR obligatoire</p>
+                    <p>
+                      Votre institution exige le scan QR à l&apos;entrée. Ce
+                      pointage manuel sera enregistré comme exception et
+                      <strong> mentionné dans le PV et le dossier de contrôle
+                      préfectoral</strong> avec le motif que vous saisissez ci-dessous.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                    <p className="font-medium mb-1">Mode assisté :</p>
+                    <p>Le gestionnaire identifie visuellement la personne et valide manuellement sa présence. Ce mode est tracé dans le registre d&apos;émargement.</p>
+                  </div>
+                )}
+                {qrStrict && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="manual-motif" className="text-sm">
+                      Motif du pointage manuel <span className="text-red-600">*</span>
+                    </Label>
+                    <Textarea
+                      id="manual-motif"
+                      value={manualMotif}
+                      onChange={(e) => setManualMotif(e.target.value)}
+                      placeholder="Ex. : QR perdu, caméra défaillante, membre sans email…"
+                      rows={3}
+                      className="resize-none"
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ce motif sera consultable dans le PV et le dossier de
+                      contrôle préfectoral.
+                    </p>
+                  </div>
+                )}
+                {!qrStrict && (
+                  <p className="text-sm text-muted-foreground">
+                    Privilégiez le scan QR (onglet « Scanner QR ») pour une traçabilité optimale.
+                  </p>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setManualConfirmMember(null)
+                setManualMotif('')
+              }}
+            >
+              Annuler
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleManualCheckInConfirmed}
-              className="bg-amber-600 hover:bg-amber-700"
+              disabled={qrStrict && !manualMotif.trim()}
+              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
             >
               <HandMetal className="h-4 w-4 mr-2" />
-              Confirmer le pointage manuel
+              {qrStrict ? 'Confirmer (mode dégradé)' : 'Confirmer le pointage manuel'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

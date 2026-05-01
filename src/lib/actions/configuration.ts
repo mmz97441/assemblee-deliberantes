@@ -55,6 +55,7 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
       note_synthese_obligatoire: formData.get('note_synthese_obligatoire') === 'true',
       note_synthese_seuil_population:
         parseInt(formData.get('note_synthese_seuil_population') as string) || 3500,
+      emargement_qr_strict: formData.get('emargement_qr_strict') === 'true',
 
     }
 

@@ -172,7 +172,8 @@ export async function confirmSelfPresence(
 export async function markPresenceManual(
   seanceId: string,
   memberId: string,
-  statut: PresenceStatut
+  statut: PresenceStatut,
+  motif: string | null = null
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
@@ -205,6 +206,24 @@ export async function markPresenceManual(
       return { error: 'Ce membre n\'est pas convoqué pour cette séance. Ajoutez-le d\'abord comme convocataire.' }
     }
 
+    // Mode QR strict : si l'institution a activé l'émargement QR obligatoire,
+    // le pointage manuel d'une PRÉSENCE devient un cas dégradé qui exige un
+    // motif justificatif (sera mentionné dans le PV et le contrôle préfecture).
+    const { data: instConfig } = await supabase
+      .from('institution_config')
+      .select('emargement_qr_strict')
+      .limit(1)
+      .maybeSingle()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const qrStrict = (instConfig as any)?.emargement_qr_strict === true
+    const cleanedMotif = motif?.trim() || null
+    if (qrStrict && statut === 'PRESENT' && !cleanedMotif) {
+      return {
+        error:
+          'Émargement QR obligatoire — un motif est requis pour valider une présence sans scan (mode assisté). Exemple : "QR perdu", "Caméra défaillante".',
+      }
+    }
+
     const { error } = await supabase
       .from('presences')
       .upsert(
@@ -214,6 +233,7 @@ export async function markPresenceManual(
           statut,
           heure_arrivee: statut === 'PRESENT' ? new Date().toISOString() : null,
           mode_authentification: 'ASSISTE' as const,
+          mode_assiste_motif: statut === 'PRESENT' ? cleanedMotif : null,
         },
         { onConflict: 'seance_id,member_id' }
       )

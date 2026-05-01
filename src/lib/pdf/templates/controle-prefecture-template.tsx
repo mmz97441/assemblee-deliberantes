@@ -487,9 +487,15 @@ function SeancePage({ data, seance }: { data: ControlePrefectureData; seance: Se
                 {p.qualite ? ` (${p.qualite})` : ''}
               </Text>
               <Text style={[styles.td, { width: '14%' }]}>{p.statut}</Text>
-              <Text style={[styles.td, { width: '14%' }]}>{p.methode || '—'}</Text>
+              <Text style={[styles.td, { width: '14%' }]}>
+                {p.methode || '—'}
+                {p.motifAssiste ? '\n(mode dégradé)' : ''}
+              </Text>
               <Text style={[styles.td, { width: '20%' }]}>{fmtDateTime(p.horodatage)}</Text>
-              <Text style={[styles.td, { width: '20%', borderRightWidth: 0 }]}>{p.marquePar || '—'}</Text>
+              <Text style={[styles.td, { width: '20%', borderRightWidth: 0 }]}>
+                {p.marquePar || '—'}
+                {p.motifAssiste ? `\nMotif : ${p.motifAssiste}` : ''}
+              </Text>
             </View>
           ))
         )}

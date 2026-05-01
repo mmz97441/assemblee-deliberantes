@@ -117,6 +117,7 @@ export interface PresenceDetail {
   methode: string | null
   horodatage: string | null
   marquePar: string | null
+  motifAssiste: string | null
 }
 
 export interface ProcurationDetail {
@@ -536,9 +537,10 @@ async function buildSeanceControle(
       membreNom: p.member ? `${p.member.prenom} ${p.member.nom}` : 'Inconnu',
       qualite: p.member?.qualite_officielle || null,
       statut: p.statut,
-      methode: p.methode_emargement || null,
-      horodatage: p.emargement_at || null,
+      methode: p.mode_authentification || p.methode_emargement || null,
+      horodatage: p.heure_arrivee || p.emargement_at || null,
       marquePar: p.marquee_par ? `${p.marquee_par.prenom} ${p.marquee_par.nom}` : null,
+      motifAssiste: p.mode_assiste_motif || null,
     })
   )
 

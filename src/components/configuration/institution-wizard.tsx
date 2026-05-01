@@ -111,6 +111,7 @@ type FormValues = {
   population_habitants: string
   note_synthese_obligatoire: boolean
   note_synthese_seuil_population: number
+  emargement_qr_strict: boolean
 }
 
 // Instance being edited (local state, not yet saved)
@@ -164,6 +165,8 @@ function getInitialValues(data: InstitutionConfigRow | null): FormValues {
     population_habitants: data?.population_habitants != null ? String(data.population_habitants) : '',
     note_synthese_obligatoire: data?.note_synthese_obligatoire ?? false,
     note_synthese_seuil_population: data?.note_synthese_seuil_population ?? 3500,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    emargement_qr_strict: (data as any)?.emargement_qr_strict ?? false,
   }
 }
 
@@ -1080,6 +1083,37 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
                 <div className="space-y-2">
                   <Label htmlFor="url_portail_public">URL du portail public</Label>
                   <Input id="url_portail_public" type="url" value={values.url_portail_public} onChange={(e) => updateField('url_portail_public', e.target.value)} placeholder={ph?.portail || 'https://votre-site.fr'} className="h-11" />
+                </div>
+              </div>
+
+              {/* ─── Émargement strict par scan QR ──────────────── */}
+              <div className="rounded-xl border bg-muted/30 p-5 space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Émargement par scan QR</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Renforce la preuve de présence légale. Activé, le scan
+                    du QR code personnel devient obligatoire à l&apos;entrée.
+                    Le pointage manuel reste possible en mode dégradé,
+                    avec un motif obligatoire enregistré dans le PV.
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="emargement_qr_strict" className="text-sm cursor-pointer">
+                      Scan QR obligatoire pour toutes les séances
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Si activé : le bouton « marquer manuellement » est
+                      caché, sauf en mode dégradé (justification écrite
+                      obligatoire, mentionnée dans le PV et le dossier
+                      de contrôle préfectoral).
+                    </p>
+                  </div>
+                  <Switch
+                    id="emargement_qr_strict"
+                    checked={values.emargement_qr_strict}
+                    onCheckedChange={(c) => updateField('emargement_qr_strict', c)}
+                  />
                 </div>
               </div>
             </div>

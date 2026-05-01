@@ -70,10 +70,21 @@ export default async function EmargementPage({ params }: Props) {
     .select('*', { count: 'exact', head: true })
     .eq('instance_config_id', seance.instance_id)
 
+  // Mode QR strict : si l'institution exige le scan QR pour toutes les
+  // séances, le bouton "Marquer manuellement" exige un motif justificatif
+  // (cas dégradé : QR perdu, caméra cassée, etc.).
+  const { data: instConfig } = await supabase
+    .from('institution_config')
+    .select('emargement_qr_strict')
+    .limit(1)
+    .maybeSingle()
+  const qrStrict = (instConfig as { emargement_qr_strict?: boolean | null } | null)?.emargement_qr_strict === true
+
   return (
     <EmargementView
       seance={seance}
       instanceMemberCount={instanceMemberCount || 0}
+      qrStrict={qrStrict}
     />
   )
 }
