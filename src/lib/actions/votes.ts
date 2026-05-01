@@ -7,7 +7,6 @@ import { createServiceRoleClient } from '@/lib/supabase/server'
 import { requireVerifiedRole } from '@/lib/auth/require-role'
 import { determineVoteResult, generateFormulePV, type MajoriteRequise } from '@/lib/validators/vote-result'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
-import { getVerifiedRole } from '@/lib/auth/get-user-role'
 import { sendSMS, maskPhoneNumber } from '@/lib/sms/twilio'
 import {
   generateVoteSessionKey,

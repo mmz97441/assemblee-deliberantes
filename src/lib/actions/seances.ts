@@ -6,7 +6,6 @@ import { ROUTES } from '@/lib/constants'
 import type { SeanceRow, ODJPointRow, InstanceConfigRow, MemberRow } from '@/lib/supabase/types'
 import { addPVApprovalODJPoint } from '@/lib/actions/phase2-features'
 import { autoCreateDeliberationsForSeance } from '@/lib/actions/deliberations'
-import { getVerifiedRole } from '@/lib/auth/get-user-role'
 import { requireVerifiedRole } from '@/lib/auth/require-role'
 
 type ActionResult = { success: true } | { error: string }
