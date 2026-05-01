@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useTransition, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -148,6 +148,7 @@ export function PVEditor({
   convocataires = [],
 }: PVEditorProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
   // ─── Core state ──────────────────────────────────────────────────────────
@@ -417,27 +418,54 @@ export function PVEditor({
     ? ['presences', 'carence', 'signatures']
     : ['presences', 'discussions', 'observations', 'relecture', 'finaliser', 'signatures']
 
-  // ─── Reprise d'étape : initialiser sur la dernière étape pertinente ──────
-  // Si une signature a été posée, ou si le PV est EN_RELECTURE/SIGNE/PUBLIE,
-  // on reprend directement sur l'étape Signatures plutôt que de retomber sur
-  // Présences à chaque ouverture.
+  // ─── Reprise d'étape : URL > état du PV > 0 ──────────────────────────────
+  // Priorité 1 : ?step=ID dans l'URL (lien direct vers une étape)
+  // Priorité 2 : étape la plus avancée selon les données saisies
+  //              (signatures posées, PV en relecture/signé)
+  // Priorité 3 : début (étape 0)
   const stepInitializedRef = useRef(false)
   useEffect(() => {
     if (stepInitializedRef.current) return
     if (steps.length === 0) return
 
+    // 1. Param URL prioritaire
+    const stepFromUrl = searchParams.get('step')
+    if (stepFromUrl) {
+      const idx = steps.indexOf(stepFromUrl as StepId)
+      if (idx >= 0) {
+        setCurrentStep(idx)
+        setCompletedSteps(new Set(Array.from({ length: idx }, (_, k) => k)))
+        stepInitializedRef.current = true
+        return
+      }
+    }
+
+    // 2. Auto-détection depuis les données
     const isSignatureLocked = ['EN_RELECTURE', 'SIGNE', 'PUBLIE'].includes(pvStatut || '')
     const hasAnySignature = signatures.length > 0
     if (hasAnySignature || isSignatureLocked) {
       const i = steps.indexOf('signatures')
       if (i >= 0) {
         setCurrentStep(i)
-        // Marquer toutes les étapes précédentes comme complétées (pour la stepper UI)
         setCompletedSteps(new Set(Array.from({ length: i }, (_, k) => k)))
       }
     }
     stepInitializedRef.current = true
-  }, [steps, signatures.length, pvStatut])
+  }, [steps, signatures.length, pvStatut, searchParams])
+
+  // Persiste l'étape courante dans l'URL pour permettre les liens directs
+  // et la reprise après rechargement de page.
+  useEffect(() => {
+    if (!stepInitializedRef.current) return
+    if (typeof window === 'undefined') return
+    const stepId = steps[currentStep]
+    if (!stepId) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('step') !== stepId) {
+      url.searchParams.set('step', stepId)
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [currentStep, steps])
 
   const totalSteps = steps.length
   const totalPoints = contenu?.points.length || 0
