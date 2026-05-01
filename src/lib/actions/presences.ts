@@ -414,7 +414,7 @@ export async function scanQREmargement(
 
     if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
 
-    // Upsert presence
+    // Upsert presence — mode QR : preuve forte par token unique à usage unique
     const { error: presenceError } = await supabase
       .from('presences')
       .upsert(
@@ -423,7 +423,7 @@ export async function scanQREmargement(
           member_id: convocataire.member_id,
           statut: 'PRESENT' as const,
           heure_arrivee: new Date().toISOString(),
-          mode_authentification: 'MANUEL' as const,
+          mode_authentification: 'QR' as const,
         },
         { onConflict: 'seance_id,member_id' }
       )

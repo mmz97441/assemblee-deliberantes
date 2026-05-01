@@ -496,6 +496,7 @@ export type Database = {
           dpo_email: string | null
           dpo_nom: string | null
           email_secretariat: string | null
+          emargement_qr_strict: boolean | null
           format_numero_deliberation: string | null
           id: string
           logo_url: string | null
@@ -525,6 +526,7 @@ export type Database = {
           dpo_email?: string | null
           dpo_nom?: string | null
           email_secretariat?: string | null
+          emargement_qr_strict?: boolean | null
           format_numero_deliberation?: string | null
           id?: string
           logo_url?: string | null
@@ -554,6 +556,7 @@ export type Database = {
           dpo_email?: string | null
           dpo_nom?: string | null
           email_secretariat?: string | null
+          emargement_qr_strict?: boolean | null
           format_numero_deliberation?: string | null
           id?: string
           logo_url?: string | null
@@ -893,6 +896,7 @@ export type Database = {
           horodatage_serveur: string | null
           id: string
           member_id: string
+          mode_assiste_motif: string | null
           mode_authentification:
             | Database["public"]["Enums"]["mode_authentification"]
             | null
@@ -914,6 +918,7 @@ export type Database = {
           horodatage_serveur?: string | null
           id?: string
           member_id: string
+          mode_assiste_motif?: string | null
           mode_authentification?:
             | Database["public"]["Enums"]["mode_authentification"]
             | null
@@ -935,6 +940,7 @@ export type Database = {
           horodatage_serveur?: string | null
           id?: string
           member_id?: string
+          mode_assiste_motif?: string | null
           mode_authentification?:
             | Database["public"]["Enums"]["mode_authentification"]
             | null
@@ -1570,6 +1576,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["user_role"]
       }
       is_admin_or_gestionnaire: { Args: never; Returns: boolean }
+      is_document_writer: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
@@ -1585,7 +1592,7 @@ export type Database = {
       late_arrival_mode: "STRICT" | "SOUPLE" | "SUSPENDU"
       majorite_requise: "SIMPLE" | "ABSOLUE" | "QUALIFIEE" | "UNANIMITE"
       member_statut: "ACTIF" | "SUSPENDU" | "FIN_DE_MANDAT" | "DECEDE"
-      mode_authentification: "WEBAUTHN" | "PIN" | "MANUEL" | "ASSISTE"
+      mode_authentification: "WEBAUTHN" | "QR" | "PIN" | "MANUEL" | "ASSISTE"
       odj_point_type:
         | "DELIBERATION"
         | "INFORMATION"
@@ -1767,7 +1774,7 @@ export const Constants = {
       late_arrival_mode: ["STRICT", "SOUPLE", "SUSPENDU"],
       majorite_requise: ["SIMPLE", "ABSOLUE", "QUALIFIEE", "UNANIMITE"],
       member_statut: ["ACTIF", "SUSPENDU", "FIN_DE_MANDAT", "DECEDE"],
-      mode_authentification: ["WEBAUTHN", "PIN", "MANUEL", "ASSISTE"],
+      mode_authentification: ["WEBAUTHN", "QR", "PIN", "MANUEL", "ASSISTE"],
       odj_point_type: [
         "DELIBERATION",
         "INFORMATION",
@@ -1810,6 +1817,15 @@ export const Constants = {
         "ADOPTE",
         "REJETE",
         "NUL",
+        "ADOPTE_UNANIMITE",
+        "ADOPTE_VOIX_PREPONDERANTE",
+      ],
+      vote_statut: ["OUVERT", "CLOS", "ANNULE", "CONTESTE"],
+      vote_type: ["MAIN_LEVEE", "SECRET", "NOMINAL", "TELEVOTE"],
+    },
+  },
+} as const
+
         "ADOPTE_UNANIMITE",
         "ADOPTE_VOIX_PREPONDERANTE",
       ],
