@@ -32,7 +32,10 @@ import {
 import { createMember, updateMember, assignMemberToInstances } from '@/lib/actions/members'
 import type { MemberWithInstances } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole } from '@/lib/supabase/types'
-import { User, Briefcase, CalendarDays, Building2, Loader2 } from 'lucide-react'
+import { User, Briefcase, CalendarDays, Building2, Loader2, Check, ChevronsUpDown } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { QUALITES_OFFICIELLES, FONCTIONS_INSTANCE } from '@/lib/constants/membre-roles'
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super-administrateur' },
@@ -311,12 +314,15 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="qualite_officielle">Qualité officielle</Label>
-              <Input
-                id="qualite_officielle"
+              <Label>Qualité officielle</Label>
+              <RoleCombobox
                 value={qualiteOfficielle}
-                onChange={e => setQualiteOfficielle(e.target.value)}
-                placeholder="Adjoint au maire, Vice-président..."
+                onChange={setQualiteOfficielle}
+                options={QUALITES_OFFICIELLES}
+                placeholder="Choisir une qualité…"
+                searchPlaceholder="Rechercher (Maire, Adjoint, Président…)"
+                emptyLabel="Aucune qualité (laisser vide)"
+                noMatchLabel="Aucune qualité trouvée."
               />
             </div>
             <div className="space-y-2">
@@ -393,18 +399,18 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
                         <>
                           <Separator />
                           <div className="space-y-1.5 pl-7">
-                            <Label
-                              htmlFor={`fonction-${assignment.instanceId}`}
-                              className="text-xs text-muted-foreground"
-                            >
+                            <Label className="text-xs text-muted-foreground">
                               Fonction dans cette instance
                             </Label>
-                            <Input
-                              id={`fonction-${assignment.instanceId}`}
+                            <RoleCombobox
                               value={assignment.fonction}
-                              onChange={e => updateInstanceFonction(assignment.instanceId, e.target.value)}
-                              placeholder="Membre, Président, Rapporteur..."
-                              className="h-8 text-sm"
+                              onChange={(v) => updateInstanceFonction(assignment.instanceId, v)}
+                              options={FONCTIONS_INSTANCE}
+                              placeholder="Choisir une fonction…"
+                              searchPlaceholder="Rechercher (Membre, Président…)"
+                              emptyLabel="Aucune (par défaut : Membre)"
+                              noMatchLabel="Aucune fonction trouvée."
+                              size="sm"
                             />
                           </div>
                         </>
@@ -428,5 +434,81 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Combobox de sélection de rôle (qualité officielle, fonction instance) ──
+// Empêche la saisie libre pour garantir une cohérence des libellés sur le PV
+// et le dossier de contrôle préfectoral. Permet de vider la valeur via une
+// option dédiée (« Aucune »).
+
+function RoleCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+  searchPlaceholder,
+  emptyLabel,
+  noMatchLabel,
+  size = 'md',
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: readonly string[]
+  placeholder: string
+  searchPlaceholder: string
+  emptyLabel: string
+  noMatchLabel: string
+  size?: 'sm' | 'md'
+}) {
+  const [open, setOpen] = useState(false)
+  const heightClass = size === 'sm' ? 'h-8 text-sm' : 'min-h-[40px]'
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={`w-full justify-between font-normal ${heightClass}`}
+        >
+          {value ? (
+            <span className="truncate">{value}</span>
+          ) : (
+            <span className="text-muted-foreground">{placeholder}</span>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{noMatchLabel}</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value=""
+                onSelect={() => { onChange(''); setOpen(false) }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${!value ? 'opacity-100' : 'opacity-0'}`} />
+                <span className="text-muted-foreground italic">{emptyLabel}</span>
+              </CommandItem>
+              {options.map((opt) => (
+                <CommandItem
+                  key={opt}
+                  value={opt}
+                  onSelect={() => { onChange(opt); setOpen(false) }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === opt ? 'opacity-100' : 'opacity-0'}`} />
+                  <span>{opt}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
