@@ -1138,7 +1138,16 @@ export default async function DashboardPage() {
 
   const { data: allUpcoming } = await supabase
     .from('seances')
-    .select('id, titre, date_seance, statut, instance_config (nom)')
+    .select(`
+      id, titre, date_seance, statut,
+      instance_config (
+        nom,
+        composition_max,
+        quorum_type,
+        quorum_fraction_numerateur,
+        quorum_fraction_denominateur
+      )
+    `)
     .in('statut', ['BROUILLON', 'CONVOQUEE', 'EN_COURS'])
     .gte('date_seance', now.toISOString().slice(0, 10))
     .order('date_seance', { ascending: true })
@@ -1162,6 +1171,20 @@ export default async function DashboardPage() {
         .eq('seance_id', s.id)
         .neq('statut_convocation', 'NON_ENVOYE')
 
+      // Confirmations de présence reçues (CONFIRME_PRESENT)
+      const { count: confirmedCount } = await supabase
+        .from('convocataires')
+        .select('id', { count: 'exact', head: true })
+        .eq('seance_id', s.id)
+        .eq('statut_convocation', 'CONFIRME_PRESENT')
+
+      // Procurations valides pour la séance
+      const { count: procurationsCount } = await supabase
+        .from('procurations')
+        .select('id', { count: 'exact', head: true })
+        .eq('seance_id', s.id)
+        .eq('valide', true)
+
       const hasOdj = (odjCount || 0) > 0
       const hasConv = (convCount || 0) > 0
       const convSent = hasConv && (convSentCount || 0) > 0
@@ -1171,16 +1194,41 @@ export default async function DashboardPage() {
       if (hasConv) prepPercent += 33
       if (convSent) prepPercent += 34
 
+      // Calcul du quorum requis selon la config de l'instance
+      const inst = s.instance_config as {
+        nom: string
+        composition_max: number | null
+        quorum_type: string | null
+        quorum_fraction_numerateur: number | null
+        quorum_fraction_denominateur: number | null
+      } | null
+      let quorumRequired: number | null = null
+      const total = inst?.composition_max ?? convCount ?? 0
+      if (total > 0) {
+        const qType = inst?.quorum_type || 'MAJORITE_MEMBRES'
+        const num = inst?.quorum_fraction_numerateur || 1
+        const den = inst?.quorum_fraction_denominateur || 2
+        if (qType === 'MAJORITE_MEMBRES') quorumRequired = Math.floor(total / 2) + 1
+        else if (qType === 'TIERS_MEMBRES') quorumRequired = Math.ceil(total / 3)
+        else if (qType === 'DEUX_TIERS') quorumRequired = Math.ceil((total * 2) / 3)
+        else if (qType === 'STATUTS') quorumRequired = Math.ceil((total * num) / den)
+        else quorumRequired = Math.floor(total / 2) + 1
+      }
+
       upcomingSeances.push({
         id: s.id,
         titre: s.titre,
         date_seance: s.date_seance,
-        instance_nom: (s.instance_config as { nom: string } | null)?.nom || null,
+        instance_nom: inst?.nom || null,
         statut: s.statut,
         has_odj: hasOdj,
         has_convocataires: hasConv,
         convocations_envoyees: convSent,
         preparation_percent: prepPercent,
+        total_convocataires: convCount || 0,
+        confirmes_present: confirmedCount || 0,
+        procurations: procurationsCount || 0,
+        quorum_required: quorumRequired,
       })
     }
   }

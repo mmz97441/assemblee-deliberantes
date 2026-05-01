@@ -61,6 +61,11 @@ interface UpcomingSeanceCard {
   has_convocataires: boolean
   convocations_envoyees: boolean
   preparation_percent: number
+  // Prédiction de quorum (calculée à partir des confirmations + procurations)
+  total_convocataires: number
+  confirmes_present: number
+  procurations: number
+  quorum_required: number | null
 }
 
 interface GestionnaireStats {
@@ -393,6 +398,9 @@ export function GestionnaireDashboard({
                           </TooltipContent>
                         </Tooltip>
                       </div>
+
+                      {/* Prédiction de quorum — visible au premier coup d'œil */}
+                      <QuorumIndicator seance={seance} />
                     </div>
                   </div>
                 </Link>
@@ -796,6 +804,62 @@ export function GestionnaireDashboard({
         </DialogContent>
       </Dialog>
     </TooltipProvider>
+  )
+}
+
+// ─── Indicateur de quorum prédictif sur la card "Prochaines séances" ───────
+// Affiche au premier coup d'œil si la séance va avoir le quorum, en se basant
+// sur les confirmations de présence reçues + les procurations valides.
+
+function QuorumIndicator({ seance }: { seance: UpcomingSeanceCard }) {
+  const total = seance.confirmes_present + seance.procurations
+  const quorumRequired = seance.quorum_required
+
+  // Cas 1 : aucune réponse encore reçue
+  if (seance.confirmes_present === 0 && seance.procurations === 0) {
+    if (!seance.convocations_envoyees) {
+      // Pas même convoquée — pas pertinent d'afficher quorum
+      return null
+    }
+    return (
+      <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-2">
+        <Clock className="h-3 w-3" />
+        En attente de confirmations…
+      </div>
+    )
+  }
+
+  // Cas 2 : quorum non configuré (instance sans composition_max ni convocataires)
+  if (!quorumRequired) {
+    return (
+      <div className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground border-t pt-2">
+        <UserCheck className="h-3 w-3" />
+        {total} confirmé{total > 1 ? 's' : ''} (présence + procuration)
+      </div>
+    )
+  }
+
+  // Cas 3 : quorum atteint
+  if (total >= quorumRequired) {
+    return (
+      <div className="mt-2.5 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1.5">
+        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+        <span className="font-medium">Quorum prévu</span>
+        <span className="text-emerald-600">— {total}/{quorumRequired}</span>
+      </div>
+    )
+  }
+
+  // Cas 4 : quorum non atteint
+  const manque = quorumRequired - total
+  return (
+    <div className="mt-2.5 flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+      <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+      <span className="font-medium">
+        Manque {manque} confirmation{manque > 1 ? 's' : ''}
+      </span>
+      <span className="text-amber-700">— {total}/{quorumRequired}</span>
+    </div>
   )
 }
 
