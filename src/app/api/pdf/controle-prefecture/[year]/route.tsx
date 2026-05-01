@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { renderToBuffer } from '@react-pdf/renderer'
-import { checkApiRateLimit, API_RATE_LIMITS } from '@/lib/security/api-rate-limiter'
+import { checkApiRateLimit } from '@/lib/security/api-rate-limiter'
 import { getControlePrefectureData } from '@/lib/actions/controle-prefecture'
 import { ControlePrefecturePDF } from '@/lib/pdf/templates/controle-prefecture-template'
 import { createServerSupabaseClient } from '@/lib/supabase/server'

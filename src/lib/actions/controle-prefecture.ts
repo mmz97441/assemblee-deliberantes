@@ -569,10 +569,8 @@ async function buildSeanceControle(
     .select(`*, member:members(prenom, nom), declared_by_member:members!recusations_declared_by_fkey(prenom, nom)`)
     .eq('seance_id', seanceId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const odjPointsData = (s as any).odj_points || []
+  // Mapping odj_point_id → titre, alimenté plus bas après chargement des points
   const odjPointsMap = new Map<string, string>()
-  // ODJ points sont chargés via une autre query plus bas
 
   const recusations: RecusationDetail[] = (recusationsData || []).map(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
