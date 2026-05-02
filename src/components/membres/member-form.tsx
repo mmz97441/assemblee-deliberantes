@@ -37,6 +37,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { QUALITES_OFFICIELLES, FONCTIONS_INSTANCE } from '@/lib/constants/membre-roles'
+import { isValidEmail } from '@/lib/validators/email'
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super-administrateur' },
@@ -140,7 +141,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
     if (field === 'prenom' && !value.trim()) return 'Le prénom est requis'
     if (field === 'nom' && !value.trim()) return 'Le nom est requis'
     if (field === 'email' && !value.trim()) return 'L\'adresse email est requise'
-    if (field === 'email' && value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Adresse email invalide'
+    if (field === 'email' && value.trim() && !isValidEmail(value)) return 'Adresse email invalide'
     return ''
   }
 

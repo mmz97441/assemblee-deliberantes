@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import type { Json } from '@/lib/supabase/types'
 import { requireVerifiedRole, hasVerifiedRole } from '@/lib/auth/require-role'
+import { checkRateLimit } from '@/lib/security/rate-limiter'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -183,6 +184,18 @@ export async function getDocumentUrl(
   try {
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
+
+    // SÉCURITÉ (audit #24) : rate-limit la génération d'URLs signées.
+    // Sans cette garde, un compte compromis peut générer en boucle des URLs
+    // valides 1h pour exfiltrer massivement les documents accessibles à
+    // l'utilisateur. 60/min reste très large pour un usage légitime
+    // (multi-document seance + multi-onglets) tout en bloquant l'abus.
+    const rateCheck = await checkRateLimit(supabase, user.id, {
+      actionKey: 'get_document_url',
+      maxAttempts: 60,
+      windowMinutes: 1,
+    })
+    if (!rateCheck.allowed) return { error: rateCheck.error! }
 
     // Extract seanceId from the document path (format: seances/{seanceId}/odj/...)
     const pathParts = documentPath.split('/')

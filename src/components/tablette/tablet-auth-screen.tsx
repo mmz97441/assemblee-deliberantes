@@ -17,6 +17,8 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { authenticateTablet } from '@/lib/actions/presences'
+import { startRegistration } from '@simplewebauthn/browser'
+import { getRegistrationOptions, verifyRegistration } from '@/lib/actions/webauthn'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -222,13 +224,44 @@ export function TabletAuthScreen({
   }, [authenticatedMemberId, onAuthenticated])
 
   const handleEnrollWebAuthn = useCallback(async () => {
-    // TODO: Implement actual WebAuthn enrollment with server-side challenge
-    // For Phase 2 MVP, we skip actual WebAuthn and just note that it's available
-    toast.success('Empreinte biométrique — disponible dans une prochaine version')
-    setState('authenticated')
+    // SÉCURITÉ (audit #13) : enrôlement WebAuthn RÉEL.
+    // 1) demande au serveur les options + challenge
+    // 2) déclenche navigator.credentials.create() via SimpleWebAuthn
+    // 3) renvoie l'attestation au serveur qui vérifie cryptographiquement
+    //    et stocke la credential.
     const memberId = authenticatedMemberId
-    if (memberId) {
+    if (!memberId) {
+      toast.error('Aucun membre identifié — refaites le scan QR')
+      return
+    }
+
+    try {
+      const optsResult = await getRegistrationOptions(memberId)
+      if ('error' in optsResult) {
+        toast.error(optsResult.error)
+        return
+      }
+
+      const attestation = await startRegistration({ optionsJSON: optsResult.options })
+
+      const verifyResult = await verifyRegistration(memberId, attestation, 'Tablette de séance')
+      if ('error' in verifyResult) {
+        toast.error(verifyResult.error)
+        return
+      }
+
+      toast.success('Empreinte enregistrée — vous pourrez vous identifier rapidement à la prochaine séance')
+      setState('authenticated')
       setTimeout(() => onAuthenticated(memberId), 1200)
+    } catch (err) {
+      // L'utilisateur a annulé la demande système, ou navigator.credentials indisponible
+      const message = err instanceof Error ? err.message : 'Inconnu'
+      if (/cancel|not allowed/i.test(message)) {
+        toast.info('Enrôlement annulé — vous pouvez continuer sans empreinte')
+      } else {
+        console.error('WebAuthn enrollment error:', err)
+        toast.error(`Impossible d'enrôler l'empreinte : ${message}`)
+      }
     }
   }, [authenticatedMemberId, onAuthenticated])
 

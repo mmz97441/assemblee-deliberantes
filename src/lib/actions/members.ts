@@ -8,6 +8,7 @@ import type { MemberRow, InstanceConfigRow, UserRole } from '@/lib/supabase/type
 import { requireVerifiedRole } from '@/lib/auth/require-role'
 import { getUserRole } from '@/lib/auth/get-user-role'
 import { INVITABLE_ROLES } from '@/lib/auth/helpers'
+import { validateEmail } from '@/lib/validators/email'
 
 // SÉCURITÉ : seul super_admin peut attribuer/modifier les rôles privilégiés.
 // Les rôles assignables par un caller donné sont contraints par INVITABLE_ROLES.
@@ -73,7 +74,30 @@ export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { 
 
     if (error) return { error: `Erreur de chargement : ${error.message}` }
 
-    return { data: (data as MemberWithInstances[]) || [] }
+    // SÉCURITÉ (audit #15) : photo_url contient un PATH (bucket avatars privé).
+    // On résout en signed URLs en un seul appel batch pour l'affichage.
+    const members = (data as MemberWithInstances[]) || []
+    const photoPaths = members
+      .map(m => (m as { photo_url?: string | null }).photo_url)
+      .filter((p): p is string => !!p && !p.startsWith('http'))
+
+    if (photoPaths.length > 0) {
+      const { data: signed } = await supabase.storage
+        .from('avatars')
+        .createSignedUrls(photoPaths, 60 * 60)
+      const map = new Map<string, string>()
+      for (const s of signed || []) {
+        if (s.path && s.signedUrl) map.set(s.path, s.signedUrl)
+      }
+      for (const m of members) {
+        const mm = m as { photo_url?: string | null }
+        if (mm.photo_url && !mm.photo_url.startsWith('http')) {
+          mm.photo_url = map.get(mm.photo_url) || null
+        }
+      }
+    }
+
+    return { data: members }
   } catch (err) {
     console.error('getMembers error:', err)
     return { error: 'Erreur inattendue lors du chargement des membres' }
@@ -88,12 +112,14 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 
     const prenom = (formData.get('prenom') as string)?.trim()
     const nom = (formData.get('nom') as string)?.trim()
-    const email = (formData.get('email') as string)?.trim()
+    const emailRaw = (formData.get('email') as string)?.trim()
 
     if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
-    if (!email) return { error: "L'email est requis" }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
+    if (!emailRaw) return { error: "L'email est requis" }
+    const emailCheck = validateEmail(emailRaw)
+    if (!emailCheck.ok) return { error: emailCheck.error }
+    const email = emailCheck.email
 
     // SÉCURITÉ : restreindre les rôles assignables au rôle réel du caller
     const requestedRole = ((formData.get('role') as string) || 'elu') as UserRole
@@ -164,12 +190,14 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
 
     const prenom = (formData.get('prenom') as string)?.trim()
     const nom = (formData.get('nom') as string)?.trim()
-    const email = (formData.get('email') as string)?.trim()
+    const emailRaw = (formData.get('email') as string)?.trim()
 
     if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
-    if (!email) return { error: "L'email est requis" }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
+    if (!emailRaw) return { error: "L'email est requis" }
+    const emailCheck = validateEmail(emailRaw)
+    if (!emailCheck.ok) return { error: emailCheck.error }
+    const email = emailCheck.email
 
     // SÉCURITÉ : empêcher l'élévation de privilèges via le champ role.
     const requestedRole = ((formData.get('role') as string) || 'elu') as UserRole
@@ -472,20 +500,22 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
       // Validate required fields
       const prenom = row.prenom?.trim()
       const nom = row.nom?.trim()
-      const email = row.email?.trim()?.toLowerCase()
+      const emailRaw = row.email?.trim()
 
       if (!prenom || !nom) {
         result.errors.push({ row: rowNum, message: 'Prénom et nom requis' })
         continue
       }
-      if (!email) {
+      if (!emailRaw) {
         result.errors.push({ row: rowNum, message: 'Email requis' })
         continue
       }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        result.errors.push({ row: rowNum, message: `Email invalide: ${email}` })
+      const emailCheck = validateEmail(emailRaw)
+      if (!emailCheck.ok) {
+        result.errors.push({ row: rowNum, message: `Email invalide: ${emailRaw} (${emailCheck.error})` })
         continue
       }
+      const email = emailCheck.email
 
       // Skip duplicates
       if (existingEmails.has(email)) {
@@ -569,7 +599,10 @@ export async function uploadMemberPhoto(
       .maybeSingle()
     if (!existing) return { error: 'Membre introuvable' }
 
-    // Nom de fichier déterministe pour éviter d'accumuler des photos orphelines
+    // Nom de fichier déterministe pour éviter d'accumuler des photos orphelines.
+    // SÉCURITÉ (audit #15) : on stocke un PATH dans photo_url (pas une URL
+    // publique). Le bucket avatars est désormais privé, et les URLs signées
+    // sont générées à la demande via getMembers() / getMemberPhotoSignedUrl().
     const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
     const path = `members/${memberId}.${ext}`
 
@@ -584,16 +617,21 @@ export async function uploadMemberPhoto(
       })
     if (uploadError) return { error: `Erreur upload : ${uploadError.message}` }
 
-    // URL publique (bucket public)
-    const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-    const url = `${pub.publicUrl}?v=${Date.now()}` // cache-buster pour update immédiat
-
+    // Stocker uniquement le path en base (pas l'URL signée — durée limitée).
     const { error: updateError } = await supabase
       .from('members')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update({ photo_url: url } as any)
+      .update({ photo_url: path } as any)
       .eq('id', memberId)
     if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
+
+    // Générer une URL signée pour le retour immédiat (1h de validité).
+    const { data: signed } = await supabase.storage
+      .from('avatars')
+      .createSignedUrl(path, 60 * 60)
+    const url = signed?.signedUrl
+      ? `${signed.signedUrl}&v=${Date.now()}`
+      : path
 
     revalidatePath(ROUTES.MEMBRES)
     return { success: true, url }

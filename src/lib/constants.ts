@@ -52,6 +52,10 @@ export const VOTE_RESULTAT_CONFIG: Record<string, { label: string; color: string
 }
 
 // --- Validation ---
+// @deprecated — utilisez `validateEmail` / `isValidEmail` de
+// @/lib/validators/email à la place. Cette regex est conservée pour
+// compatibilité ascendante mais n'est plus la source de vérité (audit
+// sécurité #16 : trop permissive, pas de garde anti-CRLF, pas de longueur).
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
