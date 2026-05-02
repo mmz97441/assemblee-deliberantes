@@ -6,6 +6,26 @@ import { ROUTES } from '@/lib/constants'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import type { MemberRow, InstanceConfigRow, UserRole } from '@/lib/supabase/types'
 import { requireVerifiedRole } from '@/lib/auth/require-role'
+import { getUserRole } from '@/lib/auth/get-user-role'
+import { INVITABLE_ROLES } from '@/lib/auth/helpers'
+
+// SÉCURITÉ : seul super_admin peut attribuer/modifier les rôles privilégiés.
+// Les rôles assignables par un caller donné sont contraints par INVITABLE_ROLES.
+// Sans cette garde, un gestionnaire pouvait s'auto-promouvoir super_admin via
+// formData.role sur createMember/updateMember.
+function assertAllowedRoleAssignment(
+  callerRole: string | null,
+  requestedRole: UserRole
+): { ok: true } | { ok: false; error: string } {
+  const allowed = INVITABLE_ROLES[callerRole || ''] || []
+  if (!allowed.includes(requestedRole)) {
+    return {
+      ok: false,
+      error: `Vous n'avez pas le droit d'attribuer le rôle « ${requestedRole} ». Rôles autorisés pour vous : ${allowed.join(', ') || 'aucun'}.`,
+    }
+  }
+  return { ok: true }
+}
 
 type ActionResult = { success: true } | { error: string }
 
@@ -75,12 +95,18 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     if (!email) return { error: "L'email est requis" }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
 
+    // SÉCURITÉ : restreindre les rôles assignables au rôle réel du caller
+    const requestedRole = ((formData.get('role') as string) || 'elu') as UserRole
+    const callerRole = user ? await getUserRole(supabase, user.id) : null
+    const roleCheck = assertAllowedRoleAssignment(callerRole, requestedRole)
+    if (!roleCheck.ok) return { error: roleCheck.error }
+
     const payload = {
       prenom,
       nom,
       email,
       telephone: (formData.get('telephone') as string)?.trim() || null,
-      role: ((formData.get('role') as string) || 'elu') as UserRole,
+      role: requestedRole,
       qualite_officielle: (formData.get('qualite_officielle') as string)?.trim() || null,
       groupe_politique: (formData.get('groupe_politique') as string)?.trim() || null,
       mandat_debut: (formData.get('mandat_debut') as string) || null,
@@ -145,12 +171,43 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
     if (!email) return { error: "L'email est requis" }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Format d\'email invalide' }
 
+    // SÉCURITÉ : empêcher l'élévation de privilèges via le champ role.
+    const requestedRole = ((formData.get('role') as string) || 'elu') as UserRole
+    const callerRole = user ? await getUserRole(supabase, user.id) : null
+
+    // Charger l'état courant du membre cible et le member_id du caller
+    const [{ data: targetMember }, { data: callerMember }] = await Promise.all([
+      supabase.from('members').select('id, role, user_id').eq('id', id).maybeSingle(),
+      user
+        ? supabase.from('members').select('id').eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ])
+
+    if (!targetMember) return { error: 'Membre introuvable' }
+
+    // Auto-modification du propre rôle interdite (sauf super_admin)
+    const isSelfUpdate = callerMember?.id === targetMember.id
+    if (isSelfUpdate && requestedRole !== targetMember.role && callerRole !== 'super_admin') {
+      return { error: 'Vous ne pouvez pas modifier votre propre rôle. Demandez à un super-administrateur.' }
+    }
+
+    // Modification d'un super_admin existant : seul un super_admin peut le faire
+    if (targetMember.role === 'super_admin' && callerRole !== 'super_admin') {
+      return { error: 'Seul un super-administrateur peut modifier un autre super-administrateur.' }
+    }
+
+    // Si le rôle change, valider qu'il est dans les rôles assignables par le caller
+    if (requestedRole !== targetMember.role) {
+      const roleCheck = assertAllowedRoleAssignment(callerRole, requestedRole)
+      if (!roleCheck.ok) return { error: roleCheck.error }
+    }
+
     const payload = {
       prenom,
       nom,
       email,
       telephone: (formData.get('telephone') as string)?.trim() || null,
-      role: ((formData.get('role') as string) || 'elu') as UserRole,
+      role: requestedRole,
       qualite_officielle: (formData.get('qualite_officielle') as string)?.trim() || null,
       groupe_politique: (formData.get('groupe_politique') as string)?.trim() || null,
       mandat_debut: (formData.get('mandat_debut') as string) || null,

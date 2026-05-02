@@ -68,6 +68,33 @@ export async function markPresence(
       if (!memberRecord || memberRecord.id !== memberId) {
         return { error: 'Vous ne pouvez marquer que votre propre présence' }
       }
+
+      // SÉCURITÉ : un élu ne peut pas s'auto-marquer présent sans contrôle
+      // d'identité physique. Refuser si l'institution exige le QR strict
+      // (CGCT — la présence doit être prouvée, pas auto-déclarée).
+      const { data: instConfig } = await supabase
+        .from('institution_config')
+        .select('emargement_qr_strict')
+        .limit(1)
+        .maybeSingle()
+
+      if ((instConfig as { emargement_qr_strict?: boolean } | null)?.emargement_qr_strict === true) {
+        return {
+          error: 'Émargement par QR code obligatoire. Présentez-vous à la table d\'entrée pour scanner votre code de convocation.',
+        }
+      }
+
+      // Vérifier que le membre est bien convocataire (sinon, refus)
+      const { data: convocataire } = await supabase
+        .from('convocataires')
+        .select('id')
+        .eq('seance_id', seanceId)
+        .eq('member_id', memberId)
+        .maybeSingle()
+
+      if (!convocataire) {
+        return { error: 'Vous n\'êtes pas convoqué(e) pour cette séance' }
+      }
     }
 
     // Upsert: update if exists, insert if new
@@ -141,7 +168,22 @@ export async function confirmSelfPresence(
       return { error: 'La séance n\'est pas ouverte aux confirmations de présence' }
     }
 
-    // Upsert presence
+    // SÉCURITÉ : si l'institution exige le QR strict, refuser l'auto-confirmation.
+    // La présence physique doit être prouvée par scan, pas auto-déclarée.
+    const { data: instConfig } = await supabase
+      .from('institution_config')
+      .select('emargement_qr_strict')
+      .limit(1)
+      .maybeSingle()
+
+    if ((instConfig as { emargement_qr_strict?: boolean } | null)?.emargement_qr_strict === true) {
+      return {
+        error: 'Émargement par QR code obligatoire pour cette institution. Présentez-vous physiquement à la séance pour scanner votre code de convocation.',
+      }
+    }
+
+    // Upsert presence (mode tracé comme MANUEL pour bien le distinguer d'une
+    // présence prouvée par WebAuthn ou QR code)
     const { error } = await supabase
       .from('presences')
       .upsert(
@@ -150,7 +192,7 @@ export async function confirmSelfPresence(
           member_id: memberId,
           statut: 'PRESENT' as const,
           heure_arrivee: new Date().toISOString(),
-          mode_authentification: 'ASSISTE' as const,
+          mode_authentification: 'MANUEL' as const,
         },
         { onConflict: 'seance_id,member_id' }
       )
@@ -528,6 +570,7 @@ export async function authenticateTablet(
         member_id,
         seance_id,
         token_emargement,
+        emargement_scanne_at,
         member:members (id, prenom, nom)
       `)
       .eq('token_emargement', token)
@@ -540,6 +583,23 @@ export async function authenticateTablet(
 
     const member = convocataire.member as { id: string; prenom: string; nom: string } | null
     if (!member) return { error: 'Membre introuvable' }
+
+    // SÉCURITÉ : si l'institution exige le QR strict, refuser l'auth tablette
+    // tant que le QR n'a pas été scanné à l'entrée (preuve de présence
+    // physique). Sans cette garde, un QR volé (ex : email forwardé) suffirait
+    // pour voter sans s'être déplacé.
+    const { data: instConfig } = await supabase
+      .from('institution_config')
+      .select('emargement_qr_strict')
+      .limit(1)
+      .maybeSingle()
+
+    const qrStrict = (instConfig as { emargement_qr_strict?: boolean } | null)?.emargement_qr_strict === true
+    if (qrStrict && !convocataire.emargement_scanne_at) {
+      return {
+        error: 'Vous devez d\'abord scanner votre QR code à l\'entrée de la séance avant de vous authentifier sur la tablette.',
+      }
+    }
 
     // Create or update device_session
     const { error: sessionError } = await supabase

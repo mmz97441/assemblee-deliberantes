@@ -309,6 +309,65 @@ export async function closeVoteMainLevee(
       return { error: `Le total des contre (${contre}) + abstentions (${abstentions}) dépasse le nombre de votants (${totalVotants})` }
     }
 
+    // SÉCURITÉ (CGCT L2121-21) : valider que les noms saisis pour "contre"
+    // et "abstention" correspondent bien à des membres présents et non
+    // récusés pour ce point. Sans cette garde, un gestionnaire malveillant
+    // pourrait inscrire au PV un nom inexistant ou un nom d'opposant pour
+    // brouiller la traçabilité légale.
+    if ((nomsContre?.length || 0) > 0 || (nomsAbstention?.length || 0) > 0) {
+      const { data: presences } = await supabase
+        .from('presences')
+        .select('member_id, statut, heure_depart, member:members(prenom, nom)')
+        .eq('seance_id', vote.seance_id)
+
+      const { data: recusationsList } = await supabase
+        .from('recusations')
+        .select('member_id')
+        .eq('seance_id', vote.seance_id)
+        .eq('odj_point_id', vote.odj_point_id)
+
+      const recusedIds = new Set((recusationsList || []).map(r => r.member_id))
+
+      const validNames = new Set<string>()
+      for (const p of presences || []) {
+        const m = (p as { member: { prenom: string; nom: string } | null }).member
+        if (!m) continue
+        if (p.statut !== 'PRESENT' && p.statut !== 'PROCURATION') continue
+        if (p.heure_depart) continue
+        if (recusedIds.has(p.member_id || '')) continue
+        validNames.add(`${m.prenom} ${m.nom}`.trim())
+      }
+
+      const allNames = [...(nomsContre || []), ...(nomsAbstention || [])]
+      const invalidNames = allNames.filter(n => !validNames.has(n.trim()))
+      if (invalidNames.length > 0) {
+        return {
+          error: `Noms non reconnus dans la liste des présents non récusés : ${invalidNames.join(', ')}. Vérifiez la liste d'émargement.`,
+        }
+      }
+
+      // Sécurité supplémentaire : un même nom ne peut pas être à la fois
+      // "contre" et "abstention".
+      const intersect = (nomsContre || []).filter(n => (nomsAbstention || []).includes(n))
+      if (intersect.length > 0) {
+        return {
+          error: `Un même votant ne peut pas être à la fois CONTRE et ABSTENTION : ${intersect.join(', ')}`,
+        }
+      }
+
+      // Le nombre de noms doit correspondre aux compteurs (sinon incohérence)
+      if ((nomsContre?.length || 0) > contre) {
+        return {
+          error: `Vous avez listé ${nomsContre.length} nom(s) en CONTRE mais le compteur indique ${contre}.`,
+        }
+      }
+      if ((nomsAbstention?.length || 0) > abstentions) {
+        return {
+          error: `Vous avez listé ${nomsAbstention.length} nom(s) en ABSTENTION mais le compteur indique ${abstentions}.`,
+        }
+      }
+    }
+
     // Calculate pour
     const pour = totalVotants - contre - abstentions
 
@@ -1128,8 +1187,14 @@ type OpenTelevoteResult =
   | { success: true; voteId: string; totalVotants: number; smsStatuses: TelevoteSMSStatus[] }
   | { error: string }
 
+// SÉCURITÉ : OTP télévote sur 8 chiffres (espace 10⁸ ≈ 100 millions de
+// valeurs). Avec un rate-limit de 5 tentatives / 15 min par voteId, et
+// en supposant N OTPs valides simultanément, la probabilité d'un hit
+// aléatoire en 24h reste sous 0,1 % — vs ~25 % avec un OTP 6 chiffres
+// et l'ancienne rate-limit (cf. audit sécurité, finding #10).
 function generateOTP(): { code: string; hash: string } {
-  const code = String(crypto.randomInt(100000, 999999))
+  // 10⁸ valeurs : entre 10 000 000 et 99 999 999
+  const code = String(crypto.randomInt(10_000_000, 100_000_000))
   const hash = crypto.createHash('sha256').update(code).digest('hex')
   return { code, hash }
 }
@@ -1332,17 +1397,19 @@ export async function verifyOTPAndVote(
   try {
     const supabase = await createServiceRoleClient()
 
-    // H3: Rate limit OTP attempts by voteId (max 10 attempts per vote per 5 min)
-    // Uses service role so we can't use user-based rate limiting
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    // SÉCURITÉ (audit #10) : rate-limit durci — 5 tentatives par 15 minutes
+    // par voteId. Combiné avec un OTP de 8 chiffres (10⁸ valeurs), la
+    // probabilité de deviner un OTP valide reste négligeable même quand
+    // plusieurs membres ont des OTP simultanément actifs.
+    const fifteenMinAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString()
     const { count: attemptCount } = await supabase
       .from('rate_limits')
       .select('*', { count: 'exact', head: true })
       .eq('action_key', `otp_verify_${voteId}`)
-      .gte('created_at', fiveMinAgo)
+      .gte('created_at', fifteenMinAgo)
 
-    if (attemptCount && attemptCount >= 10) {
-      return { error: 'Trop de tentatives. Veuillez réessayer dans quelques minutes.', code: 'RATE_LIMITED' }
+    if (attemptCount && attemptCount >= 5) {
+      return { error: 'Trop de tentatives. Veuillez réessayer dans 15 minutes.', code: 'RATE_LIMITED' }
     }
 
     // Record this attempt

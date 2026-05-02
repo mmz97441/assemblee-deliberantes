@@ -612,51 +612,31 @@ export async function signPV(
     const bothSigned = hasPresident && hasSecretaire
 
     // Build update payload — use raw SQL for columns not in generated types
-    // Since signe_president_at and signe_secretaire_at are not in the generated types,
-    // we use an RPC-style approach via raw update
     if (bothSigned) {
-      // Both signed: compute hash and set status to SIGNE
+      // SÉCURITÉ (audit #17) : suppression de l'appel `supabase.rpc('exec_sql', ...)`
+      // qui était du code mort dangereux. Si une fonction `exec_sql` venait à
+      // être ajoutée un jour pour un usage admin, l'interpolation
+      // `${timestampCol}` dans la chaîne SQL serait un vecteur d'injection.
+      // On utilise désormais uniquement le builder Supabase paramétré.
       const hashIntegrite = createHash('sha256')
         .update(JSON.stringify(pv.contenu_json))
         .digest('hex')
 
       const timestampCol = sigRole === 'president' ? 'signe_president_at' : 'signe_secretaire_at'
 
-      // Use raw SQL to update columns not in generated types
-      const { error: updateError } = await supabase.rpc('exec_sql' as never, {
-        query: `
-          UPDATE pv SET
-            signe_par = $1::jsonb,
-            ${timestampCol} = NOW(),
-            hash_integrite = $2,
-            statut = 'SIGNE'
-          WHERE id = $3
-        `,
-        params: [JSON.stringify(updatedSignatures), hashIntegrite, pvId],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any)
-
-      // Fallback: if RPC not available, use standard update + separate raw query
-      if (updateError) {
-        // Standard update for typed columns
-        const { error: stdError } = await supabase
-          .from('pv')
-          .update({
-            signe_par: updatedSignatures as unknown as Json,
-            statut: 'SIGNE',
-          })
-          .eq('id', pvId)
-
-        if (stdError) return { error: `Erreur lors de la signature : ${stdError.message}` }
-
-        // Update non-typed columns via raw SQL
-        await supabase.from('pv').update({
+      const { error: stdError } = await supabase
+        .from('pv')
+        .update({
+          signe_par: updatedSignatures as unknown as Json,
+          statut: 'SIGNE',
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           [timestampCol]: new Date().toISOString() as any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           hash_integrite: hashIntegrite as any,
-        } as Record<string, unknown>).eq('id', pvId)
-      }
+        } as Record<string, unknown>)
+        .eq('id', pvId)
+
+      if (stdError) return { error: `Erreur lors de la signature : ${stdError.message}` }
     } else {
       // Single signature: update signe_par and the timestamp column
       const timestampCol = sigRole === 'president' ? 'signe_president_at' : 'signe_secretaire_at'

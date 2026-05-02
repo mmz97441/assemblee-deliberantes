@@ -85,9 +85,23 @@ export async function POST(request: NextRequest) {
     // Lire le body brut AVANT de le parser (nécessaire pour la vérification de signature)
     const rawBody = await request.text()
 
-    // Vérification cryptographique de la signature HMAC si le secret est configuré
+    // Vérification cryptographique de la signature HMAC.
+    // SÉCURITÉ (audit #11) : en production, la vérification HMAC est obligatoire
+    // — sans elle, un attaquant peut forger des événements bounce/complained
+    // pour faire passer toutes les convocations en ERREUR_EMAIL.
     const webhookSecret = process.env.RESEND_WEBHOOK_SECRET
-    if (webhookSecret) {
+    if (!webhookSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[WEBHOOK] RESEND_WEBHOOK_SECRET manquant en production — webhook refusé')
+        return NextResponse.json(
+          { error: 'Webhook signature secret not configured' },
+          { status: 503 }
+        )
+      }
+      console.warn(
+        '[WEBHOOK] RESEND_WEBHOOK_SECRET non configuré (mode dev) — la signature cryptographique n\'est pas vérifiée.'
+      )
+    } else {
       const isValid = verifyWebhookSignature(
         webhookSecret,
         svixId,
@@ -99,12 +113,6 @@ export async function POST(request: NextRequest) {
         console.warn('[WEBHOOK] Signature HMAC invalide — requête rejetée')
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
       }
-    } else {
-      // AVERTISSEMENT : pas de secret configuré, seuls les en-têtes et le timestamp sont vérifiés
-      console.warn(
-        '[WEBHOOK] RESEND_WEBHOOK_SECRET non configuré — la signature cryptographique n\'est pas vérifiée. ' +
-        'Configurez RESEND_WEBHOOK_SECRET dans .env.local pour une sécurité complète.'
-      )
     }
 
     const body = JSON.parse(rawBody)

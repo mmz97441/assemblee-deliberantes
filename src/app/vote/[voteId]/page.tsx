@@ -163,7 +163,7 @@ export default function PublicVotePage() {
 
   // Auto-submit OTP when 6 digits entered
   const handleOTPSubmit = useCallback(async () => {
-    if (otpValue.length !== 6 || isSubmitting || otpVerified) return
+    if (otpValue.length !== 8 || isSubmitting || otpVerified) return
     setOtpVerified(true)
     setStep('voting')
   }, [otpValue, isSubmitting, otpVerified])
@@ -229,7 +229,7 @@ export default function PublicVotePage() {
             <div className="text-center">
               <h2 className="text-lg font-semibold text-gray-900">Entrez votre code de vote</h2>
               <p className="text-sm text-gray-500 mt-1">
-                Code à 6 chiffres reçu par SMS
+                Code à 8 chiffres reçu par SMS
               </p>
             </div>
 
@@ -241,6 +241,7 @@ export default function PublicVotePage() {
                 setOtpVerified(false)
               }}
               disabled={isSubmitting}
+              length={8}
             />
 
             <div className="flex justify-center">
