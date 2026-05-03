@@ -18,14 +18,28 @@ export default async function MembresPage() {
     redirect(ROUTES.LOGIN)
   }
 
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
+
   let members: MemberWithInstances[] = []
   let instances: InstanceConfigRow[] = []
 
   try {
+    // CLOISONNEMENT RGPD :
+    // - Privilégiés : tous les champs (email, téléphone, adresse, date_naissance...)
+    // - Non-privilégiés : annuaire public uniquement (nom, prénom, qualité,
+    //   rôle, photo, groupe politique). Les coordonnées personnelles sont
+    //   masquées (email, téléphone, adresse_postale, date_naissance,
+    //   lieu_naissance).
+    const selectFields = canManage
+      ? '*'
+      : `id, prenom, nom, role, qualite_officielle, groupe_politique,
+         photo_url, statut, archived_at, mandat_debut, mandat_fin, created_at`
+
     const { data: membersData, error: membersError } = await supabase
       .from('members')
       .select(`
-        *,
+        ${selectFields},
         instance_members (
           id,
           instance_config_id,
@@ -43,7 +57,21 @@ export default async function MembresPage() {
     if (membersError) {
       console.error('Erreur chargement membres:', membersError)
     } else {
-      members = (membersData as MemberWithInstances[]) || []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      members = (membersData as any) || []
+      // Pour les non-privilégiés : forcer email/téléphone/adresse à null
+      // côté serveur pour qu'ils n'apparaissent pas dans le JSON envoyé au client.
+      if (!canManage) {
+        for (const m of members) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mAny = m as any
+          mAny.email = null
+          mAny.telephone = null
+          mAny.adresse_postale = null
+          mAny.date_naissance = null
+          mAny.lieu_naissance = null
+        }
+      }
     }
 
     const { data: instancesData, error: instancesError } = await supabase
@@ -60,9 +88,6 @@ export default async function MembresPage() {
   } catch (err) {
     console.error('Erreur chargement membres:', err)
   }
-
-  const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
 
   return (
     <AuthenticatedLayout>

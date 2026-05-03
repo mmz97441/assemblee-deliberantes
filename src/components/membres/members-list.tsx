@@ -164,11 +164,12 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
   const filteredMembers = useMemo(() => {
     return sourceMembers.filter(m => {
-      // Search filter
+      // Search filter — défensif sur email (peut être null pour les
+      // utilisateurs non-privilégiés où l'email est masqué côté serveur)
       if (search) {
         const q = search.toLowerCase()
         const fullName = `${m.prenom} ${m.nom}`.toLowerCase()
-        const emailLower = m.email.toLowerCase()
+        const emailLower = (m.email || '').toLowerCase()
         if (!fullName.includes(q) && !emailLower.includes(q)) return false
       }
       // Role filter
@@ -525,7 +526,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {member.email}
+                      {member.email || <span className="text-xs italic text-muted-foreground/60">Confidentiel</span>}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={ROLE_COLORS[member.role]}>

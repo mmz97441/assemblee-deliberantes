@@ -141,6 +141,9 @@ type EditableInstance = {
 interface InstitutionWizardProps {
   data: InstitutionConfigRow | null
   existingInstances: InstanceConfigRow[]
+  /** Vrai si l'utilisateur est super_admin (seul rôle qui peut activer/désactiver
+      certains toggles critiques de sécurité comme le QR strict). */
+  isSuperAdmin?: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -554,7 +557,7 @@ function InstanceEditDialog({
 
 // ─── Main Wizard ─────────────────────────────────────────────────────────────
 
-export function InstitutionWizard({ data, existingInstances }: InstitutionWizardProps) {
+export function InstitutionWizard({ data, existingInstances, isSuperAdmin = false }: InstitutionWizardProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -1108,11 +1111,19 @@ export function InstitutionWizard({ data, existingInstances }: InstitutionWizard
                       obligatoire, mentionnée dans le PV et le dossier
                       de contrôle préfectoral).
                     </p>
+                    {!isSuperAdmin && (
+                      <p className="text-xs text-amber-700 italic mt-1">
+                        🔒 Seul le super-administrateur peut modifier ce paramètre
+                        de sécurité (impact CGCT — preuve de présence physique).
+                      </p>
+                    )}
                   </div>
                   <Switch
                     id="emargement_qr_strict"
                     checked={values.emargement_qr_strict}
                     onCheckedChange={(c) => updateField('emargement_qr_strict', c)}
+                    disabled={!isSuperAdmin}
+                    title={!isSuperAdmin ? 'Réservé au super-administrateur' : undefined}
                   />
                 </div>
               </div>

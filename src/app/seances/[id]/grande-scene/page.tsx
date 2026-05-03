@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { redirect, notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
+import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { GrandeScene } from '@/components/seance/grande-scene'
 
 interface Props {
@@ -16,6 +17,13 @@ export default async function GrandeScenePage({ params }: Props) {
   const { data: userData, error: authError } = await supabase.auth.getUser()
   if (authError || !userData?.user) {
     redirect(ROUTES.LOGIN)
+  }
+
+  // Vue grande scène (vidéoprojecteur) : accessible aux 4 rôles privilégiés
+  // + bureau de séance (président + secrétaire). Tout le reste = redirect.
+  const role = await getEffectiveRole(supabase, userData.user.id)
+  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'].includes(role)) {
+    redirect(`/seances/${id}`)
   }
 
   const { data: seance, error: seanceError } = await supabase

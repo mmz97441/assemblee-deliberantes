@@ -52,10 +52,13 @@ export default async function PVPage({ params }: Props) {
     .maybeSingle()
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
+  // Édition du PV : 4 privilégiés + secrétaire (qui rédige).
   let canEdit = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'].includes(userRole)
-  const isManager = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+  // Lecture des brouillons : 4 privilégiés + bureau (président + secrétaire).
+  // Le président doit pouvoir relire le brouillon avant de signer (CGCT L2121-15).
+  const canSeeDraft = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance', 'president'].includes(userRole)
 
-  if (!isManager) {
+  if (!canSeeDraft) {
     // Check if user is convoqué to this séance
     if (currentMember) {
       const { data: conv } = await supabase
@@ -70,8 +73,9 @@ export default async function PVPage({ params }: Props) {
       }
     }
 
-    // Élu should only see PV if it's SIGNE or PUBLIE (not draft)
-    if (pv && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
+    // Élu / préparateur : ne voit le PV QUE s'il est publié (SIGNE / PUBLIE / APPROUVE).
+    // Les brouillons et phases de relecture sont strictement réservés au bureau + privilégiés.
+    if (pv && !['SIGNE', 'PUBLIE', 'APPROUVE_EN_SEANCE'].includes(pv.statut || '')) {
       canEdit = false
       redirect(`/seances/${id}`)
     }
@@ -113,7 +117,7 @@ export default async function PVPage({ params }: Props) {
             pdf_url: pv.pdf_url,
           } : null}
           canEdit={canEdit}
-          canManage={isManager}
+          canManage={canEdit}
           currentUserMemberId={currentMember?.id || null}
           presidentMemberId={seance.president_effectif_seance_id || null}
           secretaireMemberId={seance.secretaire_seance_id || null}

@@ -20,13 +20,15 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Check role — president can observe the session too
+  // Conducteur de séance : RÉSERVÉ aux 4 rôles privilégiés.
+  // Le président a sa propre vue dédiée (/president) — il ne doit pas
+  // accéder au conducteur opérationnel ici.
   const role = await getEffectiveRole(supabase, userData.user.id)
-  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president'].includes(role)) {
+  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(role)) {
     redirect(`/seances/${id}`)
   }
 
-  const isObserver = role === 'president'
+  const isObserver = false // plus de mode observer président — accès interdit
 
   // Load full seance data
   const { data: seance, error: seanceError } = await supabase

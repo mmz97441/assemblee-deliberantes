@@ -19,9 +19,11 @@ export default async function EmargementPage({ params }: Props) {
     redirect(ROUTES.LOGIN)
   }
 
-  // Emargement is gestionnaire/super_admin only
+  // Émargement (table d'entrée) : accessible aux 4 rôles privilégiés
+  // + secrétaire de séance (qui peut être en charge de l'émargement physique).
+  // Le président ne fait pas l'émargement (ce n'est pas son rôle).
   const role = await getEffectiveRole(supabase, userData.user.id)
-  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(role)) {
+  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'].includes(role)) {
     redirect(`/seances/${id}`)
   }
 

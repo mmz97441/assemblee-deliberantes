@@ -17,8 +17,17 @@ export default async function DeliberationsPage() {
     redirect(ROUTES.LOGIN)
   }
 
+  const userRole = await getEffectiveRole(supabase, userData.user.id)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
+  const isSuperAdmin = userRole === 'super_admin'
+  // Bureau : président + secrétaire de séance peuvent voir les brouillons.
+  const canSeeDrafts = canManage || ['president', 'secretaire_seance'].includes(userRole)
+
   // Fetch deliberations with joins
-  const { data: deliberationsData, error: deliberationsError } = await supabase
+  // Cloisonnement : un élu / préparateur ne voit QUE les délibérations
+  // publiées (publie_at IS NOT NULL) — les brouillons restent confidentiels
+  // au bureau et aux privilégiés.
+  let delibQuery = supabase
     .from('deliberations')
     .select(`
       id, numero, titre, publie_at, affiche_at,
@@ -30,6 +39,12 @@ export default async function DeliberationsPage() {
       votes (id, resultat, formule_pv)
     `)
     .order('created_at', { ascending: false })
+
+  if (!canSeeDrafts) {
+    delibQuery = delibQuery.not('publie_at', 'is', null)
+  }
+
+  const { data: deliberationsData, error: deliberationsError } = await delibQuery
 
   if (deliberationsError) {
     console.error('Erreur chargement deliberations:', deliberationsError)
@@ -49,10 +64,6 @@ export default async function DeliberationsPage() {
   }
 
   const instances: InstanceConfigRow[] = instancesData || []
-
-  const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
-  const isSuperAdmin = userRole === 'super_admin'
 
   return (
     <AuthenticatedLayout>

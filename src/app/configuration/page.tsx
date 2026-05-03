@@ -21,11 +21,16 @@ export default async function ConfigurationPage() {
     redirect(ROUTES.LOGIN)
   }
 
-  // Configuration is super_admin only
+  // Configuration accessible aux 3 rôles « direction » : super_admin + DGS + Dir cab.
+  // Le gestionnaire ne peut PAS modifier la config institution (instances,
+  // quorum, templates) — c'est de la responsabilité de la direction.
+  // Certains toggles critiques (ex : QR strict) restent verrouillés au seul
+  // super_admin via une garde finer-grain dans le wizard.
   const role = await getEffectiveRole(supabase, userData.user.id)
-  if (role !== 'super_admin') {
+  if (!['super_admin', 'dgs', 'directeur_cabinet'].includes(role)) {
     redirect(ROUTES.DASHBOARD)
   }
+  const isSuperAdmin = role === 'super_admin'
 
   let institutionConfig: InstitutionConfigRow | null = null
   let instanceConfigs: InstanceConfigRow[] = []
@@ -69,7 +74,7 @@ export default async function ConfigurationPage() {
       <main className="px-4 sm:px-8 py-6 page-enter">
         {isFirstSetup ? (
           <Suspense fallback={<WizardSkeleton />}>
-            <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+            <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} isSuperAdmin={isSuperAdmin} />
           </Suspense>
         ) : (
           <Tabs defaultValue="assistant" className="space-y-6">
@@ -86,7 +91,7 @@ export default async function ConfigurationPage() {
 
             <TabsContent value="assistant" className="space-y-6 mt-6">
               <Suspense fallback={<WizardSkeleton />}>
-                <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} />
+                <InstitutionWizard data={institutionConfig} existingInstances={instanceConfigs} isSuperAdmin={isSuperAdmin} />
               </Suspense>
             </TabsContent>
 
