@@ -102,12 +102,24 @@ export interface SeanceControle {
   } | null
 }
 
+export interface ConvocationEnvoiDetail {
+  numeroEnvoi: number
+  motif: string
+  motifDetail: string | null
+  emailDestinataire: string
+  envoyeAt: string
+  statutResend: string
+  envoyePar: string | null
+}
+
 export interface ConvocataireDetail {
   nom: string
   email: string | null
   envoyeAt: string | null
   statutConvocation: string | null
   confirmeAt: string | null
+  motifAbsence: string | null
+  envois: ConvocationEnvoiDetail[]
 }
 
 export interface PresenceDetail {
@@ -490,13 +502,40 @@ async function buildSeanceControle(
   // ─── Convocataires + membres en exercice à la convocation ──────────
   const { data: convs } = await supabase
     .from('convocataires')
-    .select('member_id, statut_convocation, envoye_at, confirme_at, member:members(prenom, nom, email)')
+    .select('id, member_id, statut_convocation, envoye_at, confirme_at, motif_absence, member:members(prenom, nom, email)')
     .eq('seance_id', seanceId)
 
   const { count: nbMembresActifs } = await supabase
     .from('members')
     .select('*', { count: 'exact', head: true })
     .eq('statut', 'ACTIF')
+
+  // Historique des envois (table append-only) — un appel batch par séance
+  // pour éviter le N+1.
+  const convocataireIds = (convs || []).map((c: { id: string }) => c.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const envoisByConvocataire = new Map<string, ConvocationEnvoiDetail[]>()
+  if (convocataireIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: envois } = await ((supabase as any).from('convocation_envois'))
+      .select('convocataire_id, numero_envoi, motif, motif_detail, email_destinataire, envoye_at, statut_resend, envoye_par')
+      .in('convocataire_id', convocataireIds)
+      .order('numero_envoi', { ascending: true })
+
+    for (const e of (envois || [])) {
+      const list = envoisByConvocataire.get(e.convocataire_id) || []
+      list.push({
+        numeroEnvoi: e.numero_envoi,
+        motif: e.motif,
+        motifDetail: e.motif_detail,
+        emailDestinataire: e.email_destinataire,
+        envoyeAt: e.envoye_at,
+        statutResend: e.statut_resend,
+        envoyePar: e.envoye_par,
+      })
+      envoisByConvocataire.set(e.convocataire_id, list)
+    }
+  }
 
   const convocataires: ConvocataireDetail[] = (convs || []).map(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -506,6 +545,8 @@ async function buildSeanceControle(
       envoyeAt: c.envoye_at,
       statutConvocation: c.statut_convocation,
       confirmeAt: c.confirme_at,
+      motifAbsence: c.motif_absence,
+      envois: envoisByConvocataire.get(c.id) || [],
     })
   )
 

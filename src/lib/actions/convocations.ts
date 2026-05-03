@@ -35,17 +35,34 @@ export interface SendConvocationResult {
 
 // ─── Envoi des convocations ──────────────────────────────────────────────────
 
-export async function sendConvocations(seanceId: string): Promise<SendConvocationResult | { error: string }> {
+interface SendConvocationsOptions {
+  /** Si fourni, ne traite QUE ce convocataire (utilisé par resendConvocation). */
+  onlyConvocataireId?: string
+  /** Motif du renvoi (INITIAL si premier envoi, sinon valeur depuis l'UI). */
+  resendMotif?: ResendMotif
+  /** Texte libre complémentaire pour le motif. */
+  resendMotifDetail?: string
+}
+
+export async function sendConvocations(
+  seanceId: string,
+  options: SendConvocationsOptions = {}
+): Promise<SendConvocationResult | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president'])
     if (roleError) return { error: roleError }
 
-    // Rate limiting: max 5 envois par séance par heure
+    // Rate limiting : 5 envois par séance par heure pour les envois groupés.
+    // Pour les renvois individuels (onlyConvocataireId), on relâche un peu :
+    // 30 par heure (le gestionnaire peut avoir plusieurs élus à dépanner).
+    const isIndividualResend = !!options.onlyConvocataireId
     const rateCheck = await checkRateLimit(supabase, user!.id, {
-      actionKey: `send_convocations_${seanceId}`,
-      maxAttempts: 5,
-      windowMinutes: 60,
+      actionKey: isIndividualResend
+        ? `resend_convocation_${seanceId}_${options.onlyConvocataireId}`
+        : `send_convocations_${seanceId}`,
+      maxAttempts: isIndividualResend ? 5 : 5,
+      windowMinutes: isIndividualResend ? 10 : 60,
     })
     if (!rateCheck.allowed) return { error: rateCheck.error! }
 
@@ -152,9 +169,15 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const convocataires = (seance.convocataires || []) as any[]
-    const toSend = convocataires.filter(
+    let toSend = convocataires.filter(
       (c) => c.statut_convocation === 'NON_ENVOYE' || c.statut_convocation === null
     )
+
+    // Renvoi individuel : ne traiter QUE le convocataire ciblé
+    // (resendConvocation a remis statut=NON_ENVOYE au préalable)
+    if (options.onlyConvocataireId) {
+      toSend = toSend.filter((c) => c.id === options.onlyConvocataireId)
+    }
 
     if (toSend.length === 0) {
       return { error: 'Toutes les convocations ont déjà été envoyées' }
@@ -226,11 +249,36 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       }
 
       try {
-        const { error: emailError } = await resend.emails.send({
+        const { data: sendData, error: emailError } = await resend.emails.send({
           from: `${FROM_NAME} <${FROM_EMAIL}>`,
           to: [member.email],
           subject: generateConvocationSubject(emailData),
           html: generateConvocationHTML(emailData),
+        })
+
+        // SÉCURITÉ / TRACABILITÉ : on consigne CHAQUE envoi (succès ou erreur)
+        // dans la table append-only convocation_envois pour le contrôle de
+        // légalité préfectoral. Le numero_envoi est calculé à partir du nombre
+        // d'envois déjà existants pour ce convocataire.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count: nbEnvoisPrec } = await ((supabase as any).from('convocation_envois'))
+          .select('id', { count: 'exact', head: true })
+          .eq('convocataire_id', conv.id)
+        const numeroEnvoi = (nbEnvoisPrec || 0) + 1
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await ((supabase as any).from('convocation_envois')).insert({
+          convocataire_id: conv.id,
+          numero_envoi: numeroEnvoi,
+          // Si numero_envoi == 1, c'est l'envoi initial. Sinon, motif fourni
+          // par resendConvocation (par défaut AUTRE si non spécifié).
+          motif: numeroEnvoi === 1 ? 'INITIAL' : (options.resendMotif || 'AUTRE'),
+          motif_detail: numeroEnvoi === 1 ? null : (options.resendMotifDetail?.trim().slice(0, 1000) || null),
+          email_destinataire: member.email,
+          statut_resend: emailError ? 'error' : 'sent',
+          resend_message_id: sendData?.id || null,
+          erreur_detail: emailError?.message || null,
+          envoye_par: user?.id || null,
         })
 
         if (emailError) {
@@ -463,44 +511,87 @@ export async function signalAbsence(
 }
 
 // ─── Renvoyer une convocation individuelle ───────────────────────────────────
+//
+// Le renvoi est toujours autorisé, même si l'élu a déjà confirmé sa présence
+// (il peut avoir perdu son mail, son QR code, etc.).
+//
+// Conformément à la demande métier (traçabilité préfecture), chaque renvoi :
+// - est consigné dans la table append-only convocation_envois avec motif
+// - garde la date de la première convocation comme référence légale CGCT
+// - met à jour envoye_at sur la ligne convocataire (dernier envoi)
 
-export async function resendConvocation(seanceId: string, memberId: string): Promise<ActionResult> {
+export type ResendMotif = 'EMAIL_PERDU' | 'SPAM' | 'ADRESSE_ERRONEE' | 'AUTRE'
+
+export async function resendConvocation(
+  seanceId: string,
+  memberId: string,
+  motif: ResendMotif = 'AUTRE',
+  motifDetail?: string
+): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
-    // Block resend if member already confirmed presence (no point)
+    // Charger le convocataire (sans bloquer sur statut)
     const { data: conv } = await supabase
       .from('convocataires')
-      .select('statut_convocation')
+      .select('id, statut_convocation')
       .eq('seance_id', seanceId)
       .eq('member_id', memberId)
       .maybeSingle()
 
-    if (conv && conv.statut_convocation === 'CONFIRME_PRESENT') {
-      return { error: 'Ce membre a déjà confirmé sa présence.' }
+    if (!conv) {
+      return { error: 'Convocataire introuvable pour cette séance.' }
     }
 
-    // Reset status to NON_ENVOYE so sendConvocations picks it up
-    const { error } = await supabase
+    // Mémoriser le statut courant pour le restaurer après le renvoi
+    // (sinon CONFIRME_PRESENT serait écrasé en NON_ENVOYE et la confirmation perdue)
+    const previousStatut = conv.statut_convocation
+
+    // Reset à NON_ENVOYE pour que sendConvocations re-traite cette ligne
+    await supabase
       .from('convocataires')
       .update({
         statut_convocation: 'NON_ENVOYE',
         envoye_at: null,
         erreur_detail: null,
       })
-      .eq('seance_id', seanceId)
-      .eq('member_id', memberId)
+      .eq('id', conv.id)
 
-    if (error) return { error: `Erreur : ${error.message}` }
+    // Renvoyer (cette action utilisera l'envoi initial enrichi + insert
+    // automatique d'une ligne convocation_envois avec motif fourni)
+    const result = await sendConvocations(seanceId, { resendMotif: motif, resendMotifDetail: motifDetail, onlyConvocataireId: conv.id })
 
-    // Then send
-    const result = await sendConvocations(seanceId)
-    if ('error' in result) return { error: result.error }
+    if ('error' in result) {
+      // Restaurer le statut précédent en cas d'échec d'envoi
+      if (previousStatut && previousStatut !== 'NON_ENVOYE') {
+        await supabase
+          .from('convocataires')
+          .update({ statut_convocation: previousStatut })
+          .eq('id', conv.id)
+      }
+      return { error: result.error }
+    }
 
     if (result.sent === 0 && result.errors.length > 0) {
+      // Restaurer le statut précédent
+      if (previousStatut && previousStatut !== 'NON_ENVOYE') {
+        await supabase
+          .from('convocataires')
+          .update({ statut_convocation: previousStatut })
+          .eq('id', conv.id)
+      }
       return { error: result.errors[0].error }
+    }
+
+    // Si l'élu avait confirmé sa présence, on restaure CONFIRME_PRESENT
+    // (le renvoi n'invalide pas une confirmation antérieure)
+    if (previousStatut === 'CONFIRME_PRESENT') {
+      await supabase
+        .from('convocataires')
+        .update({ statut_convocation: 'CONFIRME_PRESENT' })
+        .eq('id', conv.id)
     }
 
     return { success: true }

@@ -286,6 +286,10 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
   // Confirmation dialogs
   const [sendConvocationsDialog, setSendConvocationsDialog] = useState(false)
   const [removeConvocataireDialog, setRemoveConvocataireDialog] = useState<string | null>(null)
+  // Renvoi de convocation : modal qui demande motif obligatoire
+  const [resendDialog, setResendDialog] = useState<{ memberId: string; memberName: string; statut: string } | null>(null)
+  const [resendMotif, setResendMotif] = useState<'EMAIL_PERDU' | 'SPAM' | 'ADRESSE_ERRONEE' | 'AUTRE'>('AUTRE')
+  const [resendMotifDetail, setResendMotifDetail] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
@@ -555,15 +559,18 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
     })
   }
 
-  function handleResendConvocation(memberId: string) {
+  function handleResendConvocation(memberId: string, motif: 'EMAIL_PERDU' | 'SPAM' | 'ADRESSE_ERRONEE' | 'AUTRE', motifDetail: string) {
     startTransition(async () => {
-      const result = await resendConvocation(seance.id, memberId)
+      const result = await resendConvocation(seance.id, memberId, motif, motifDetail.trim() || undefined)
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Convocation renvoyée')
+        toast.success('Convocation renvoyée — historique mis à jour')
         router.refresh()
       }
+      setResendDialog(null)
+      setResendMotif('AUTRE')
+      setResendMotifDetail('')
     })
   }
 
@@ -1835,29 +1842,39 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                                 <Badge className={`${convConfig.color} border-0 text-[11px]`} title={convConfig.tooltip}>
                                   {convConfig.label}
                                 </Badge>
-                                {canManage && statut === 'ERREUR_EMAIL' && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                                    onClick={() => handleResendConvocation(conv.member_id)}
-                                    disabled={isPending}
-                                  >
-                                    <RefreshCw className="h-3 w-3 mr-1" />
-                                    Renvoyer
-                                  </Button>
-                                )}
-                                {canManage && statut === 'ENVOYE' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-                                    onClick={() => handleResendConvocation(conv.member_id)}
-                                    disabled={isPending}
-                                    title="Renvoyer la convocation"
-                                  >
-                                    <RefreshCw className="h-3.5 w-3.5" />
-                                  </Button>
+                                {/* Bouton « Renvoyer » disponible quel que soit le statut
+                                    (sauf NON_ENVOYE — pas encore envoyé une 1ère fois,
+                                    et CONFIRME_PRESENT/ABSENT_EXCUSE on autorise quand
+                                    même : l'élu peut avoir perdu son mail).
+                                    Ouvre la modal de saisie du motif. */}
+                                {canManage && statut !== 'NON_ENVOYE' && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant={statut === 'ERREUR_EMAIL' ? 'outline' : 'ghost'}
+                                        size={statut === 'ERREUR_EMAIL' ? 'sm' : 'icon'}
+                                        className={
+                                          statut === 'ERREUR_EMAIL'
+                                            ? 'h-7 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700'
+                                            : 'h-7 w-7 text-muted-foreground hover:text-blue-600'
+                                        }
+                                        onClick={() => {
+                                          setResendDialog({
+                                            memberId: conv.member_id,
+                                            memberName: `${(conv.member as any)?.prenom || ''} ${(conv.member as any)?.nom || ''}`.trim(),
+                                            statut,
+                                          })
+                                          setResendMotif('AUTRE')
+                                          setResendMotifDetail('')
+                                        }}
+                                        disabled={isPending}
+                                      >
+                                        <RefreshCw className={statut === 'ERREUR_EMAIL' ? 'h-3 w-3 mr-1' : 'h-3.5 w-3.5'} />
+                                        {statut === 'ERREUR_EMAIL' && 'Renvoyer'}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Renvoyer la convocation (consigné dans l&apos;historique)</TooltipContent>
+                                  </Tooltip>
                                 )}
                                 {canManage && (
                                   <Tooltip>
@@ -2819,6 +2836,77 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Renvoi de convocation : modal motif obligatoire */}
+      <Dialog open={!!resendDialog} onOpenChange={(o) => !o && setResendDialog(null)}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5 text-blue-600" />
+              Renvoyer la convocation
+            </DialogTitle>
+            <DialogDescription>
+              {resendDialog ? (
+                <>
+                  À <strong>{resendDialog.memberName}</strong>. Le motif sera consigné dans
+                  l&apos;historique des envois (visible dans le rapport de contrôle préfectoral).
+                </>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label htmlFor="resend-motif" className="text-sm font-medium text-foreground block mb-2">
+                Motif du renvoi
+              </label>
+              <Select value={resendMotif} onValueChange={(v) => setResendMotif(v as typeof resendMotif)}>
+                <SelectTrigger id="resend-motif" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EMAIL_PERDU">Email perdu / introuvable par l&apos;élu</SelectItem>
+                  <SelectItem value="SPAM">Email tombé en courrier indésirable</SelectItem>
+                  <SelectItem value="ADRESSE_ERRONEE">Adresse email erronée ou changée</SelectItem>
+                  <SelectItem value="AUTRE">Autre motif</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label htmlFor="resend-detail" className="text-sm font-medium text-foreground block mb-2">
+                Précision <span className="text-muted-foreground font-normal">(optionnel)</span>
+              </label>
+              <Textarea
+                id="resend-detail"
+                value={resendMotifDetail}
+                onChange={(e) => setResendMotifDetail(e.target.value)}
+                rows={2}
+                maxLength={1000}
+                placeholder="Détail facultatif (ex : changement d'adresse récent)"
+              />
+              <p className="text-xs text-muted-foreground mt-1">{resendMotifDetail.length}/1000 caractères</p>
+            </div>
+            {resendDialog?.statut === 'CONFIRME_PRESENT' && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                ℹ️ Cet élu a déjà confirmé sa présence. Sa confirmation sera <strong>conservée</strong>
+                après le renvoi.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResendDialog(null)} disabled={isPending}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => resendDialog && handleResendConvocation(resendDialog.memberId, resendMotif, resendMotifDetail)}
+              disabled={isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {isPending ? 'Envoi en cours…' : 'Renvoyer maintenant'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add convocataire dialog */}
       <AddConvocataireDialog

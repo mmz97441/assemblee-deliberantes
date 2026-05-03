@@ -432,6 +432,46 @@ function SeancePage({ data, seance }: { data: ControlePrefectureData; seance: Se
         ))}
       </View>
 
+      {/* Historique des envois — uniquement si au moins un convocataire a
+          plus d'1 envoi (renvoi) ou si l'un a un motif d'absence renseigné.
+          Sinon on évite de surcharger le PDF. */}
+      {seance.convocation.convocataires.some(c => (c.envois && c.envois.length > 1) || c.motifAbsence) && (
+        <>
+          <Text style={[styles.sectionSubtitle, { marginTop: 8 }]}>
+            Historique des renvois et absences signalées
+          </Text>
+          <Text style={[styles.bodyText, { fontSize: 8, color: '#64748b', marginBottom: 4 }]}>
+            Trace append-only de tous les envois (initial + renvois) avec motif et destinataire.
+            Conforme CGCT pour le contrôle de légalité préfectoral.
+          </Text>
+          {seance.convocation.convocataires
+            .filter(c => (c.envois && c.envois.length > 1) || c.motifAbsence)
+            .map((c, i) => (
+              <View key={i} style={{ marginBottom: 6 }} wrap={false}>
+                <Text style={{ fontSize: 9, fontWeight: 'bold', marginBottom: 2 }}>
+                  {c.nom} {c.email ? `(${c.email})` : ''}
+                </Text>
+                {c.envois && c.envois.length > 0 && (
+                  <View style={{ marginLeft: 8 }}>
+                    {c.envois.map((e, j) => (
+                      <Text key={j} style={{ fontSize: 8, color: '#334155' }}>
+                        Envoi #{e.numeroEnvoi} ({e.motif === 'INITIAL' ? 'envoi initial' : `motif : ${e.motif}`}
+                        {e.motifDetail ? ` — ${e.motifDetail}` : ''}) — {fmtDateTime(e.envoyeAt)}
+                        {e.statutResend !== 'sent' ? ` [${e.statutResend}]` : ''}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+                {c.motifAbsence && (
+                  <Text style={{ fontSize: 8, color: '#92400e', marginLeft: 8, marginTop: 2 }}>
+                    Absence signalée — motif : {c.motifAbsence}
+                  </Text>
+                )}
+              </View>
+            ))}
+        </>
+      )}
+
       {/* ─── Tenue de séance ─── */}
       <Text style={styles.sectionTitle}>2. Tenue de la séance</Text>
       <Text style={styles.bodyText}>
