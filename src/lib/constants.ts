@@ -30,6 +30,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.REGISTER,
   '/invite',
   '/vote',
+  '/auth/confirm',
 ] as const
 
 // --- Statuts de séance ---

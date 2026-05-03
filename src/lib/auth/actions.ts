@@ -192,7 +192,10 @@ export async function sendInvitationAction(formData: FormData) {
       role,
       invited_by: user.id,
     },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${ROUTES.INVITE_CONFIRM}`,
+    // Le redirectTo passe par /auth/confirm pour valider le token + établir
+    // la session avant d'arriver sur /invite/confirm. Sans ce passage,
+    // l'utilisateur arrive sans session valide et le middleware le redirige.
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=${encodeURIComponent(ROUTES.INVITE_CONFIRM)}`,
   })
 
   if (error) {
@@ -224,8 +227,12 @@ export async function requestPasswordReset(email: string) {
   const supabase = await createServerSupabaseClient()
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+  // Le redirectTo pointe vers /auth/confirm qui validera le token (verifyOtp)
+  // et établira la session avant de rediriger vers /reset-password.
+  // Sans ce passage, l'utilisateur arrive sur /reset-password SANS session
+  // valide et le middleware le renvoie sur /login.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${appUrl}/reset-password`,
+    redirectTo: `${appUrl}/auth/confirm?next=/reset-password`,
   })
 
   if (error) {
