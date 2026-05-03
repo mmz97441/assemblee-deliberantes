@@ -1859,9 +1859,10 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                                             : 'h-7 w-7 text-muted-foreground hover:text-blue-600'
                                         }
                                         onClick={() => {
+                                          const m = conv.member as { prenom?: string; nom?: string } | null
                                           setResendDialog({
                                             memberId: conv.member_id,
-                                            memberName: `${(conv.member as any)?.prenom || ''} ${(conv.member as any)?.nom || ''}`.trim(),
+                                            memberName: `${m?.prenom || ''} ${m?.nom || ''}`.trim(),
                                             statut,
                                           })
                                           setResendMotif('AUTRE')
