@@ -128,7 +128,7 @@ export async function getSeance(id: string): Promise<{ data: SeanceWithDetails }
 export async function createSeance(formData: FormData): Promise<{ success: true; id: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const titre = (formData.get('titre') as string)?.trim()
@@ -268,7 +268,7 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
 export async function updateSeance(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const id = formData.get('id') as string
@@ -371,7 +371,7 @@ export async function toggleSeancePublique(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president'])
     if (roleError) return { error: roleError }
 
     if (!id) return { error: 'ID de la séance manquant' }
@@ -424,7 +424,7 @@ export async function updateSeanceStatut(
     if (!user) return { error: 'Non authentifié' }
 
     // SÉCURITÉ : vérification du rôle via la table members (action critique — séances)
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut modifier le statut de la séance.' }
 
     // Validate transition
@@ -589,7 +589,7 @@ export async function updateSeanceStatut(
 export async function deleteSeance(id: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Only allow deleting BROUILLON seances
@@ -637,7 +637,7 @@ export async function deleteSeance(id: string): Promise<ActionResult> {
 export async function archiveSeance(id: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const { data: seance } = await supabase
@@ -712,7 +712,7 @@ export async function archiveSeance(id: string): Promise<ActionResult> {
 export async function unarchiveSeance(id: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const { data: seance } = await supabase
@@ -748,7 +748,7 @@ export async function unarchiveSeance(id: string): Promise<ActionResult> {
 export async function addODJPoint(formData: FormData): Promise<{ success: true; id: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const seanceId = formData.get('seance_id') as string
@@ -829,7 +829,7 @@ export async function addODJPoint(formData: FormData): Promise<{ success: true; 
 export async function updateODJPoint(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const id = formData.get('id') as string
@@ -895,7 +895,7 @@ export async function generateNoteSyntheseForPoint(
 ): Promise<{ success: true; text: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     if (!pointId) return { error: 'ID du point manquant' }
@@ -944,7 +944,7 @@ export async function generateNoteSyntheseForPoint(
 export async function deleteODJPoint(id: string, seanceId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // Check séance status — no ODJ changes during or after séance
@@ -1008,7 +1008,7 @@ export async function reorderODJPoints(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // Check séance status — no ODJ changes during or after séance
@@ -1056,7 +1056,7 @@ export async function reorderODJPoints(
 export async function addStandardODJPoints(seanceId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     if (!seanceId) return { error: 'ID de séance manquant' }
@@ -1156,7 +1156,7 @@ export async function duplicateSeance(
 ): Promise<{ success: true; newSeanceId: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Fetch source séance with ODJ and convocataires
@@ -1270,7 +1270,7 @@ export async function reconvoquerSeance(
 ): Promise<{ success: true; newSeanceId: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Fetch source séance
@@ -1362,7 +1362,7 @@ export async function reconvoquerSeance(
 export async function addConvocataire(seanceId: string, memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // Block adding convocataires if séance is EN_COURS or later
@@ -1413,7 +1413,7 @@ export async function addConvocataire(seanceId: string, memberId: string): Promi
 export async function removeConvocataire(seanceId: string, memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // Check if this specific convocataire has already been sent a convocation
@@ -1496,7 +1496,7 @@ export async function createSeanceDraft(
 ): Promise<{ success: true; id: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     if (!input.titre?.trim()) return { error: 'Le titre est requis' }
@@ -1554,7 +1554,7 @@ export async function updateSeanceDraft(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const { data: current } = await supabase
@@ -1604,7 +1604,7 @@ export async function setSeanceODJ(
 ): Promise<{ success: true; ids: string[] } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const { data: current } = await supabase
@@ -1657,7 +1657,7 @@ export async function setSeanceConvocataires(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const { data: current } = await supabase
@@ -1745,7 +1745,7 @@ export async function createSeanceWizard(
 ): Promise<{ success: true; id: string; convocationsSent: number } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     // ── Validations ──────────────────────────────────────────────────

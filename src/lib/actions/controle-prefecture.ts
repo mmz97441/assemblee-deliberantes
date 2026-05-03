@@ -274,7 +274,7 @@ export async function getControlePrefectureData(
     const supabase = await createServerSupabaseClient()
     const { data: userData } = await supabase.auth.getUser()
     const user = userData?.user || null
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const periodeDebut = `${year}-01-01T00:00:00.000Z`

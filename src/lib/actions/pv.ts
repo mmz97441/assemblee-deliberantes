@@ -110,7 +110,7 @@ export async function generatePVBrouillon(seanceId: string): Promise<
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check séance is closed before generating PV
@@ -397,7 +397,7 @@ export async function savePVContent(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check PV is not locked (signed or published)
@@ -444,7 +444,7 @@ export async function getPV(seanceId: string) {
     if (error) return { error: error.message }
 
     // Élus can only see PV that has been signed or published
-    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'])
     if (!isManager && data && data.statut !== 'SIGNE' && data.statut !== 'PUBLIE') {
       return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
@@ -473,7 +473,7 @@ export async function updatePVStatus(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Fetch current PV
@@ -756,7 +756,7 @@ export async function getPVWithComments(seanceId: string): Promise<
     if (!pv) return { error: 'Aucun procès-verbal trouvé pour cette séance' }
 
     // Élus can only see PV that has been signed or published
-    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'])
     if (!isManager && pv.statut !== 'SIGNE' && pv.statut !== 'PUBLIE') {
       return { error: 'Le procès-verbal n\'est pas encore disponible.' }
     }
@@ -795,7 +795,7 @@ export async function sendPVSignatureNotifications(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Load seance with president and secretary member data
@@ -935,7 +935,7 @@ export async function resendPVSignatureNotification(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Charger PV + signatures déjà posées

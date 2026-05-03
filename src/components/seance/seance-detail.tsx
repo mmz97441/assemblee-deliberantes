@@ -226,7 +226,13 @@ interface SeanceDetailProps {
   allMembers: MemberOption[]
   allInstances: InstanceConfigRow[]
   instanceMemberIds: string[]
+  /** Vrai pour les 4 rôles privilégiés (super_admin, gestionnaire, dgs, directeur_cabinet).
+      Donne accès à toute l'info opérationnelle (convocations stats, quorum chiffré, etc.). */
   canManage: boolean
+  /** Vrai si l'utilisateur courant est président effectif OU secrétaire de cette séance.
+      Donne accès aux infos du bureau (procurations, présences détaillées, PV brouillon)
+      sans pour autant donner accès aux stats de gestion (convocations envoyées, etc.). */
+  isBureauSeance?: boolean
   institutionConfig?: InstitutionConfigForWarning | null
 }
 
@@ -250,7 +256,7 @@ const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage, institutionConfig }: SeanceDetailProps) {
+export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage, isBureauSeance = false, institutionConfig }: SeanceDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const statutConfig = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
@@ -737,22 +743,30 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                   </Badge>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="convocations" title={HELP_TEXTS.convocations_section}>
-                Convocations
-                {seance.convocataires.length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
-                    {seance.convocataires.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="procurations" title={HELP_TEXTS.procurations_tab}>
-                Procurations
-                {seance.procurations && (seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
-                    {(seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length}
-                  </Badge>
-                )}
-              </TabsTrigger>
+              {/* CLOISONNEMENT : tab Convocations réservé aux privilégiés.
+                  Un élu/préparateur ne doit pas voir la liste détaillée des
+                  statuts de convocation des autres membres. */}
+              {canManage && (
+                <TabsTrigger value="convocations" title={HELP_TEXTS.convocations_section}>
+                  Convocations
+                  {seance.convocataires.length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                      {seance.convocataires.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
+              {/* Procurations visibles aux privilégiés + bureau de séance */}
+              {(canManage || isBureauSeance) && (
+                <TabsTrigger value="procurations" title={HELP_TEXTS.procurations_tab}>
+                  Procurations
+                  {seance.procurations && (seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length > 0 && (
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0 h-4">
+                      {(seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* ═══════════════════════════════════════════════════════════════ */}
@@ -1215,7 +1229,13 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
               )}
 
               {/* Convocation summary dashboard — clickable cards */}
-              {seance.convocataires.length > 0 && (
+              {/* CLOISONNEMENT : ce bloc avec stats détaillées des convocations
+                  (envoyées/confirmées/erreurs/quorum prédictif chiffré) est
+                  réservé aux 4 rôles privilégiés (super_admin, gestionnaire,
+                  DGS, directeur de cabinet). Un élu, un préparateur, un
+                  président ou un secrétaire de séance NE DOIVENT PAS voir
+                  ces infos opérationnelles. */}
+              {canManage && seance.convocataires.length > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
@@ -1392,8 +1412,12 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                 </div>
               )}
 
-              {/* Quorum prediction */}
-              {seance.instance_config && seance.convocataires.length > 0 && (() => {
+              {/* Quorum prediction
+                  CLOISONNEMENT : visible uniquement aux 4 rôles privilégiés
+                  (super_admin, gestionnaire, DGS, directeur de cabinet).
+                  Élu/président/secrétaire/préparateur ne voient jamais
+                  les chiffres de quorum prédictif. */}
+              {canManage && seance.instance_config && seance.convocataires.length > 0 && (() => {
                 const config = seance.instance_config
                 const totalMembers = config.composition_max || seance.convocataires.length
 

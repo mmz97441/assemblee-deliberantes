@@ -144,7 +144,7 @@ export async function createDeliberationFromVote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -276,7 +276,7 @@ export async function updateDeliberationContent(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -328,7 +328,7 @@ export async function publishDeliberation(
     if (!user) return { error: 'Non authentifié' }
 
     // SÉCURITÉ : vérification du rôle via la table members (action critique — publication)
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Rate limiting
@@ -448,7 +448,7 @@ export async function markAffichage(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -494,7 +494,7 @@ export async function markTransmissionPrefecture(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -636,7 +636,7 @@ export async function deleteDeliberationDraft(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -680,7 +680,7 @@ export async function updateDeliberationTitle(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 
@@ -735,7 +735,7 @@ export async function autoCreateDeliberationsForSeance(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire']))) {
+    if (!(await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire']))) {
       return { error: 'Permissions insuffisantes' }
     }
 

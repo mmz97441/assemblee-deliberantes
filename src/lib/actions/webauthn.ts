@@ -139,7 +139,7 @@ export async function getRegistrationOptions(memberId: string): Promise<Registra
 
     const isSelf = targetMember.user_id === user.id
     if (!isSelf) {
-      const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+      const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
       if (roleError) return { error: 'Vous ne pouvez enrôler une credential que pour vous-même' }
     }
 
@@ -205,7 +205,7 @@ export async function verifyRegistration(
 
     const isSelf = targetMember.user_id === user.id
     if (!isSelf) {
-      const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+      const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
       if (roleError) return { error: 'Vous ne pouvez enrôler une credential que pour vous-même' }
     }
 

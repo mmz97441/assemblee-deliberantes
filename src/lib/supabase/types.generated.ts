@@ -1626,6 +1626,8 @@ export type Database = {
         | "secretaire_seance"
         | "elu"
         | "preparateur"
+        | "dgs"
+        | "directeur_cabinet"
       vote_resultat:
         | "ADOPTE"
         | "REJETE"
@@ -1812,6 +1814,8 @@ export const Constants = {
         "secretaire_seance",
         "elu",
         "preparateur",
+        "dgs",
+        "directeur_cabinet",
       ],
       vote_resultat: [
         "ADOPTE",

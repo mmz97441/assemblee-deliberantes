@@ -36,7 +36,7 @@ export async function uploadODJDocument(
 ): Promise<{ success: true; document: DocumentInfo } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire', 'president', 'secretaire_seance'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
     if (roleError) return { error: roleError }
 
     const file = formData.get('file') as File | null
@@ -138,7 +138,7 @@ export async function removeODJDocument(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // Get current documents
@@ -202,7 +202,7 @@ export async function getDocumentUrl(
     const seanceId = pathParts[0] === 'seances' ? pathParts[1] : null
 
     if (seanceId) {
-      const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+      const isManager = await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
 
       if (!isManager) {
         // Check user is convoqué to this séance

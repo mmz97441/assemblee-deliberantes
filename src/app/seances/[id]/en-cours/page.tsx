@@ -22,7 +22,7 @@ export default async function SeanceEnCoursPage({ params }: Props) {
 
   // Check role — president can observe the session too
   const role = await getEffectiveRole(supabase, userData.user.id)
-  if (!['super_admin', 'gestionnaire', 'president'].includes(role)) {
+  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president'].includes(role)) {
     redirect(`/seances/${id}`)
   }
 

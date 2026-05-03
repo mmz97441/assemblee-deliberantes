@@ -111,7 +111,7 @@ export async function openVote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote' }
 
     const auditRole = await getUserRole(supabase, user.id)
@@ -271,7 +271,7 @@ export async function closeVoteMainLevee(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un vote' }
 
     const auditRole = await getUserRole(supabase, user.id)
@@ -482,7 +482,7 @@ export async function cancelVote(voteId: string): Promise<ActionResult> {
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Rate limiting
@@ -582,7 +582,7 @@ export async function openVoteSecret(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un vote secret' }
 
     const auditRole = await getUserRole(supabase, user.id)
@@ -903,7 +903,7 @@ export async function closeVoteSecret(voteId: string): Promise<CloseVoteResult> 
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un vote secret' }
 
     const auditRole = await getUserRole(supabase, user.id)
@@ -1208,7 +1208,7 @@ export async function openVoteTelevote(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut ouvrir un télévote' }
 
     const auditRole = await getUserRole(supabase, user.id)
@@ -1494,7 +1494,7 @@ export async function resendTelevoteOTP(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     const { data: existing } = await televoteOtps(supabase)
@@ -1634,7 +1634,7 @@ export async function closeVoteTelevote(voteId: string): Promise<CloseVoteResult
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Seul le gestionnaire peut clore un télévote' }
 
     const auditRole = await getUserRole(supabase, user.id)

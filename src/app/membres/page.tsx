@@ -62,7 +62,7 @@ export default async function MembresPage() {
   }
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
 
   return (
     <AuthenticatedLayout>

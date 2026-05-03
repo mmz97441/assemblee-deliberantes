@@ -40,7 +40,7 @@ export async function updateBureauRole(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Si on assigne le rôle président, retirer l'ancien président d'abord

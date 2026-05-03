@@ -51,7 +51,7 @@ export default async function DeliberationsPage() {
   const instances: InstanceConfigRow[] = instancesData || []
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
   const isSuperAdmin = userRole === 'super_admin'
 
   return (

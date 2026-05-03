@@ -165,7 +165,7 @@ export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { 
 export async function createMember(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const prenom = (formData.get('prenom') as string)?.trim()
@@ -267,7 +267,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 export async function updateMember(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const id = formData.get('id') as string
@@ -348,7 +348,7 @@ export async function toggleMemberStatus(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!id) return { error: 'ID du membre manquant' }
@@ -416,7 +416,7 @@ export async function assignMemberToInstances(
 ): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!memberId) return { error: 'ID du membre manquant' }
@@ -468,7 +468,7 @@ export async function assignMemberToInstances(
 export async function archiveMember(memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!memberId) return { error: 'ID du membre manquant' }
@@ -516,7 +516,7 @@ export async function archiveMember(memberId: string): Promise<ActionResult> {
 export async function unarchiveMember(memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!memberId) return { error: 'ID du membre manquant' }
@@ -563,7 +563,7 @@ const VALID_ROLES = ['super_admin', 'president', 'gestionnaire', 'secretaire_sea
 export async function importMembers(rows: ImportRow[]): Promise<ImportResult | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     // M7: Rate limit imports — max 3 per hour
@@ -680,7 +680,7 @@ export async function uploadMemberPhoto(
 ): Promise<{ success: true; url: string } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const memberId = formData.get('member_id') as string
@@ -748,7 +748,7 @@ export async function uploadMemberPhoto(
 export async function removeMemberPhoto(memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const { data: existing } = await supabase

@@ -52,8 +52,8 @@ export default async function PVPage({ params }: Props) {
     .maybeSingle()
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
-  let canEdit = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
-  const isManager = ['super_admin', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+  let canEdit = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'].includes(userRole)
+  const isManager = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'secretaire_seance'].includes(userRole)
 
   if (!isManager) {
     // Check if user is convoqué to this séance

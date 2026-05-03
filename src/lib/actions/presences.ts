@@ -55,7 +55,7 @@ export async function markPresence(
     }
 
     // Allow gestionnaire to mark anyone, OR allow member to mark only themselves
-    const isGestionnaire = await hasVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const isGestionnaire = await hasVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
 
     if (!isGestionnaire) {
       // Check if the user is marking themselves
@@ -222,7 +222,7 @@ export async function markPresenceManual(
     if (!user) return { error: 'Non authentifié' }
 
     // Check role
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // M14: Check seance status
@@ -301,7 +301,7 @@ export async function markDeparture(
     const { user, supabase } = await getAuthenticatedUser()
     if (!user) return { error: 'Non authentifié' }
 
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: 'Permissions insuffisantes' }
 
     // Check seance is EN_COURS

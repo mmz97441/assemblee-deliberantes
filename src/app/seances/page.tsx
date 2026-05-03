@@ -184,7 +184,7 @@ export default async function SeancesPage() {
 
   const members = membersData || []
 
-  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
 
   const isEluView = ['elu', 'preparateur'].includes(userRole)
 

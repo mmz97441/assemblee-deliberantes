@@ -91,7 +91,7 @@ export async function saveInstanceConfig(formData: FormData): Promise<ActionResu
   try {
     const { user, supabase } = await getAuthenticatedUser()
     // SÉCURITÉ : vérification du rôle via la table members (action critique)
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     const nom = formData.get('nom') as string
@@ -161,7 +161,7 @@ export async function toggleInstanceActive(id: string, actif: boolean): Promise<
   try {
     const { user, supabase } = await getAuthenticatedUser()
     // SÉCURITÉ : vérification du rôle via la table members (action critique)
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
     if (!id) return { error: 'ID manquant' }

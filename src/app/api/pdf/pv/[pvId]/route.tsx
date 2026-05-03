@@ -30,7 +30,7 @@ export async function GET(
     // SÉCURITÉ : vérification du rôle via la table members
     const metadataRole = (userData.user.user_metadata?.role as string) || ''
     const role = await getVerifiedRole(supabase, userData.user.id, metadataRole)
-    if (!['super_admin', 'gestionnaire'].includes(role)) {
+    if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(role)) {
       return NextResponse.json({ error: 'Permissions insuffisantes' }, { status: 403 })
     }
 

@@ -76,6 +76,8 @@ import {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: 'Super-administrateur',
+  dgs: 'DGS',
+  directeur_cabinet: 'Directeur de cabinet',
   president: 'Président(e)',
   gestionnaire: 'Gestionnaire',
   secretaire_seance: 'Secrétaire de séance',
@@ -85,6 +87,8 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 const ROLE_COLORS: Record<UserRole, string> = {
   super_admin: 'bg-red-100 text-red-800 border-red-200',
+  dgs: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  directeur_cabinet: 'bg-violet-100 text-violet-800 border-violet-200',
   president: 'bg-purple-100 text-purple-800 border-purple-200',
   gestionnaire: 'bg-blue-100 text-blue-800 border-blue-200',
   secretaire_seance: 'bg-cyan-100 text-cyan-800 border-cyan-200',

@@ -27,7 +27,7 @@ export default async function PresidentPage({ params }: Props) {
   const role = await getEffectiveRole(supabase, userData.user.id)
 
   // super_admin et gestionnaire ont accès à toutes les vues président
-  const isManager = ['super_admin', 'gestionnaire'].includes(role)
+  const isManager = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(role)
 
   // Charger la séance complète
   const { data: seance, error: seanceError } = await supabase

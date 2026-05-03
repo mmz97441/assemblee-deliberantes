@@ -41,7 +41,7 @@ export default async function DeliberationDetailPage({ params }: Props) {
   }
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
   const isSuperAdmin = userRole === 'super_admin'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

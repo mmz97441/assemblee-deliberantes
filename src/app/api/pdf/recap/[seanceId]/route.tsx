@@ -73,7 +73,7 @@ export async function GET(
     // SÉCURITÉ : vérification du rôle via la table members
     const metadataRole = (userData.user.user_metadata?.role as string) || ''
     const role = await getVerifiedRole(supabase, userData.user.id, metadataRole)
-    const isManager = ['super_admin', 'gestionnaire'].includes(role)
+    const isManager = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(role)
 
     if (!isManager) {
       const { data: memberRecord } = await supabase

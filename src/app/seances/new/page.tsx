@@ -22,7 +22,7 @@ export default async function NewSeancePage({ searchParams }: PageProps) {
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
 
-  if (!['super_admin', 'gestionnaire', 'president', 'secretaire_seance'].includes(userRole)) {
+  if (!['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'].includes(userRole)) {
     redirect(ROUTES.SEANCES)
   }
 

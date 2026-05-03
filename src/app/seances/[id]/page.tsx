@@ -125,7 +125,21 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     .maybeSingle()
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
-  const canManage = ['super_admin', 'gestionnaire'].includes(userRole)
+  const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
+
+  // Vrai si l'utilisateur courant est président effectif OU secrétaire
+  // de cette séance précise. Donne accès aux infos de bureau (présences,
+  // procurations, PV brouillon) sans pour autant donner accès aux stats
+  // de gestion (convocations envoyées/erreurs/quorum chiffré).
+  const { data: currentUserMember } = await supabase
+    .from('members')
+    .select('id')
+    .eq('user_id', userData.user.id)
+    .maybeSingle()
+  const isBureauSeance = !!currentUserMember && (
+    seance.president_effectif_seance_id === currentUserMember.id ||
+    seance.secretaire_seance_id === currentUserMember.id
+  )
 
   const statutLabel: Record<string, string> = {
     BROUILLON: 'Brouillon',
@@ -155,6 +169,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
           allInstances={allInstances || []}
           instanceMemberIds={(instanceMembers || []).map(im => im.member_id)}
           canManage={canManage}
+          isBureauSeance={isBureauSeance}
           institutionConfig={institutionConfig || null}
         />
       </main>
