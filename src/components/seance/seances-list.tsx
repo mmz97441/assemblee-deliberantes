@@ -48,20 +48,30 @@ import {
   Plus,
   Search,
   MoreHorizontal,
-  MapPin,
-  Users,
-  FileText,
   Eye,
   Pencil,
   Trash2,
-  Clock,
   Video,
   Monitor,
   Building2,
   Copy,
   Archive,
   ArchiveRestore,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  CheckCircle2,
+  AlertTriangle,
+  Mail,
 } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table'
 import { SeanceFormDialog } from './seance-form'
 import { deleteSeance, duplicateSeance, archiveSeance, unarchiveSeance } from '@/lib/actions/seances'
 import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
@@ -71,6 +81,13 @@ interface SeanceListItem extends SeanceRow {
   instance_config: Pick<InstanceConfigRow, 'id' | 'nom'> | null
   _count_odj: number
   _count_convocataires: number
+  // Optionnels — fournis par /seances/page.tsx pour la vue table dense
+  _convocations_sent?: number
+  _convocations_confirmed?: number
+  _convocations_errored?: number
+  _procurations?: number
+  _presents?: number
+  _quorum_required?: number | null
 }
 
 interface MemberOption {
@@ -137,6 +154,13 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
   const [archiveDateFrom, setArchiveDateFrom] = useState('')
   const [archiveDateTo, setArchiveDateTo] = useState('')
   const [archiveYearFilter, setArchiveYearFilter] = useState<string>('all')
+
+  // Tri table active (vue dense, pro)
+  type SortKey = 'date' | 'titre' | 'instance' | 'statut' | 'convocations'
+  type SortDir = 'asc' | 'desc'
+  const [sortKey, setSortKey] = useState<SortKey>('date')
+  const [sortDir, setSortDir] = useState<SortDir>('asc') // upcoming = chrono ascendant
+  const [pastSortDir, setPastSortDir] = useState<SortDir>('desc') // past = chrono inverse (plus récent en premier)
 
   // Active tab filters
   const filtered = seances.filter(s => {
@@ -251,6 +275,55 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
   const upcoming = filtered.filter(s => new Date(s.date_seance) >= now || s.statut === 'EN_COURS')
   const past = filtered.filter(s => new Date(s.date_seance) < now && s.statut !== 'EN_COURS')
 
+  // Tri par colonne (table dense)
+  function applySort(list: SeanceListItem[], dir: SortDir): SeanceListItem[] {
+    const arr = [...list]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'date':
+          cmp = new Date(a.date_seance).getTime() - new Date(b.date_seance).getTime()
+          break
+        case 'titre':
+          cmp = a.titre.localeCompare(b.titre, 'fr')
+          break
+        case 'instance':
+          cmp = (a.instance_config?.nom || '').localeCompare(b.instance_config?.nom || '', 'fr')
+          break
+        case 'statut':
+          cmp = (a.statut || '').localeCompare(b.statut || '')
+          break
+        case 'convocations': {
+          const ratioA = (a._convocations_confirmed || 0) / Math.max(1, a._count_convocataires)
+          const ratioB = (b._convocations_confirmed || 0) / Math.max(1, b._count_convocataires)
+          cmp = ratioA - ratioB
+          break
+        }
+      }
+      return dir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }
+
+  function toggleSort(key: SortKey, isPastTable: boolean) {
+    if (sortKey === key) {
+      if (isPastTable) {
+        setPastSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+      } else {
+        setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+      }
+    } else {
+      setSortKey(key)
+      // Default direction sensible per column
+      const defaultDir: SortDir = key === 'date' ? (isPastTable ? 'desc' : 'asc') : 'asc'
+      if (isPastTable) setPastSortDir(defaultDir)
+      else setSortDir(defaultDir)
+    }
+  }
+
+  const upcomingSorted = applySort(upcoming, sortDir)
+  const pastSorted = applySort(past, pastSortDir)
+
   return (
     <TooltipProvider>
       <Tabs defaultValue="actives" className="w-full">
@@ -356,19 +429,17 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 À venir ({upcoming.length})
               </h2>
-              <div className="space-y-3">
-                {upcoming.map(seance => (
-                  <SeanceCard
-                    key={seance.id}
-                    seance={seance}
-                    canManage={canManage}
-                    onEdit={() => { setEditingSeance(seance); setFormOpen(true) }}
-                    onDelete={() => { setDeletingSeance(seance); setDeleteDialogOpen(true) }}
-                    onDuplicate={() => { setDuplicatingSeance(seance); setDuplicateDialogOpen(true) }}
-                    onArchive={() => { setArchivingSeance(seance); setArchiveDialogOpen(true) }}
-                  />
-                ))}
-              </div>
+              <SeancesTable
+                seances={upcomingSorted}
+                canManage={canManage}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={(k) => toggleSort(k, false)}
+                onEdit={(s) => { setEditingSeance(s); setFormOpen(true) }}
+                onDelete={(s) => { setDeletingSeance(s); setDeleteDialogOpen(true) }}
+                onDuplicate={(s) => { setDuplicatingSeance(s); setDuplicateDialogOpen(true) }}
+                onArchive={(s) => { setArchivingSeance(s); setArchiveDialogOpen(true) }}
+              />
             </section>
           )}
 
@@ -378,19 +449,17 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
               <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 Passées ({past.length})
               </h2>
-              <div className="space-y-3">
-                {past.map(seance => (
-                  <SeanceCard
-                    key={seance.id}
-                    seance={seance}
-                    canManage={canManage}
-                    onEdit={() => { setEditingSeance(seance); setFormOpen(true) }}
-                    onDelete={() => { setDeletingSeance(seance); setDeleteDialogOpen(true) }}
-                    onDuplicate={() => { setDuplicatingSeance(seance); setDuplicateDialogOpen(true) }}
-                    onArchive={() => { setArchivingSeance(seance); setArchiveDialogOpen(true) }}
-                  />
-                ))}
-              </div>
+              <SeancesTable
+                seances={pastSorted}
+                canManage={canManage}
+                sortKey={sortKey}
+                sortDir={pastSortDir}
+                onSort={(k) => toggleSort(k, true)}
+                onEdit={(s) => { setEditingSeance(s); setFormOpen(true) }}
+                onDelete={(s) => { setDeletingSeance(s); setDeleteDialogOpen(true) }}
+                onDuplicate={(s) => { setDuplicatingSeance(s); setDuplicateDialogOpen(true) }}
+                onArchive={(s) => { setArchivingSeance(s); setArchiveDialogOpen(true) }}
+              />
             </section>
           )}
         </TabsContent>
@@ -520,18 +589,13 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
             </div>
           )}
 
-          {/* Archived seances list */}
+          {/* Archived seances table */}
           {filteredArchived.length > 0 && (
-            <div className="space-y-3">
-              {filteredArchived.map(seance => (
-                <ArchivedSeanceCard
-                  key={seance.id}
-                  seance={seance}
-                  canManage={canManage}
-                  onUnarchive={() => { setUnarchivingSeance(seance); setUnarchiveDialogOpen(true) }}
-                />
-              ))}
-            </div>
+            <ArchivedSeancesTable
+              seances={filteredArchived}
+              canManage={canManage}
+              onUnarchive={(s) => { setUnarchivingSeance(s); setUnarchiveDialogOpen(true) }}
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -637,243 +701,425 @@ export function SeancesList({ seances, archivedSeances, instances, members, canM
   )
 }
 
-// ─── Active Seance Card ─────────────────────────────────────────────────────
+// ─── Convocation progress bar (cercles pleins/vides + texte) ──────────────
 
-function SeanceCard({
-  seance,
+function ConvocationProgressBar({
+  total,
+  sent,
+  confirmed,
+  errored,
+}: {
+  total: number
+  sent: number
+  confirmed: number
+  errored: number
+}) {
+  if (total === 0) {
+    return <span className="text-xs text-muted-foreground italic">—</span>
+  }
+
+  // 5 segments visuels max — chaque segment représente une fraction du total
+  const segmentCount = 5
+  const confirmedSegs = Math.round((confirmed / total) * segmentCount)
+  const sentOnlySegs = Math.max(0, Math.round((sent / total) * segmentCount) - confirmedSegs)
+  const filledSegs = confirmedSegs + sentOnlySegs
+
+  return (
+    <div className="flex flex-col gap-0.5 min-w-[140px]">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-0.5" aria-hidden>
+          {Array.from({ length: segmentCount }).map((_, i) => {
+            let cls = 'bg-slate-200' // non envoyé
+            if (i < confirmedSegs) cls = 'bg-emerald-500' // confirmé
+            else if (i < filledSegs) cls = 'bg-blue-400' // envoyé non confirmé
+            return <span key={i} className={`block h-1.5 w-4 rounded-sm ${cls}`} />
+          })}
+        </div>
+        <span className="text-xs text-foreground tabular-nums whitespace-nowrap">
+          {confirmed}/{total}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+        <span className="whitespace-nowrap">
+          <Mail className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+          {sent} envoyés
+        </span>
+        {errored > 0 && (
+          <span className="whitespace-nowrap text-red-600">
+            <AlertTriangle className="inline h-3 w-3 mr-0.5 -mt-0.5" />
+            {errored} erreur{errored > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Quorum cell ──────────────────────────────────────────────────────────
+
+function QuorumCell({ seance }: { seance: SeanceListItem }) {
+  const total = (seance._convocations_confirmed || 0) + (seance._procurations || 0)
+  const required = seance._quorum_required ?? null
+
+  // Brouillon : pas de convocations encore → afficher "—"
+  if (seance.statut === 'BROUILLON') {
+    return <span className="text-xs text-muted-foreground italic">— non convoquée</span>
+  }
+
+  if (!required) {
+    return (
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {total} confirmé{total > 1 ? 's' : ''}
+      </span>
+    )
+  }
+
+  if (total >= required) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+        <span className="text-xs font-medium text-emerald-700 tabular-nums">
+          {total}/{required}
+        </span>
+      </div>
+    )
+  }
+
+  const manque = required - total
+  return (
+    <div className="flex items-center gap-1.5">
+      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+      <span className="text-xs font-medium text-amber-700 tabular-nums">
+        {total}/{required}
+        <span className="text-muted-foreground ml-1">(−{manque})</span>
+      </span>
+    </div>
+  )
+}
+
+// ─── Sort header helper ───────────────────────────────────────────────────
+
+function SortableHeader({
+  label,
+  sortKey,
+  currentKey,
+  currentDir,
+  onClick,
+  align = 'left',
+}: {
+  label: string
+  sortKey: 'date' | 'titre' | 'instance' | 'statut' | 'convocations'
+  currentKey: 'date' | 'titre' | 'instance' | 'statut' | 'convocations'
+  currentDir: 'asc' | 'desc'
+  onClick: () => void
+  align?: 'left' | 'right' | 'center'
+}) {
+  const isActive = currentKey === sortKey
+  const Icon = isActive ? (currentDir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider hover:text-foreground transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'} ${align === 'right' ? 'justify-end w-full' : align === 'center' ? 'justify-center w-full' : ''}`}
+    >
+      {label}
+      <Icon className="h-3 w-3" />
+    </button>
+  )
+}
+
+// ─── Active Seances Table (dense, scannable) ──────────────────────────────
+
+function SeancesTable({
+  seances,
   canManage,
+  sortKey,
+  sortDir,
+  onSort,
   onEdit,
   onDelete,
   onDuplicate,
   onArchive,
 }: {
-  seance: SeanceListItem
+  seances: SeanceListItem[]
   canManage: boolean
-  onEdit: () => void
-  onDelete: () => void
-  onDuplicate: () => void
-  onArchive: () => void
+  sortKey: 'date' | 'titre' | 'instance' | 'statut' | 'convocations'
+  sortDir: 'asc' | 'desc'
+  onSort: (key: 'date' | 'titre' | 'instance' | 'statut' | 'convocations') => void
+  onEdit: (s: SeanceListItem) => void
+  onDelete: (s: SeanceListItem) => void
+  onDuplicate: (s: SeanceListItem) => void
+  onArchive: (s: SeanceListItem) => void
 }) {
-  const statutConfig = STATUT_CONFIG[seance.statut || 'BROUILLON']
-  const ModeIcon = MODE_ICONS[seance.mode || 'PRESENTIEL'] || Building2
-  const isBrouillon = seance.statut === 'BROUILLON'
-  const canArchive = ['CONVOQUEE', 'CLOTUREE'].includes(seance.statut || '')
+  const router = useRouter()
 
   return (
-    <div className="group relative rounded-xl border bg-card card-interactive">
-      <Link href={`/seances/${seance.id}`} className="block p-5">
-        <div className="flex items-start justify-between gap-4">
-          {/* Left: info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <Badge className={`${statutConfig.color} border-0 text-xs font-medium`}>
-                {statutConfig.label}
-              </Badge>
-              {seance.instance_config && (
-                <Badge variant="outline" className="text-xs">
-                  {seance.instance_config.nom}
-                </Badge>
-              )}
-              {seance.reconvocation && (
-                <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
-                  Reconvocation
-                </Badge>
-              )}
-            </div>
+    <div className="rounded-xl border bg-card overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/40 hover:bg-muted/40">
+            <TableHead className="w-10 pl-3 pr-1" aria-label="Statut" />
+            <TableHead className="min-w-[260px]">
+              <SortableHeader label="Séance" sortKey="titre" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('titre')} />
+            </TableHead>
+            <TableHead className="w-[180px]">
+              <SortableHeader label="Type" sortKey="instance" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('instance')} />
+            </TableHead>
+            <TableHead className="w-[140px]">
+              <SortableHeader label="Date" sortKey="date" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('date')} />
+            </TableHead>
+            <TableHead className="w-[200px]">
+              <SortableHeader label="Convocations" sortKey="convocations" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('convocations')} />
+            </TableHead>
+            <TableHead className="w-[140px]">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quorum</span>
+            </TableHead>
+            <TableHead className="w-[60px] pr-3" aria-label="Actions" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {seances.map(seance => {
+            const statutConfig = STATUT_CONFIG[seance.statut || 'BROUILLON']
+            const ModeIcon = MODE_ICONS[seance.mode || 'PRESENTIEL'] || Building2
+            const isBrouillon = seance.statut === 'BROUILLON'
+            const canArchiveRow = ['CONVOQUEE', 'CLOTUREE'].includes(seance.statut || '')
+            const dotColor =
+              seance.statut === 'EN_COURS' ? 'bg-emerald-500 animate-pulse'
+              : seance.statut === 'CONVOQUEE' ? 'bg-blue-500'
+              : seance.statut === 'CLOTUREE' ? 'bg-purple-400'
+              : seance.statut === 'SUSPENDUE' ? 'bg-amber-500'
+              : 'bg-slate-300'
 
-            <h3 className="text-base font-semibold text-foreground truncate group-hover:text-institutional-blue transition-colors">
-              {seance.titre}
-            </h3>
+            return (
+              <TableRow
+                key={seance.id}
+                className="cursor-pointer group"
+                onClick={() => router.push(`/seances/${seance.id}`)}
+              >
+                {/* Status dot */}
+                <TableCell className="pl-3 pr-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className={`block h-2.5 w-2.5 rounded-full ${dotColor}`} aria-label={statutConfig.label} />
+                    </TooltipTrigger>
+                    <TooltipContent>{statutConfig.label}</TooltipContent>
+                  </Tooltip>
+                </TableCell>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatDate(seance.date_seance)}
-                {seance.heure_ouverture && (
-                  <> à {formatTime(seance.date_seance)}</>
-                )}
-              </span>
-              {seance.lieu && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {seance.lieu}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <ModeIcon className="h-3.5 w-3.5" />
-                {seance.mode === 'PRESENTIEL' ? 'Présentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
-              </span>
-            </div>
+                {/* Titre + meta */}
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-foreground group-hover:text-institutional-blue transition-colors truncate">
+                      {seance.titre}
+                    </span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                      <ModeIcon className="h-3 w-3" />
+                      {seance.lieu || (seance.mode === 'VISIO' ? 'Visioconférence' : 'Lieu non défini')}
+                      <span className="text-muted-foreground/60">·</span>
+                      {seance._count_odj} ODJ
+                      <span className="text-muted-foreground/60">·</span>
+                      {seance._count_convocataires} convoqué{seance._count_convocataires !== 1 ? 's' : ''}
+                      {seance.reconvocation && (
+                        <>
+                          <span className="text-muted-foreground/60">·</span>
+                          <span className="text-amber-700 font-medium">Reconvocation</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                </TableCell>
 
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <FileText className="h-3 w-3" />
-                {seance._count_odj} point{seance._count_odj !== 1 ? 's' : ''} ODJ
-              </span>
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {seance._count_convocataires} convoqué{seance._count_convocataires !== 1 ? 's' : ''}
-              </span>
-              {seance.heure_ouverture && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Ouverte à {formatTime(seance.heure_ouverture)}
-                </span>
-              )}
-            </div>
-          </div>
+                {/* Type / instance */}
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-foreground truncate">
+                      {seance.instance_config?.nom || '—'}
+                    </span>
+                    <Badge className={`${statutConfig.color} border-0 text-[10px] font-medium w-fit mt-0.5`}>
+                      {statutConfig.label}
+                    </Badge>
+                  </div>
+                </TableCell>
 
-          {/* Right: actions */}
-          {canManage && (
-            <div className="shrink-0" onClick={e => e.preventDefault()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 min-h-[44px] min-w-[44px]" title="Plus d'options">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/seances/${seance.id}`}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Voir le détail
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onDuplicate}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Dupliquer
-                  </DropdownMenuItem>
-                  {isBrouillon && (
-                    <DropdownMenuItem onClick={onEdit}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Modifier
-                    </DropdownMenuItem>
+                {/* Date */}
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="text-sm text-foreground tabular-nums">
+                      {formatDate(seance.date_seance)}
+                    </span>
+                    {seance.heure_ouverture && (
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {formatTime(seance.date_seance)}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+
+                {/* Convocations progress bar */}
+                <TableCell>
+                  <ConvocationProgressBar
+                    total={seance._count_convocataires}
+                    sent={seance._convocations_sent || 0}
+                    confirmed={seance._convocations_confirmed || 0}
+                    errored={seance._convocations_errored || 0}
+                  />
+                </TableCell>
+
+                {/* Quorum */}
+                <TableCell>
+                  <QuorumCell seance={seance} />
+                </TableCell>
+
+                {/* Actions */}
+                <TableCell className="pr-3" onClick={e => e.stopPropagation()}>
+                  {canManage ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/seances/${seance.id}`}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            Voir le détail
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onDuplicate(seance)}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Dupliquer
+                        </DropdownMenuItem>
+                        {isBrouillon && (
+                          <DropdownMenuItem onClick={() => onEdit(seance)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Modifier
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        {isBrouillon && (
+                          <DropdownMenuItem
+                            onClick={() => onDelete(seance)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Supprimer
+                          </DropdownMenuItem>
+                        )}
+                        {canArchiveRow && (
+                          <DropdownMenuItem
+                            onClick={() => onArchive(seance)}
+                            className="text-amber-700 focus:text-amber-700"
+                          >
+                            <Archive className="h-4 w-4 mr-2" />
+                            Archiver
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                      <Link href={`/seances/${seance.id}`} title="Voir">
+                        <Eye className="h-4 w-4" />
+                      </Link>
+                    </Button>
                   )}
-                  <DropdownMenuSeparator />
-                  {isBrouillon && (
-                    <DropdownMenuItem
-                      onClick={onDelete}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Supprimer le brouillon
-                    </DropdownMenuItem>
-                  )}
-                  {canArchive && (
-                    <DropdownMenuItem
-                      onClick={onArchive}
-                      className="text-amber-700 focus:text-amber-700"
-                    >
-                      <Archive className="h-4 w-4 mr-2" />
-                      Archiver
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-        </div>
-      </Link>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
     </div>
   )
 }
 
-// ─── Archived Seance Card ───────────────────────────────────────────────────
+// ─── Archived Seances Table ───────────────────────────────────────────────
 
-function ArchivedSeanceCard({
-  seance,
+function ArchivedSeancesTable({
+  seances,
   canManage,
   onUnarchive,
 }: {
-  seance: SeanceListItem
+  seances: SeanceListItem[]
   canManage: boolean
-  onUnarchive: () => void
+  onUnarchive: (s: SeanceListItem) => void
 }) {
-  const ModeIcon = MODE_ICONS[seance.mode || 'PRESENTIEL'] || Building2
+  const router = useRouter()
 
   return (
-    <div className="group relative rounded-xl border bg-card/50 border-dashed">
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-4">
-          {/* Left: info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <Badge className="bg-gray-100 text-gray-500 border-0 text-xs font-medium">
-                Archivée
-              </Badge>
-              {seance.instance_config && (
-                <Badge variant="outline" className="text-xs">
-                  {seance.instance_config.nom}
-                </Badge>
-              )}
-            </div>
-
-            <h3 className="text-base font-semibold text-muted-foreground truncate">
-              {seance.titre}
-            </h3>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatDate(seance.date_seance)}
-              </span>
-              {seance.lieu && (
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {seance.lieu}
-                </span>
-              )}
-              <span className="flex items-center gap-1.5">
-                <ModeIcon className="h-3.5 w-3.5" />
-                {seance.mode === 'PRESENTIEL' ? 'Présentiel' : seance.mode === 'HYBRIDE' ? 'Hybride' : 'Visio'}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <FileText className="h-3 w-3" />
-                {seance._count_odj} point{seance._count_odj !== 1 ? 's' : ''} ODJ
-              </span>
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {seance._count_convocataires} convoqué{seance._count_convocataires !== 1 ? 's' : ''}
-              </span>
-            </div>
-          </div>
-
-          {/* Right: actions */}
-          <div className="shrink-0 flex items-center gap-2" onClick={e => e.preventDefault()}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="min-h-[44px]" asChild>
-                  <Link href={`/seances/${seance.id}`}>
-                    <Eye className="h-4 w-4 mr-2" />
-                    Voir
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Voir le détail de cette séance archivée</TooltipContent>
-            </Tooltip>
-
-            {canManage && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-h-[44px]"
-                    onClick={onUnarchive}
-                  >
-                    <ArchiveRestore className="h-4 w-4 mr-2" />
-                    Désarchiver
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Restaurer cette séance dans la liste active (statut « Clôturée »)</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className="rounded-xl border border-dashed bg-card/50 overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-muted/30 hover:bg-muted/30">
+            <TableHead className="min-w-[260px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Séance</TableHead>
+            <TableHead className="w-[180px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Instance</TableHead>
+            <TableHead className="w-[140px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Date</TableHead>
+            <TableHead className="w-[140px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">ODJ / Convoqués</TableHead>
+            <TableHead className="w-[160px] pr-3 text-right" aria-label="Actions" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {seances.map(seance => {
+            const ModeIcon = MODE_ICONS[seance.mode || 'PRESENTIEL'] || Building2
+            return (
+              <TableRow
+                key={seance.id}
+                className="cursor-pointer group"
+                onClick={() => router.push(`/seances/${seance.id}`)}
+              >
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                      {seance.titre}
+                    </span>
+                    <span className="text-xs text-muted-foreground/70 flex items-center gap-2 mt-0.5">
+                      <ModeIcon className="h-3 w-3" />
+                      {seance.lieu || (seance.mode === 'VISIO' ? 'Visioconférence' : 'Lieu non défini')}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground truncate">
+                    {seance.instance_config?.nom || '—'}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {formatDate(seance.date_seance)}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {seance._count_odj} ODJ · {seance._count_convocataires} convoqués
+                  </span>
+                </TableCell>
+                <TableCell className="pr-3 text-right" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/seances/${seance.id}`}>
+                        <Eye className="h-4 w-4 mr-1" />
+                        Voir
+                      </Link>
+                    </Button>
+                    {canManage && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="outline" size="sm" onClick={() => onUnarchive(seance)}>
+                            <ArchiveRestore className="h-4 w-4 mr-1" />
+                            Désarchiver
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Restaurer dans la liste active (statut « Clôturée »)</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
     </div>
   )
 }
