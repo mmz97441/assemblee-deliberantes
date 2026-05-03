@@ -78,6 +78,10 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   const [photoUrl, setPhotoUrl] = useState<string | null>((member as any)?.photo_url || null)
   const [mandatDebut, setMandatDebut] = useState(member?.mandat_debut || '')
   const [mandatFin, setMandatFin] = useState(member?.mandat_fin || '')
+  // Toggle « Envoyer l'invitation » — uniquement pertinent à la création.
+  // Par défaut coché : le gestionnaire qui crée un membre veut presque
+  // toujours qu'il puisse se connecter.
+  const [sendInvitation, setSendInvitation] = useState(true)
 
   // Instance assignments
   const [instanceAssignments, setInstanceAssignments] = useState<InstanceAssignment[]>(() => {
@@ -176,6 +180,8 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
       formData.set('groupe_politique', groupePolitique.trim())
       formData.set('mandat_debut', mandatDebut)
       formData.set('mandat_fin', mandatFin)
+      // Le serveur lit cette valeur uniquement à la création (ignorée en update)
+      formData.set('send_invitation', sendInvitation ? 'true' : 'false')
 
       // Add instance assignments to formData (for create)
       const selectedInstances = instanceAssignments.filter(a => a.checked)
@@ -374,6 +380,30 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
             <p className="text-xs text-muted-foreground">
               Les dates de mandat sont indicatives et permettent de suivre les renouvellements.
             </p>
+
+            {/* Toggle invitation — uniquement à la création (pas en édition) */}
+            {!isEditing && (
+              <div className="mt-6 pt-4 border-t">
+                <div className="flex items-start gap-3 p-3 rounded-lg border bg-blue-50/50 border-blue-100">
+                  <Checkbox
+                    id="send_invitation"
+                    checked={sendInvitation}
+                    onCheckedChange={(v) => setSendInvitation(v === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="send_invitation" className="text-sm font-medium cursor-pointer">
+                      Envoyer l&apos;invitation par email maintenant
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Le membre recevra un email pour activer son compte et choisir son mot de passe.
+                      Décochez si vous voulez juste créer la fiche pour l&apos;instant — vous pourrez
+                      envoyer l&apos;invitation plus tard depuis la liste.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Tab: Instances */}

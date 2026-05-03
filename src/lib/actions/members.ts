@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { checkRateLimit } from '@/lib/security/rate-limiter'
 import type { MemberRow, InstanceConfigRow, UserRole } from '@/lib/supabase/types'
@@ -39,6 +39,16 @@ async function getAuthenticatedUser() {
   return { user: data.user, supabase }
 }
 
+/**
+ * État du COMPTE de connexion d'un membre, calculé depuis user_id et
+ * auth.users.email_confirmed_at. Indépendant du statut du mandat.
+ *
+ * - NO_ACCOUNT      : aucun compte auth créé → membre ne peut pas se connecter
+ * - PENDING_INVITE  : invité, mais n'a pas encore activé son compte
+ * - ACTIVE          : compte activé, peut se connecter
+ */
+export type AccountState = 'NO_ACCOUNT' | 'PENDING_INVITE' | 'ACTIVE'
+
 export interface MemberWithInstances extends MemberRow {
   instance_members: {
     id: string
@@ -47,6 +57,10 @@ export interface MemberWithInstances extends MemberRow {
     actif: boolean | null
     instance_config: Pick<InstanceConfigRow, 'id' | 'nom'> | null
   }[]
+  /** Calculé côté serveur — pas une colonne DB */
+  account_state?: AccountState
+  /** Date d'activation effective (email_confirmed_at) si applicable */
+  activated_at?: string | null
 }
 
 export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { error: string }> {
@@ -93,6 +107,50 @@ export async function getMembers(): Promise<{ data: MemberWithInstances[] } | { 
         const mm = m as { photo_url?: string | null }
         if (mm.photo_url && !mm.photo_url.startsWith('http')) {
           mm.photo_url = map.get(mm.photo_url) || null
+        }
+      }
+    }
+
+    // Calcul de l'account_state pour chaque membre (compte connexion).
+    // Pour les membres avec user_id, on récupère email_confirmed_at depuis
+    // auth.users via le service_role (auth.users n'est pas accessible côté
+    // anon/authenticated pour des raisons de sécurité Supabase).
+    const memberUserIds = members
+      .map(m => m.user_id)
+      .filter((id): id is string => !!id)
+
+    const confirmedMap = new Map<string, string | null>()
+    if (memberUserIds.length > 0) {
+      try {
+        const serviceClient = await createServiceRoleClient()
+        // L'API admin.listUsers est paginée — on ne charge que ce qu'il faut.
+        // Pour < 1000 membres ça reste raisonnable en un appel.
+        const { data: usersResp } = await serviceClient.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        })
+        for (const u of usersResp?.users || []) {
+          if (memberUserIds.includes(u.id)) {
+            confirmedMap.set(u.id, u.email_confirmed_at || null)
+          }
+        }
+      } catch (err) {
+        console.warn('getMembers: impossible de charger les états auth :', err)
+      }
+    }
+
+    for (const m of members) {
+      if (!m.user_id) {
+        m.account_state = 'NO_ACCOUNT'
+        m.activated_at = null
+      } else {
+        const confirmedAt = confirmedMap.get(m.user_id)
+        if (confirmedAt) {
+          m.account_state = 'ACTIVE'
+          m.activated_at = confirmedAt
+        } else {
+          m.account_state = 'PENDING_INVITE'
+          m.activated_at = null
         }
       }
     }
@@ -148,6 +206,26 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
 
     if (error) return { error: `Erreur de création : ${error.message}` }
 
+    // SÉCURITÉ + UX : envoi automatique de l'invitation par email si demandé
+    // (par défaut OUI). Sans cette étape, le membre existe en DB mais ne peut
+    // pas se connecter (pas de compte auth.users). Le toggle est désactivable
+    // depuis le formulaire si on veut juste créer la fiche sans inviter
+    // (cas : membre ajouté en attente du mandat futur, etc.).
+    const sendInvitation = formData.get('send_invitation') !== 'false' // default true
+    let inviteWarning: string | null = null
+    if (sendInvitation && newMember) {
+      try {
+        const { sendMemberInvitation } = await import('@/lib/auth/actions')
+        const inviteResult = await sendMemberInvitation(newMember.id)
+        if ('error' in inviteResult) {
+          inviteWarning = inviteResult.error
+        }
+      } catch (err) {
+        console.error('Auto-invitation failed:', err)
+        inviteWarning = "L'invitation n'a pas pu être envoyée. Vous pourrez la renvoyer depuis la liste."
+      }
+    }
+
     // Assign instances if provided
     const instanceIds = formData.getAll('instance_ids') as string[]
     if (instanceIds.length > 0 && newMember) {
@@ -172,6 +250,13 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     }
 
     revalidatePath(ROUTES.MEMBRES)
+    if (inviteWarning) {
+      // Membre créé mais invitation a échoué — on le signale au gestionnaire
+      // pour qu'il puisse renvoyer manuellement
+      return { error: `Membre créé, mais : ${inviteWarning}` }
+    }
+    // Note : on ne renvoie pas d'erreur si tout s'est bien passé.
+    // La suite du code va return { success: true }
     return { success: true }
   } catch (err) {
     console.error('createMember error:', err)
@@ -368,67 +453,86 @@ export async function assignMemberToInstances(
   }
 }
 
-export async function sendMemberInvitation(memberId: string): Promise<ActionResult> {
+// Note : la fonction sendMemberInvitation a été déplacée dans
+// @/lib/auth/actions et envoie réellement un email via Supabase Auth
+// (avec custom SMTP Resend). Les composants doivent l'importer depuis
+// @/lib/auth/actions.
+
+// ─── Archive / désarchive d'un membre ────────────────────────────────────
+//
+// L'archivage est INDÉPENDANT du statut du mandat (ACTIF / SUSPENDU /
+// FIN_DE_MANDAT / DECEDE). Un membre archivé n'apparaît plus dans la
+// liste active mais reste consultable dans l'onglet Archives, et toutes
+// ses données (votes, présences, historique) sont conservées.
+
+export async function archiveMember(memberId: string): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
-    // M5: Rate limit invitations — max 5 per hour
-    const rateCheck = await checkRateLimit(supabase, user!.id, {
-      actionKey: 'send_member_invitation',
-      maxAttempts: 5,
-      windowMinutes: 60,
-    })
-    if (!rateCheck.allowed) return { error: rateCheck.error! }
-
     if (!memberId) return { error: 'ID du membre manquant' }
 
-    // Fetch member info
-    const { data: member, error: memberError } = await supabase
+    // Vérifier qu'on n'archive pas son propre compte (sécurité anti-lockout)
+    const { data: callerMember } = await supabase
       .from('members')
-      .select('id, email, role')
-      .eq('id', memberId)
-      .single()
-
-    if (memberError || !member) return { error: 'Membre introuvable' }
-
-    // Check for existing pending invitation
-    const { data: existing } = await supabase
-      .from('invitations')
       .select('id')
-      .eq('member_id', memberId)
-      .is('used_at', null)
-      .gt('expires_at', new Date().toISOString())
+      .eq('user_id', user!.id)
       .maybeSingle()
-
-    if (existing) {
-      return { error: 'Une invitation est déjà en cours pour ce membre' }
+    if (callerMember?.id === memberId) {
+      return { error: 'Vous ne pouvez pas archiver votre propre compte.' }
     }
 
-    // Create invitation record
-    const token = crypto.randomUUID()
-    const expiresAt = new Date()
-    expiresAt.setDate(expiresAt.getDate() + 7) // 7 days
+    // Refuser l'archivage si le membre occupe un rôle de bureau actif
+    const { data: bureauRoles } = await supabase
+      .from('instance_members')
+      .select('bureau_role, instance_config(nom)')
+      .eq('member_id', memberId)
+      .not('bureau_role', 'is', null)
 
-    const { error: inviteError } = await supabase
-      .from('invitations')
-      .insert({
-        email: member.email,
-        role: member.role,
-        member_id: memberId,
-        invited_by: user?.id ?? null,
-        token,
-        expires_at: expiresAt.toISOString(),
-      })
+    if (bureauRoles && bureauRoles.length > 0) {
+      const roles = bureauRoles
+        .map(r => `${r.bureau_role} de ${(r.instance_config as { nom: string } | null)?.nom || 'une instance'}`)
+        .join(', ')
+      return { error: `Ce membre occupe des rôles de bureau actifs : ${roles}. Désignez un remplaçant avant d'archiver.` }
+    }
 
-    if (inviteError) return { error: `Erreur de création d'invitation : ${inviteError.message}` }
+    const { error } = await supabase
+      .from('members')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ archived_at: new Date().toISOString() } as any)
+      .eq('id', memberId)
 
-    // Email sending will be implemented later with Resend
+    if (error) return { error: `Erreur d'archivage : ${error.message}` }
+
     revalidatePath(ROUTES.MEMBRES)
     return { success: true }
   } catch (err) {
-    console.error('sendMemberInvitation error:', err)
+    console.error('archiveMember error:', err)
+    return { error: 'Erreur inattendue lors de l\'archivage' }
+  }
+}
+
+export async function unarchiveMember(memberId: string): Promise<ActionResult> {
+  try {
+    const { user, supabase } = await getAuthenticatedUser()
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'gestionnaire'])
+    if (roleError) return { error: roleError }
+
+    if (!memberId) return { error: 'ID du membre manquant' }
+
+    const { error } = await supabase
+      .from('members')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ archived_at: null } as any)
+      .eq('id', memberId)
+
+    if (error) return { error: `Erreur de désarchivage : ${error.message}` }
+
+    revalidatePath(ROUTES.MEMBRES)
+    return { success: true }
+  } catch (err) {
+    console.error('unarchiveMember error:', err)
     return { error: 'Erreur inattendue' }
   }
 }

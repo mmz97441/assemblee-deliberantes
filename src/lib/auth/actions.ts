@@ -221,6 +221,102 @@ export async function sendInvitationAction(formData: FormData) {
 }
 
 // ============================================
+// INVITER UN MEMBRE EXISTANT (rattrapage / renvoi)
+// ============================================
+//
+// Pour les membres déjà créés en DB mais sans compte de connexion (user_id
+// NULL) ou dont le compte n'a pas été activé (email_confirmed_at NULL).
+// Idempotent : on peut l'appeler plusieurs fois pour relancer.
+//
+// Met à jour members.user_id automatiquement après création du compte
+// auth.users (sinon le membre serait orphelin).
+
+export async function sendMemberInvitation(memberId: string): Promise<
+  { success: true; message: string } | { error: string }
+> {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Non authentifié' }
+
+  // Vérifier le rôle (gestionnaire ou super_admin uniquement)
+  const { data: caller } = await supabase
+    .from('members')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (!caller || (caller.role !== 'super_admin' && caller.role !== 'gestionnaire')) {
+    return { error: 'Permission refusée' }
+  }
+
+  // Charger le membre cible
+  const { data: member } = await supabase
+    .from('members')
+    .select('id, prenom, nom, email, role, user_id')
+    .eq('id', memberId)
+    .maybeSingle()
+
+  if (!member) return { error: 'Membre introuvable' }
+  if (!member.email) return { error: 'Aucun email renseigné pour ce membre' }
+
+  const serviceClient = await createServiceRoleClient()
+
+  // Cas 1 : pas encore de compte auth → on en crée un via inviteUserByEmail
+  if (!member.user_id) {
+    const fullName = `${member.prenom} ${member.nom}`.trim()
+    const { data: invited, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
+      member.email,
+      {
+        data: {
+          full_name: fullName,
+          role: member.role,
+          invited_by: user.id,
+        },
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=${encodeURIComponent(ROUTES.INVITE_CONFIRM)}`,
+      }
+    )
+
+    if (inviteError) {
+      // Cas particulier : l'email correspond déjà à un compte auth.users
+      // (créé via une autre voie). On récupère ce compte et on le lie au membre.
+      if (inviteError.message.includes('already been registered')) {
+        const { data: existingUser } = await serviceClient.auth.admin.listUsers()
+        const found = existingUser?.users.find(u => u.email?.toLowerCase() === member.email.toLowerCase())
+        if (found) {
+          await serviceClient.from('members').update({ user_id: found.id }).eq('id', memberId)
+          // Renvoyer un mail d'invitation via resetPasswordForEmail (force la définition d'un mot de passe)
+          const { error: resetError } = await serviceClient.auth.resetPasswordForEmail(member.email, {
+            redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=${encodeURIComponent(ROUTES.INVITE_CONFIRM)}`,
+          })
+          if (resetError) return { error: `Compte trouvé mais email non envoyé : ${resetError.message}` }
+          revalidatePath(ROUTES.MEMBRES)
+          return { success: true, message: `Email d'activation renvoyé à ${member.email}` }
+        }
+      }
+      return { error: `Erreur d'invitation : ${inviteError.message}` }
+    }
+
+    if (invited?.user) {
+      // Lier le compte créé au membre
+      await serviceClient.from('members').update({ user_id: invited.user.id }).eq('id', memberId)
+    }
+
+    revalidatePath(ROUTES.MEMBRES)
+    return { success: true, message: `Invitation envoyée à ${member.email}` }
+  }
+
+  // Cas 2 : compte existe déjà mais peut-être pas activé → on relance via
+  // un lien de définition de mot de passe (resetPasswordForEmail fait ça
+  // proprement, l'utilisateur arrive sur /invite/confirm via /auth/confirm).
+  const { error: resetError } = await serviceClient.auth.resetPasswordForEmail(member.email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm?next=${encodeURIComponent(ROUTES.INVITE_CONFIRM)}`,
+  })
+  if (resetError) return { error: `Erreur de renvoi : ${resetError.message}` }
+
+  revalidatePath(ROUTES.MEMBRES)
+  return { success: true, message: `Email d'activation renvoyé à ${member.email}` }
+}
+
+// ============================================
 // MOT DE PASSE OUBLIÉ (demande de réinitialisation)
 // ============================================
 export async function requestPasswordReset(email: string) {

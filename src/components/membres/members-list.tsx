@@ -42,8 +42,9 @@ import { MemberFormDialog } from './member-form'
 import { MemberImportDialog } from './member-import'
 import { HelpTip } from '@/components/ui/help-tip'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
-import { toggleMemberStatus, sendMemberInvitation } from '@/lib/actions/members'
-import type { MemberWithInstances } from '@/lib/actions/members'
+import { toggleMemberStatus, archiveMember, unarchiveMember } from '@/lib/actions/members'
+import { sendMemberInvitation } from '@/lib/auth/actions'
+import type { MemberWithInstances, AccountState } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole, MemberStatut } from '@/lib/supabase/types'
 import {
   Plus,
@@ -57,7 +58,19 @@ import {
   FileSpreadsheet,
   LayoutGrid,
   List,
+  Archive,
+  ArchiveRestore,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Send,
 } from 'lucide-react'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 
 // --- Labels & colors ---
 
@@ -124,9 +137,29 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
     memberName: string
     memberEmail: string
   } | null>(null)
+  const [archiveConfirm, setArchiveConfirm] = useState<{
+    memberId: string
+    memberName: string
+  } | null>(null)
+  const [activeTab, setActiveTab] = useState<'actifs' | 'archives'>('actifs')
+
+  // Sépare les membres actifs (archived_at NULL) des archivés.
+  // L'archivage est INDÉPENDANT du statut du mandat.
+  const { activeMembers, archivedMembers } = useMemo(() => {
+    const active: MemberWithInstances[] = []
+    const archived: MemberWithInstances[] = []
+    for (const m of members) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((m as any).archived_at) archived.push(m)
+      else active.push(m)
+    }
+    return { activeMembers: active, archivedMembers: archived }
+  }, [members])
+
+  const sourceMembers = activeTab === 'actifs' ? activeMembers : archivedMembers
 
   const filteredMembers = useMemo(() => {
-    return members.filter(m => {
+    return sourceMembers.filter(m => {
       // Search filter
       if (search) {
         const q = search.toLowerCase()
@@ -140,7 +173,7 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
       if (statutFilter !== 'all' && m.statut !== statutFilter) return false
       return true
     })
-  }, [members, search, roleFilter, statutFilter])
+  }, [sourceMembers, search, roleFilter, statutFilter])
 
   function handleCreate() {
     setEditingMember(null)
@@ -200,9 +233,34 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
       if ('error' in result) {
         toast.error(result.error)
       } else {
-        toast.success('Invitation créée avec succès')
+        toast.success(result.message || 'Invitation envoyée')
         router.refresh()
       }
+      setInvitationConfirm(null)
+    })
+  }
+
+  function handleArchive(memberId: string) {
+    const member = members.find(m => m.id === memberId)
+    if (member) {
+      setArchiveConfirm({ memberId, memberName: `${member.prenom} ${member.nom}` })
+    }
+  }
+
+  function executeArchive(memberId: string) {
+    startTransition(async () => {
+      const result = await archiveMember(memberId)
+      if ('error' in result) toast.error(result.error)
+      else { toast.success('Membre archivé'); router.refresh() }
+      setArchiveConfirm(null)
+    })
+  }
+
+  function handleUnarchive(memberId: string) {
+    startTransition(async () => {
+      const result = await unarchiveMember(memberId)
+      if ('error' in result) toast.error(result.error)
+      else { toast.success('Membre désarchivé'); router.refresh() }
     })
   }
 
@@ -210,8 +268,48 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
     return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase()
   }
 
+  // ─── Helper rendering : badge état du compte connexion ─────────────
+  function AccountStateBadge({ state }: { state: AccountState | undefined }) {
+    if (!state || state === 'NO_ACCOUNT') {
+      return (
+        <Badge variant="outline" className="text-[10px] gap-1 border-slate-300 text-slate-600">
+          <AlertCircle className="h-3 w-3" /> Pas de compte
+        </Badge>
+      )
+    }
+    if (state === 'PENDING_INVITE') {
+      return (
+        <Badge variant="outline" className="text-[10px] gap-1 border-amber-300 text-amber-700 bg-amber-50">
+          <Clock className="h-3 w-3" /> En attente d&apos;activation
+        </Badge>
+      )
+    }
+    return (
+      <Badge variant="outline" className="text-[10px] gap-1 border-emerald-300 text-emerald-700 bg-emerald-50">
+        <CheckCircle2 className="h-3 w-3" /> Compte activé
+      </Badge>
+    )
+  }
+
   return (
     <div className="space-y-6">
+      {/* Onglets Actifs / Archives — l'archivage est indépendant du statut
+          du mandat. Un membre archivé reste consultable mais n'est plus
+          proposé pour les convocations. */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'actifs' | 'archives')}>
+        <TabsList>
+          <TabsTrigger value="actifs" className="min-h-[40px]">
+            Actifs ({activeMembers.length})
+          </TabsTrigger>
+          <TabsTrigger value="archives" className="min-h-[40px]">
+            <Archive className="h-3.5 w-3.5 mr-1.5" />
+            Archives ({archivedMembers.length})
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="actifs" className="mt-0" />
+        <TabsContent value="archives" className="mt-0" />
+      </Tabs>
+
       {/* Filters row */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -431,9 +529,12 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={STATUT_COLORS[statut]}>
-                        {STATUT_LABELS[statut]}
-                      </Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge variant="outline" className={STATUT_COLORS[statut]}>
+                          {STATUT_LABELS[statut]}
+                        </Badge>
+                        {activeTab === 'actifs' && <AccountStateBadge state={member.account_state} />}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -458,30 +559,60 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(member)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Modifier
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleSendInvitation(member.id)}>
-                              <Mail className="h-4 w-4 mr-2" />
-                              Envoyer une invitation
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {statut === 'ACTIF' ? (
-                              <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'SUSPENDU')}>
-                                <UserX className="h-4 w-4 mr-2" />
-                                Suspendre
+                            {/* Vue Archives : seul l'action « Désarchiver » est utile */}
+                            {activeTab === 'archives' ? (
+                              <DropdownMenuItem onClick={() => handleUnarchive(member.id)}>
+                                <ArchiveRestore className="h-4 w-4 mr-2" />
+                                Désarchiver
                               </DropdownMenuItem>
-                            ) : statut === 'SUSPENDU' ? (
-                              <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'ACTIF')}>
-                                <UserCheck className="h-4 w-4 mr-2" />
-                                Réactiver
-                              </DropdownMenuItem>
-                            ) : null}
-                            <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'FIN_DE_MANDAT')}>
-                              <UserX className="h-4 w-4 mr-2" />
-                              Fin de mandat
-                            </DropdownMenuItem>
+                            ) : (
+                              <>
+                                <DropdownMenuItem onClick={() => handleEdit(member)}>
+                                  <Pencil className="h-4 w-4 mr-2" />
+                                  Modifier
+                                </DropdownMenuItem>
+                                {/* Action invitation contextuelle selon l'état du compte */}
+                                {member.account_state === 'NO_ACCOUNT' && (
+                                  <DropdownMenuItem onClick={() => handleSendInvitation(member.id)}>
+                                    <Send className="h-4 w-4 mr-2 text-blue-600" />
+                                    Inviter à se connecter
+                                  </DropdownMenuItem>
+                                )}
+                                {member.account_state === 'PENDING_INVITE' && (
+                                  <DropdownMenuItem onClick={() => handleSendInvitation(member.id)}>
+                                    <Mail className="h-4 w-4 mr-2 text-amber-600" />
+                                    Renvoyer l&apos;invitation
+                                  </DropdownMenuItem>
+                                )}
+                                {member.account_state === 'ACTIVE' && (
+                                  <DropdownMenuItem onClick={() => handleSendInvitation(member.id)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Envoyer un lien de réinitialisation
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                {statut === 'ACTIF' ? (
+                                  <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'SUSPENDU')}>
+                                    <UserX className="h-4 w-4 mr-2" />
+                                    Suspendre
+                                  </DropdownMenuItem>
+                                ) : statut === 'SUSPENDU' ? (
+                                  <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'ACTIF')}>
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Réactiver
+                                  </DropdownMenuItem>
+                                ) : null}
+                                <DropdownMenuItem onClick={() => handleToggleStatus(member.id, 'FIN_DE_MANDAT')}>
+                                  <UserX className="h-4 w-4 mr-2" />
+                                  Fin de mandat
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleArchive(member.id)} className="text-amber-700 focus:text-amber-700">
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  Archiver
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -582,6 +713,39 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
             >
               <Mail className="h-4 w-4 mr-2" />
               Envoyer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive confirmation dialog */}
+      <AlertDialog open={!!archiveConfirm} onOpenChange={(open) => { if (!open) setArchiveConfirm(null) }}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="h-5 w-5 text-amber-600" />
+              Archiver ce membre ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {archiveConfirm && (
+                <>
+                  <strong>{archiveConfirm.memberName}</strong> sera retiré de la liste active
+                  et ne sera plus proposé pour les futures convocations. Toutes ses données
+                  (votes, présences, historique) sont conservées et restent consultables
+                  dans l&apos;onglet Archives. Vous pourrez le désarchiver à tout moment.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => archiveConfirm && executeArchive(archiveConfirm.memberId)}
+              disabled={isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Archiver
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
