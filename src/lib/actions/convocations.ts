@@ -55,7 +55,7 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
       .select(`
         *,
         instance_config (id, nom, type_legal),
-        odj_points!odj_points_seance_id_fkey (position, titre, type_traitement, note_synthese),
+        odj_points!odj_points_seance_id_fkey (position, titre, type_traitement, note_synthese, description, documents),
         convocataires (
           id,
           member_id,
@@ -110,17 +110,33 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    // Sort ODJ points
+    // Sort ODJ points + extraire description + documents (audit produit :
+    // les élus avaient besoin de voir le détail et les PJ depuis l'email)
     const odjPoints = (seance.odj_points || [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .sort((a: any, b: any) => a.position - b.position)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((p: any) => ({
-        position: p.position,
-        titre: p.titre,
-        type: p.type_traitement || 'DELIBERATION',
-        note_synthese: (p.note_synthese as string | null | undefined)?.trim() || null,
-      }))
+      .map((p: any) => {
+        // documents est un JSONB array — on garde uniquement nom + taille
+        // (pas les paths, qui sont des storage paths internes)
+        const rawDocs = Array.isArray(p.documents) ? p.documents : []
+        const documents = rawDocs
+          .filter((d: { name?: string }) => !!d?.name)
+          .map((d: { name?: string; size?: number; type?: string }) => ({
+            name: String(d.name),
+            size: typeof d.size === 'number' ? d.size : null,
+            type: d.type ? String(d.type) : null,
+          }))
+
+        return {
+          position: p.position,
+          titre: p.titre,
+          type: p.type_traitement || 'DELIBERATION',
+          description: (p.description as string | null | undefined)?.trim() || null,
+          note_synthese: (p.note_synthese as string | null | undefined)?.trim() || null,
+          documents,
+        }
+      })
 
     // Format date
     const dateObj = new Date(seance.date_seance)
@@ -181,7 +197,14 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
           .eq('id', conv.id)
       }
 
-      const confirmationUrl = `${appUrl}/convocation/confirmer?token=${token}`
+      // 2 actions distinctes depuis l'email : confirmer ou signaler absence.
+      // Une seule URL paramétrée par `action`, gérée par la même page de
+      // confirmation qui adapte son comportement.
+      const confirmationUrl = `${appUrl}/convocation/confirmer?token=${token}&action=present`
+      const absenceUrl = `${appUrl}/convocation/confirmer?token=${token}&action=absent`
+      // Lien vers la page séance dans l'app, où l'élu peut consulter et
+      // télécharger les documents de l'ODJ après authentification (RLS).
+      const seanceUrl = `${appUrl}/seances/${seance.id}`
       const qrCodeUrl = `${appUrl}/api/qr?data=${encodeURIComponent(tokenEmargement)}`
 
       const emailData = {
@@ -195,6 +218,8 @@ export async function sendConvocations(seanceId: string): Promise<SendConvocatio
         mode: seance.mode || 'PRESENTIEL',
         odjPoints,
         confirmationUrl,
+        absenceUrl,
+        seanceUrl,
         institutionNom: institutionNom,
         qrCodeUrl,
         presidentName,
@@ -349,6 +374,90 @@ export async function confirmPresence(token: string): Promise<
     }
   } catch (err) {
     console.error('confirmPresence error:', err)
+    return { error: 'Erreur inattendue' }
+  }
+}
+
+// ─── Signaler une absence depuis l'email de convocation ────────────────────
+//
+// CGCT L2121-12 / L2121-20 : permettre à l'élu de signaler son absence en
+// amont, ce qui aide le gestionnaire à anticiper les procurations.
+// Action publique (service role) — l'authentification se fait via le token
+// unique de la convocation (UUID v4, non énumérable).
+
+export async function signalAbsence(
+  token: string,
+  motif?: string
+): Promise<{ success: true; seanceTitre: string; memberNom: string } | { error: string }> {
+  try {
+    const supabase = await createServiceRoleClient()
+
+    // Rate limit identique à confirmPresence (anti brute-force token)
+    const tokenPrefix = token.substring(0, 8)
+    const { count: attempts } = await supabase
+      .from('rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('action_key', `signal_absence_${tokenPrefix}`)
+      .gte('created_at', new Date(Date.now() - 60 * 1000).toISOString())
+
+    if (attempts && attempts >= 10) {
+      return { error: 'Trop de tentatives. Veuillez réessayer dans une minute.' }
+    }
+
+    await supabase.from('rate_limits').insert({
+      action_key: `signal_absence_${tokenPrefix}`,
+      user_id: '00000000-0000-0000-0000-000000000000',
+    })
+
+    const { data: conv, error } = await supabase
+      .from('convocataires')
+      .select(`
+        id,
+        seance_id,
+        member_id,
+        statut_convocation,
+        member:members (prenom, nom),
+        seance:seances (titre, statut)
+      `)
+      .eq('token_confirmation', token)
+      .maybeSingle()
+
+    if (error || !conv) {
+      return { error: 'Lien de convocation invalide ou expiré' }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const seance = conv.seance as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const member = conv.member as any
+
+    if (seance?.statut === 'CLOTUREE' || seance?.statut === 'ARCHIVEE') {
+      return { error: 'Cette séance est déjà clôturée' }
+    }
+
+    // Tronquer le motif pour éviter abus (max 500 chars stockés)
+    const motifClean = motif?.trim().slice(0, 500) || null
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatePayload: any = {
+      statut_convocation: 'ABSENT_EXCUSE',
+      motif_absence: motifClean,
+    }
+
+    await supabase
+      .from('convocataires')
+      .update(updatePayload)
+      .eq('id', conv.id)
+
+    revalidatePath(`${ROUTES.SEANCES}/${conv.seance_id}`)
+
+    return {
+      success: true,
+      seanceTitre: seance?.titre || 'Séance',
+      memberNom: `${member?.prenom || ''} ${member?.nom || ''}`.trim(),
+    }
+  } catch (err) {
+    console.error('signalAbsence error:', err)
     return { error: 'Erreur inattendue' }
   }
 }

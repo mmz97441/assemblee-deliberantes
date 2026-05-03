@@ -5,6 +5,21 @@
  * et eviter une dependance supplementaire en Phase 1.
  */
 
+interface OdjDocument {
+  name: string
+  size: number | null
+  type: string | null
+}
+
+interface ConvocationOdjPoint {
+  position: number
+  titre: string
+  type: string
+  description?: string | null
+  note_synthese?: string | null
+  documents?: OdjDocument[]
+}
+
 interface ConvocationEmailData {
   prenomMembre: string
   nomMembre: string
@@ -14,11 +29,23 @@ interface ConvocationEmailData {
   heureSeance: string
   lieu: string | null
   mode: string
-  odjPoints: { position: number; titre: string; type: string; note_synthese?: string | null }[]
+  odjPoints: ConvocationOdjPoint[]
+  /** URL « Confirmer ma présence » — ?action=present */
   confirmationUrl: string
+  /** URL « Signaler mon absence » — ?action=absent */
+  absenceUrl?: string
+  /** URL vers la page séance dans l'app pour consulter docs et détails */
+  seanceUrl?: string
   institutionNom: string
-  qrCodeUrl?: string // URL de l'image QR code d'émargement
-  presidentName?: string // Nom du président qui convoque (CGCT L2121-10)
+  qrCodeUrl?: string
+  presidentName?: string
+}
+
+function formatFileSize(bytes: number | null): string {
+  if (!bytes || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
 }
 
 function formatMode(mode: string): string {
@@ -46,26 +73,66 @@ export function generateConvocationSubject(data: ConvocationEmailData): string {
 }
 
 export function generateConvocationHTML(data: ConvocationEmailData): string {
+  // ODJ détaillé : description sous chaque titre + liste des PJ par point
+  // (CTA « Consulter en ligne » vers la page séance pour télécharger les PJ
+  // — pas de signed URLs dans l'email pour des raisons de sécurité).
   const odjHTML = data.odjPoints.length > 0
     ? `
-      <table cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-        <thead>
-          <tr>
-            <th style="text-align: left; padding: 8px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; font-size: 13px; color: #475569;">N&deg;</th>
-            <th style="text-align: left; padding: 8px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; font-size: 13px; color: #475569;">Point</th>
-            <th style="text-align: left; padding: 8px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; font-size: 13px; color: #475569;">Type</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.odjPoints.map(p => `
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; text-align: center; width: 40px;">${p.position}</td>
-              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px;">${escapeHtml(p.titre)}</td>
-              <td style="padding: 8px 12px; border: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${formatType(p.type)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <div style="margin: 12px 0;">
+        ${data.odjPoints.map(p => {
+          const docsHTML = (p.documents && p.documents.length > 0)
+            ? `
+              <div style="margin: 10px 0 0; padding: 10px 12px; background: #f1f5f9; border-radius: 6px;">
+                <p style="margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #475569;">
+                  Pièces jointes (${p.documents.length})
+                </p>
+                ${p.documents.map(d => `
+                  <p style="margin: 2px 0; font-size: 13px; color: #1e293b;">
+                    📎 ${escapeHtml(d.name)}${d.size ? ` <span style="color: #94a3b8; font-size: 11px;">(${formatFileSize(d.size)})</span>` : ''}
+                  </p>
+                `).join('')}
+              </div>
+            `
+            : ''
+
+          const descHTML = (p.description && p.description.trim())
+            ? `
+              <p style="margin: 6px 0 0; font-size: 13px; color: #475569; line-height: 1.5; white-space: pre-wrap;">
+                ${escapeHtml(p.description.trim())}
+              </p>
+            `
+            : ''
+
+          return `
+            <div style="padding: 14px 16px; margin: 0 0 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
+              <table cellpadding="0" cellspacing="0" style="width: 100%;">
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; width: 32px; vertical-align: top; padding-top: 2px;">
+                    ${p.position}.
+                  </td>
+                  <td>
+                    <p style="margin: 0; font-size: 14px; font-weight: 600; color: #1e293b;">
+                      ${escapeHtml(p.titre)}
+                    </p>
+                    <p style="margin: 2px 0 0; font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px;">
+                      ${formatType(p.type)}
+                    </p>
+                    ${descHTML}
+                    ${docsHTML}
+                  </td>
+                </tr>
+              </table>
+            </div>
+          `
+        }).join('')}
+      </div>
+      ${data.seanceUrl ? `
+        <p style="margin: 8px 0 0; text-align: center;">
+          <a href="${data.seanceUrl}" style="font-size: 13px; color: #1e3a5f; text-decoration: underline;">
+            Consulter le détail et télécharger les documents en ligne
+          </a>
+        </p>
+      ` : ''}
     `
     : '<p style="color: #64748b; font-style: italic;">L\'ordre du jour sera communiqué ultérieurement.</p>'
 
@@ -161,14 +228,23 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
         ${odjHTML}
         ${notesSyntheseHTML}
 
-        <!-- CTA -->
-        <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 28px 0 16px;">
+        <!-- CTA : 2 boutons côte-à-côte (Présent vert / Absent gris) -->
+        <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 28px 0 8px;">
           <tr>
             <td style="text-align: center;">
+              <p style="margin: 0 0 14px; font-size: 14px; color: #475569;">
+                Merci de répondre à cette convocation :
+              </p>
               <a href="${data.confirmationUrl}"
-                 style="display: inline-block; padding: 12px 32px; background: #1e3a5f; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600;">
-                Confirmer ma présence
+                 style="display: inline-block; padding: 12px 28px; background: #1e3a5f; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 15px; font-weight: 600; margin: 4px 6px;">
+                ✓ Je serai présent(e)
               </a>
+              ${data.absenceUrl ? `
+                <a href="${data.absenceUrl}"
+                   style="display: inline-block; padding: 12px 28px; background: #ffffff; color: #475569; text-decoration: none; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 15px; font-weight: 600; margin: 4px 6px;">
+                  ✗ Je serai absent(e)
+                </a>
+              ` : ''}
             </td>
           </tr>
         </table>
@@ -191,9 +267,9 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
         </table>
         ` : ''}
 
-        <p style="margin: 16px 0 0; font-size: 13px; color: #94a3b8; text-align: center;">
-          Si vous ne pouvez pas assister à cette séance, veuillez en informer le secrétariat
-          dans les meilleurs délais.
+        <p style="margin: 16px 0 0; font-size: 12px; color: #94a3b8; text-align: center;">
+          Pour donner procuration à un autre élu, contactez le secrétariat
+          de votre institution (CGCT L2121-20).
         </p>
       </td>
     </tr>
