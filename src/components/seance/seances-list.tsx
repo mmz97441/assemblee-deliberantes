@@ -868,12 +868,19 @@ function SeancesTable({
             <TableHead className="w-[140px]">
               <SortableHeader label="Date" sortKey="date" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('date')} />
             </TableHead>
-            <TableHead className="w-[200px]">
-              <SortableHeader label="Convocations" sortKey="convocations" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('convocations')} />
-            </TableHead>
-            <TableHead className="w-[140px]">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quorum</span>
-            </TableHead>
+            {/* Colonnes Convocations + Quorum réservées aux 4 rôles privilégiés
+                (super_admin, gestionnaire, dgs, directeur_cabinet).
+                Élu/préparateur/président/secrétaire ne voient pas ces colonnes. */}
+            {canManage && (
+              <>
+                <TableHead className="w-[200px]">
+                  <SortableHeader label="Convocations" sortKey="convocations" currentKey={sortKey} currentDir={sortDir} onClick={() => onSort('convocations')} />
+                </TableHead>
+                <TableHead className="w-[140px]">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quorum</span>
+                </TableHead>
+              </>
+            )}
             <TableHead className="w-[60px] pr-3" aria-label="Actions" />
           </TableRow>
         </TableHeader>
@@ -955,20 +962,22 @@ function SeancesTable({
                   </div>
                 </TableCell>
 
-                {/* Convocations progress bar */}
-                <TableCell>
-                  <ConvocationProgressBar
-                    total={seance._count_convocataires}
-                    sent={seance._convocations_sent || 0}
-                    confirmed={seance._convocations_confirmed || 0}
-                    errored={seance._convocations_errored || 0}
-                  />
-                </TableCell>
-
-                {/* Quorum */}
-                <TableCell>
-                  <QuorumCell seance={seance} />
-                </TableCell>
+                {/* Convocations + Quorum : visibles uniquement aux privilégiés */}
+                {canManage && (
+                  <>
+                    <TableCell>
+                      <ConvocationProgressBar
+                        total={seance._count_convocataires}
+                        sent={seance._convocations_sent || 0}
+                        confirmed={seance._convocations_confirmed || 0}
+                        errored={seance._convocations_errored || 0}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <QuorumCell seance={seance} />
+                    </TableCell>
+                  </>
+                )}
 
                 {/* Actions */}
                 <TableCell className="pr-3" onClick={e => e.stopPropagation()}>

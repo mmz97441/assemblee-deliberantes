@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   HelpCircle,
+  History,
 } from 'lucide-react'
 import { useState } from 'react'
 import { logoutAction } from '@/lib/auth/actions'
@@ -40,7 +41,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Séances', href: ROUTES.SEANCES, icon: CalendarDays },
   { label: 'Membres', href: ROUTES.MEMBRES, icon: Users },
   { label: 'Délibérations', href: ROUTES.DELIBERATIONS, icon: FileText },
-  { label: 'Configuration', href: ROUTES.CONFIGURATION, icon: Settings, roles: ['super_admin'] },
+  // Historique : visible aux 4 rôles privilégiés (la page elle-même bloque
+  // l'accès aux autres rôles via redirect serveur).
+  { label: 'Historique', href: '/historique', icon: History, roles: ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'] },
+  { label: 'Configuration', href: ROUTES.CONFIGURATION, icon: Settings, roles: ['super_admin', 'dgs', 'directeur_cabinet'] },
 ]
 
 interface AppSidebarProps {
