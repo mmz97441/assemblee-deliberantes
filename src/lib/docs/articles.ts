@@ -94,7 +94,296 @@ const BUREAU: UserRole[] = ['president', 'secretaire_seance']
 export const ARTICLES: DocArticle[] = [
 
   // ═══════════════════════════════════════════════════════════════════
-  // PREMIERS PAS
+  // GUIDES PAR RÔLE — un guide complet par profil, visible UNIQUEMENT
+  // au membre de ce profil. Premier réflexe à conseiller à la connexion.
+  // ═══════════════════════════════════════════════════════════════════
+
+  {
+    id: 'guide-super-admin',
+    title: 'Votre rôle — Super-administrateur',
+    summary: 'Tour complet de vos pouvoirs et responsabilités',
+    category: 'premiers-pas',
+    roles: ['super_admin'],
+    keywords: ['super admin', 'role', 'pouvoirs', 'responsabilités', 'guide'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que super-administrateur, vous avez les pouvoirs techniques les plus étendus de l\'application. Vous êtes responsable de la sécurité, de la conformité RGPD, et de la gestion des autres super-administrateurs.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire (que les autres ne peuvent pas)' },
+      { type: 'list', items: [
+        'Inviter d\'autres super-administrateurs',
+        'Modifier le toggle « QR strict » (impact CGCT direct)',
+        'Anonymiser une entrée d\'audit log dans le cadre RGPD',
+        'Consulter la table audit_log_redactions (trace des anonymisations)',
+        'Modifier le rôle d\'un autre super-administrateur',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous partagez avec les DGS / Dir cabinet' },
+      { type: 'list', items: [
+        'Lecture totale de toute l\'activité (séances, votes, PV, audit)',
+        'Préparation de l\'ordre du jour, ajout de pièces jointes',
+        'Envoi de convocations, gestion des relances',
+        'Configuration de l\'institution (instances, quorum, templates)',
+        'Signature des PV',
+        'Gestion des membres (invitation, archivage, modification)',
+      ] },
+      { type: 'heading', level: 2, text: 'Vos premières actions recommandées' },
+      { type: 'steps', items: [
+        { title: 'Vérifier la configuration de l\'institution', details: '/configuration → onglet Assistant. S\'assurer que le nom officiel, le SIREN et le type d\'institution sont corrects.' },
+        { title: 'Créer les instances délibérantes', details: 'CM, CAO, commissions… Définir leur composition et leur quorum.' },
+        { title: 'Inviter les premiers membres', details: '/membres → Ajouter un membre. Le DGS et les Directeurs de cabinet peuvent ensuite vous aider à inviter le reste.' },
+        { title: 'Configurer les templates email Supabase', details: 'Voir avec votre prestataire technique pour personnaliser les 5 templates (invitation, reset password, etc.).' },
+      ] },
+      { type: 'warning', text: 'Tout ce que vous faites est tracé dans l\'audit log — y compris les anonymisations RGPD que vous effectuez. Personne (pas même vous) ne peut modifier ces traces a posteriori.' },
+    ],
+  },
+
+  {
+    id: 'guide-dgs',
+    title: 'Votre rôle — DGS (Directeur Général des Services)',
+    summary: 'Vue complète de l\'activité, gestion opérationnelle des dossiers',
+    category: 'premiers-pas',
+    roles: ['dgs'],
+    keywords: ['dgs', 'directeur général', 'services', 'role', 'pouvoirs', 'guide'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que Directeur Général des Services, vous avez une visibilité complète sur l\'activité de l\'institution et vous pouvez agir sur l\'essentiel des opérations. Votre rôle est de garantir le bon fonctionnement administratif des séances délibérantes.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Lecture totale de toute l\'activité : séances, ODJ, votes, PV, présences, audit log',
+        '✅ Préparer/modifier l\'ordre du jour, ajouter et retirer des pièces jointes',
+        '✅ Envoyer les convocations, suivre les statuts, relancer un membre individuellement',
+        '✅ Voir les statistiques détaillées : taux de participation, prévision de quorum chiffrée',
+        '✅ Modifier la configuration de l\'institution (instances, règles de quorum, templates)',
+        '✅ Inviter, modifier, archiver des membres (sauf super-administrateurs)',
+        '✅ Signer un procès-verbal aux côtés du président',
+        '✅ Consulter l\'historique des modifications (audit log) avec recherche et export CSV',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Inviter ou modifier un super-administrateur',
+        '❌ Activer/désactiver le toggle « QR strict » (réservé super_admin)',
+        '❌ Anonymiser une entrée d\'audit log RGPD (réservé super_admin)',
+      ] },
+      { type: 'heading', level: 2, text: 'Vos écrans clés au quotidien' },
+      { type: 'list', items: [
+        '/dashboard — Vue d\'ensemble de toute l\'activité avec stats détaillées',
+        '/seances — Liste des séances actives + colonnes Convocations + Quorum prévisionnel',
+        '/historique — Mouchard append-only de toutes les modifications avec filtres',
+        '/configuration — Paramétrage institution + instances',
+      ] },
+      { type: 'tip', text: 'Vous voyez tout ce qu\'un gestionnaire voit — et plus encore (configuration). Vous êtes la « courroie de transmission » entre le politique (élus, président) et l\'administratif (gestionnaires, secrétariat).' },
+    ],
+  },
+
+  {
+    id: 'guide-directeur-cabinet',
+    title: 'Votre rôle — Directeur de cabinet',
+    summary: 'Vue complète, préparation stratégique des dossiers',
+    category: 'premiers-pas',
+    roles: ['directeur_cabinet'],
+    keywords: ['directeur cabinet', 'role', 'pouvoirs', 'guide', 'cab', 'collaborateur'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que Directeur de cabinet, vous êtes le collaborateur politique du chef de l\'exécutif (maire, président). Vous avez une visibilité complète sur l\'activité institutionnelle et préparez les dossiers stratégiques.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Lecture totale de toute l\'activité : séances, ODJ, votes, PV (y compris brouillons), présences, audit log',
+        '✅ Préparer/modifier l\'ordre du jour, ajouter et retirer des pièces jointes',
+        '✅ Envoyer les convocations, suivre les statuts, relancer un membre individuellement',
+        '✅ Voir les statistiques détaillées : taux de participation, prévision de quorum chiffrée',
+        '✅ Modifier la configuration de l\'institution',
+        '✅ Inviter, modifier, archiver des membres (sauf super-administrateurs et DGS)',
+        '✅ Signer un procès-verbal aux côtés du président',
+        '✅ Consulter l\'historique des modifications (audit log) avec recherche et export CSV',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Inviter ou modifier un super-administrateur ou un DGS',
+        '❌ Activer/désactiver le toggle « QR strict » (réservé super_admin)',
+        '❌ Anonymiser une entrée d\'audit log RGPD (réservé super_admin)',
+      ] },
+      { type: 'heading', level: 2, text: 'Différence DGS / Directeur de cabinet' },
+      { type: 'paragraph', text: 'Vos rôles ont les mêmes fonctionnalités sur l\'application. La différence est institutionnelle : le DGS est le chef de l\'administration (long terme, technique), le Directeur de cabinet est un collaborateur politique du chef de l\'exécutif (stratégique, court terme). En pratique, vous êtes complémentaires.' },
+      { type: 'tip', text: 'Utilisez la page /historique pour suivre qui a modifié quoi et quand — utile pour préparer un brief synthétique au maire/président.' },
+    ],
+  },
+
+  {
+    id: 'guide-gestionnaire',
+    title: 'Votre rôle — Gestionnaire',
+    summary: 'Vous orchestrez les séances de A à Z',
+    category: 'premiers-pas',
+    roles: ['gestionnaire'],
+    keywords: ['gestionnaire', 'secrétariat', 'role', 'pouvoirs', 'guide', 'opérationnel'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que gestionnaire (typiquement un agent du secrétariat administratif), vous êtes le maître d\'œuvre de la mécanique des séances. Vous préparez, convoquez, conduisez et clôturez. C\'est vous que les élus appellent quand ils ont une question.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Créer une séance (date, lieu, instance, mode)',
+        '✅ Préparer l\'ordre du jour avec descriptions et pièces jointes',
+        '✅ Sélectionner les convocataires et envoyer les convocations',
+        '✅ Suivre le taux de confirmation, relancer individuellement',
+        '✅ Voir les statistiques détaillées et la prévision de quorum chiffrée',
+        '✅ Conduire la séance en direct (ouvrir/clôturer les votes, saisir les compteurs main levée)',
+        '✅ Émarger physiquement les présents (page Émargement)',
+        '✅ Générer les procès-verbaux',
+        '✅ Inviter, modifier, archiver des membres opérationnels (élus, préparateurs, secrétaires de séance)',
+        '✅ Consulter l\'historique des modifications (audit log)',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Modifier la configuration de l\'institution (instances, quorum) — réservé direction',
+        '❌ Inviter un super_admin / DGS / Directeur de cabinet',
+        '❌ Signer un procès-verbal (réservé président + secrétaire de séance)',
+      ] },
+      { type: 'heading', level: 2, text: 'Votre journée type' },
+      { type: 'steps', items: [
+        { title: 'Matin : préparer la prochaine séance', details: 'Compléter ODJ, charger les PJ, vérifier que le président + secrétaire de séance sont désignés.' },
+        { title: 'Envoyer les convocations 5+ jours avant', details: 'Cliquer « Envoyer les convocations » sur la page séance. Suivre le taux de réponse.' },
+        { title: 'Veille : relancer les non-répondus', details: 'Filtrer le tableau convocataires sur statut = ENVOYE (pas confirmé). Renvoyer individuellement avec motif.' },
+        { title: 'Jour J : émargement à l\'entrée', details: 'Ouvrir /seances/[id]/emargement sur une tablette à la table d\'entrée. Scanner les QR codes.' },
+        { title: 'En séance : conducteur', details: 'Ouvrir /seances/[id]/en-cours. Ouvrir les votes, saisir les résultats.' },
+        { title: 'Après séance : générer le PV brouillon', details: 'Le secrétaire de séance complète puis transmet au président pour signature.' },
+      ] },
+    ],
+  },
+
+  {
+    id: 'guide-president',
+    title: 'Votre rôle — Président de séance',
+    summary: 'Vous présidez, validez les votes et signez les PV',
+    category: 'premiers-pas',
+    roles: ['president'],
+    keywords: ['president', 'présider', 'role', 'pouvoirs', 'guide', 'signer'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que président de séance, vous êtes le garant du bon déroulement de la séance et de la régularité de ses décisions. Vous signez les actes officiels.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Consulter toute la liste des séances et leur détail',
+        '✅ Voir la liste des présents/absents/excusés en temps réel',
+        '✅ Voir les procurations enregistrées',
+        '✅ Relire les brouillons de PV avant signature',
+        '✅ Signer électroniquement le PV',
+        '✅ Présider la séance via votre tablette dédiée (/seances/[id]/president)',
+        '✅ Ouvrir/clôturer les huis clos sur un point précis',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Voir les statistiques détaillées de convocation (envoyées/erreurs/quorum chiffré) — c\'est le rôle du gestionnaire, pas le vôtre',
+        '❌ Modifier les ODJ, envoyer des convocations',
+        '❌ Inviter/modifier des membres',
+      ] },
+      { type: 'heading', level: 2, text: 'Vos écrans clés' },
+      { type: 'list', items: [
+        '/seances/[id] — Détail d\'une séance',
+        '/seances/[id]/president — Tablette président pour conduire la séance',
+        '/seances/[id]/grande-scene — Vue vidéoprojecteur (résultats des votes en grand)',
+        '/seances/[id]/pv — Lecture et signature des PV',
+      ] },
+      { type: 'legal', text: 'Le procès-verbal doit porter votre signature et celle du secrétaire de séance pour avoir valeur officielle.', reference: 'CGCT L2121-15' },
+    ],
+  },
+
+  {
+    id: 'guide-secretaire-seance',
+    title: 'Votre rôle — Secrétaire de séance',
+    summary: 'Vous tenez les notes et préparez le procès-verbal',
+    category: 'premiers-pas',
+    roles: ['secretaire_seance'],
+    keywords: ['secrétaire', 'séance', 'role', 'pouvoirs', 'guide', 'pv', 'notes'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que secrétaire de séance, vous êtes désigné(e) au début de chaque séance pour tenir les notes et préparer le procès-verbal qui sera signé conjointement avec le président.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Voir les présents/absents/excusés et procurations',
+        '✅ Tenir les notes pendant la séance (page grande scène + notes manuscrites)',
+        '✅ Émarger les arrivées tardives manuellement',
+        '✅ Préparer et modifier le brouillon de PV',
+        '✅ Lancer la phase de relecture (notification aux membres concernés)',
+        '✅ Signer électroniquement le PV',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Voir les statistiques détaillées de convocation',
+        '❌ Modifier les ODJ ou envoyer les convocations',
+        '❌ Inviter/modifier des membres',
+        '❌ Conduire la séance (rôle du gestionnaire/président)',
+      ] },
+      { type: 'heading', level: 2, text: 'Votre rôle précis dans le cycle PV' },
+      { type: 'steps', items: [
+        { title: 'Pendant la séance', details: 'Prendre des notes manuscrites en parallèle des votes enregistrés par le système.' },
+        { title: 'Après la séance', details: 'Le système génère un brouillon automatique avec présents, votes et formules légales. Vous le complétez avec vos notes.' },
+        { title: 'Mise en relecture', details: 'Vous partagez le brouillon avec le président et le bureau. Les commentaires sont consignés.' },
+        { title: 'Signature', details: 'Une fois validé, vous signez. Le président signe à son tour. Le PV devient SIGNÉ et immuable.' },
+      ] },
+    ],
+  },
+
+  {
+    id: 'guide-elu',
+    title: 'Votre rôle — Élu / Membre votant',
+    summary: 'Vous participez aux séances et votez',
+    category: 'premiers-pas',
+    roles: ['elu'],
+    keywords: ['élu', 'membre', 'votant', 'role', 'guide', 'voter', 'participer'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant qu\'élu, vous participez aux séances délibérantes : vous recevez les convocations, étudiez les dossiers, votez et consultez les procès-verbaux. Le système est conçu pour être très simple à utiliser pour vous.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Recevoir les convocations par email avec ODJ + pièces jointes',
+        '✅ Confirmer votre présence ou signaler votre absence en 1 clic',
+        '✅ Émarger à l\'entrée de la séance avec votre QR code personnel',
+        '✅ Voter en séance (main levée, secret, nominal)',
+        '✅ Consulter les procès-verbaux publiés des séances précédentes',
+        '✅ Consulter les délibérations adoptées',
+        '✅ Voir l\'annuaire des autres membres (nom, qualité, photo) — sans leurs coordonnées personnelles',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE voyez PAS (volontairement)' },
+      { type: 'list', items: [
+        '❌ Les statistiques de convocations des autres membres (qui a confirmé/pas confirmé)',
+        '❌ La prévision de quorum chiffrée (info opérationnelle réservée au gestionnaire)',
+        '❌ Les coordonnées personnelles des autres membres (RGPD)',
+        '❌ Les procès-verbaux en cours de rédaction (brouillons réservés au bureau)',
+        '❌ L\'historique des modifications (audit log)',
+      ] },
+      { type: 'tip', text: 'Si vous avez une question urgente sur un point ODJ, contactez votre secrétariat. Vous pouvez aussi donner procuration à un autre élu si vous ne pouvez pas être présent — voir l\'article « Procurations » dans cette aide.' },
+    ],
+  },
+
+  {
+    id: 'guide-preparateur',
+    title: 'Votre rôle — Préparateur',
+    summary: 'Vous aidez à préparer les dossiers en amont',
+    category: 'premiers-pas',
+    roles: ['preparateur'],
+    keywords: ['préparateur', 'role', 'guide', 'préparation', 'dossiers'],
+    icon: 'Shield',
+    blocks: [
+      { type: 'paragraph', text: 'En tant que préparateur, vous aidez à monter les dossiers de séance en amont. Votre rôle est exclusivement préparatoire — vous ne participez pas aux séances elles-mêmes.' },
+      { type: 'heading', level: 2, text: 'Ce que vous pouvez faire' },
+      { type: 'list', items: [
+        '✅ Consulter les séances à venir et leur ODJ',
+        '✅ Voir les pièces jointes téléchargées',
+        '✅ Consulter les délibérations publiées',
+        '✅ Voir l\'annuaire basique des membres (sans coordonnées)',
+      ] },
+      { type: 'heading', level: 2, text: 'Ce que vous NE pouvez PAS faire' },
+      { type: 'list', items: [
+        '❌ Modifier les ODJ (le gestionnaire le fait pour vous)',
+        '❌ Voir les votes ou résultats',
+        '❌ Voir les présences ou les statistiques',
+        '❌ Voir les procès-verbaux (sauf publiés)',
+        '❌ Accéder à la configuration ou aux membres en édition',
+      ] },
+      { type: 'tip', text: 'Si vous avez besoin de droits supplémentaires pour préparer un dossier, demandez à votre gestionnaire de vous transmettre temporairement le rôle « Secrétaire de séance » sur la séance concernée.' },
+    ],
+  },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // PREMIERS PAS — articles transverses tous rôles
   // ═══════════════════════════════════════════════════════════════════
 
   {
