@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import NextLink from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,8 @@ import type { UserRole } from '@/lib/supabase/types'
 import {
   Search,
   X,
+  ChevronRight,
+  ExternalLink,
   Lightbulb,
   AlertTriangle,
   CheckCircle2,
@@ -173,7 +176,13 @@ export function DocsExplorer({ userRole }: DocsExplorerProps) {
       {/* Article sélectionné */}
       <article className="min-w-0">
         {selectedArticle ? (
-          <ArticleView article={selectedArticle} userRole={userRole} highlight={query} />
+          <ArticleView
+            article={selectedArticle}
+            userRole={userRole}
+            highlight={query}
+            allArticles={articlesForRole}
+            onSelectArticle={setSelectedId}
+          />
         ) : (
           <div className="rounded-xl border border-dashed bg-card/50 p-12 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground/40 mx-auto mb-3" />
@@ -189,7 +198,19 @@ export function DocsExplorer({ userRole }: DocsExplorerProps) {
 
 // ─── Vue d'un article ───────────────────────────────────────────────────────
 
-function ArticleView({ article, userRole, highlight }: { article: DocArticle; userRole: UserRole | null; highlight?: string }) {
+function ArticleView({
+  article,
+  userRole,
+  highlight,
+  allArticles,
+  onSelectArticle,
+}: {
+  article: DocArticle
+  userRole: UserRole | null
+  highlight?: string
+  allArticles: DocArticle[]
+  onSelectArticle: (id: string) => void
+}) {
   const Icon = article.icon ? ICON_MAP[article.icon] : null
 
   return (
@@ -235,7 +256,13 @@ function ArticleView({ article, userRole, highlight }: { article: DocArticle; us
       {/* Contenu */}
       <div className="space-y-4 text-sm leading-relaxed">
         {article.blocks.map((block, i) => (
-          <BlockView key={i} block={block} highlight={highlight} />
+          <BlockView
+            key={i}
+            block={block}
+            highlight={highlight}
+            allArticles={allArticles}
+            onSelectArticle={onSelectArticle}
+          />
         ))}
       </div>
     </div>
@@ -244,33 +271,38 @@ function ArticleView({ article, userRole, highlight }: { article: DocArticle; us
 
 // ─── Rendu d'un bloc de contenu ─────────────────────────────────────────────
 
-function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }) {
+function BlockView({
+  block,
+  highlight,
+  allArticles,
+  onSelectArticle,
+}: {
+  block: DocBlock
+  highlight?: string
+  allArticles: DocArticle[]
+  onSelectArticle: (id: string) => void
+}) {
+  // Helper local pour ne pas répéter les props
+  const Rich = ({ text }: { text: string }) => (
+    <RichText text={text} highlight={highlight} onSelectArticle={onSelectArticle} />
+  )
+
   switch (block.type) {
     case 'paragraph':
-      return (
-        <p className="text-foreground/80">
-          <Highlight text={block.text} term={highlight} />
-        </p>
-      )
+      return <p className="text-foreground/80"><Rich text={block.text} /></p>
 
     case 'heading':
       return block.level === 2 ? (
-        <h2 className="text-lg font-semibold text-foreground mt-6 first:mt-0">
-          <Highlight text={block.text} term={highlight} />
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground mt-6 first:mt-0"><Rich text={block.text} /></h2>
       ) : (
-        <h3 className="text-base font-semibold text-foreground mt-4">
-          <Highlight text={block.text} term={highlight} />
-        </h3>
+        <h3 className="text-base font-semibold text-foreground mt-4"><Rich text={block.text} /></h3>
       )
 
     case 'list':
       return (
         <ul className={`space-y-1.5 ml-5 ${block.ordered ? 'list-decimal' : 'list-disc'} marker:text-muted-foreground/60`}>
           {block.items.map((it, i) => (
-            <li key={i} className="text-foreground/80">
-              <Highlight text={it} term={highlight} />
-            </li>
+            <li key={i} className="text-foreground/80"><Rich text={it} /></li>
           ))}
         </ul>
       )
@@ -284,13 +316,9 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
                 {i + 1}
               </span>
               <div className="flex-1 pt-0.5">
-                <p className="font-medium text-foreground">
-                  <Highlight text={step.title} term={highlight} />
-                </p>
+                <p className="font-medium text-foreground"><Rich text={step.title} /></p>
                 {step.details && (
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    <Highlight text={step.details} term={highlight} />
-                  </p>
+                  <p className="text-sm text-muted-foreground mt-0.5"><Rich text={step.details} /></p>
                 )}
               </div>
             </li>
@@ -302,9 +330,7 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
       return (
         <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 flex items-start gap-2.5">
           <Lightbulb className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
-          <p className="text-sm text-blue-900">
-            <Highlight text={block.text} term={highlight} />
-          </p>
+          <p className="text-sm text-blue-900"><Rich text={block.text} /></p>
         </div>
       )
 
@@ -312,9 +338,7 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
       return (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
-          <p className="text-sm text-amber-900">
-            <Highlight text={block.text} term={highlight} />
-          </p>
+          <p className="text-sm text-amber-900"><Rich text={block.text} /></p>
         </div>
       )
 
@@ -322,9 +346,7 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
       return (
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-start gap-2.5">
           <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-          <p className="text-sm text-emerald-900">
-            <Highlight text={block.text} term={highlight} />
-          </p>
+          <p className="text-sm text-emerald-900"><Rich text={block.text} /></p>
         </div>
       )
 
@@ -333,9 +355,7 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
         <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-start gap-2.5">
           <Scale className="h-4 w-4 mt-0.5 shrink-0 text-slate-600" />
           <div className="flex-1">
-            <p className="text-sm text-slate-800">
-              <Highlight text={block.text} term={highlight} />
-            </p>
+            <p className="text-sm text-slate-800"><Rich text={block.text} /></p>
             {block.reference && (
               <p className="text-[11px] uppercase tracking-wider text-slate-500 mt-1 font-mono">
                 {block.reference}
@@ -352,14 +372,137 @@ function BlockView({ block, highlight }: { block: DocBlock; highlight?: string }
             <Highlight text={block.term} term={highlight} />
           </dt>
           <dd className="text-sm text-muted-foreground inline ml-2">
-            — <Highlight text={block.definition} term={highlight} />
+            — <Rich text={block.definition} />
           </dd>
         </div>
       )
 
+    case 'related': {
+      // Ne montrer que les articles qui existent ET sont visibles à l'utilisateur
+      const links = block.articleIds
+        .map(id => allArticles.find(a => a.id === id))
+        .filter((a): a is DocArticle => !!a)
+      if (links.length === 0) return null
+      return (
+        <div className="rounded-lg border bg-muted/30 p-4 mt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            À lire aussi
+          </h3>
+          <ul className="space-y-2">
+            {links.map(a => {
+              const Icon = a.icon ? ICON_MAP[a.icon] : ChevronRight
+              return (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectArticle(a.id)}
+                    className="w-full text-left flex items-start gap-2.5 p-2 rounded-md hover:bg-card transition-colors group"
+                  >
+                    <Icon className="h-4 w-4 mt-0.5 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                        {a.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{a.summary}</p>
+                    </div>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )
+    }
+
     default:
       return null
   }
+}
+
+// ─── RichText : parse les liens markdown + highlight matches ────────────────
+//
+// Syntaxe :
+//   [Texte](article:id-article)  → lien interne vers un autre article
+//   [Texte](/path/in/app)        → lien Next.js vers une page de l'app
+//   [Texte](https://...)         → lien externe (nouvel onglet)
+
+function RichText({
+  text,
+  highlight,
+  onSelectArticle,
+}: {
+  text: string
+  highlight?: string
+  onSelectArticle: (id: string) => void
+}) {
+  // Regex non-greedy : capte chaque [texte](cible)
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  let key = 0
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    // Texte avant le lien (avec highlight des matches de recherche)
+    if (match.index > lastIndex) {
+      const before = text.slice(lastIndex, match.index)
+      parts.push(<Highlight key={`t-${key++}`} text={before} term={highlight} />)
+    }
+
+    const [, linkText, target] = match
+
+    if (target.startsWith('article:')) {
+      // Lien interne vers un autre article
+      const articleId = target.slice('article:'.length)
+      parts.push(
+        <button
+          key={`l-${key++}`}
+          type="button"
+          onClick={() => onSelectArticle(articleId)}
+          className="text-primary underline-offset-2 hover:underline font-medium"
+        >
+          <Highlight text={linkText} term={highlight} />
+        </button>
+      )
+    } else if (target.startsWith('/')) {
+      // Lien interne vers une page de l'app (navigation Next.js)
+      parts.push(
+        <NextLink
+          key={`l-${key++}`}
+          href={target}
+          className="text-primary underline underline-offset-2 hover:no-underline font-medium"
+        >
+          <Highlight text={linkText} term={highlight} />
+        </NextLink>
+      )
+    } else if (target.startsWith('http://') || target.startsWith('https://')) {
+      // Lien externe (nouvel onglet, sécurité noopener)
+      parts.push(
+        <a
+          key={`l-${key++}`}
+          href={target}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2 hover:no-underline font-medium inline-flex items-center gap-0.5"
+        >
+          <Highlight text={linkText} term={highlight} />
+          <ExternalLink className="h-3 w-3 inline" />
+        </a>
+      )
+    } else {
+      // Cible non reconnue → on rend en texte simple (fail-safe)
+      parts.push(<Highlight key={`l-${key++}`} text={linkText} term={highlight} />)
+    }
+
+    lastIndex = linkRegex.lastIndex
+  }
+
+  // Texte restant après le dernier lien
+  if (lastIndex < text.length) {
+    parts.push(<Highlight key={`t-${key++}`} text={text.slice(lastIndex)} term={highlight} />)
+  }
+
+  return <>{parts.length > 0 ? parts : <Highlight text={text} term={highlight} />}</>
 }
 
 // ─── Surlignage des matches de recherche ────────────────────────────────────

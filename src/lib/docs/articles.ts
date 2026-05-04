@@ -36,6 +36,19 @@ export type DocBlock =
   | { type: 'success'; text: string }
   | { type: 'legal'; text: string; reference?: string }
   | { type: 'definition'; term: string; definition: string }
+  /** Liste d'articles liés affichée comme cards cliquables */
+  | { type: 'related'; articleIds: string[] }
+
+/**
+ * SYNTAXE DE LIENS dans les textes :
+ *  - [Texte](article:id-article)  → lien interne vers un autre article
+ *      (la page reste sur /aide, sélectionne l'article cible)
+ *  - [Texte](/path/in/app)        → lien interne vers une page de l'app
+ *      (navigation Next.js, ex: [Aller à l'historique](/historique))
+ *  - [Texte](https://...)         → lien externe (ouvre nouvel onglet)
+ *
+ * Le rendu est géré par le helper renderInlineMarkdown() côté client.
+ */
 
 export interface DocArticle {
   id: string
@@ -132,7 +145,8 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Inviter les premiers membres', details: '/membres → Ajouter un membre. Le DGS et les Directeurs de cabinet peuvent ensuite vous aider à inviter le reste.' },
         { title: 'Configurer les templates email Supabase', details: 'Voir avec votre prestataire technique pour personnaliser les 5 templates (invitation, reset password, etc.).' },
       ] },
-      { type: 'warning', text: 'Tout ce que vous faites est tracé dans l\'audit log — y compris les anonymisations RGPD que vous effectuez. Personne (pas même vous) ne peut modifier ces traces a posteriori.' },
+      { type: 'warning', text: 'Tout ce que vous faites est tracé dans l\'audit log — y compris les anonymisations RGPD que vous effectuez. Personne (pas même vous) ne peut modifier ces traces a posteriori. Voir [Anonymiser une entrée d\'audit](article:anonymisation-rgpd).' },
+      { type: 'related', articleIds: ['historique', 'anonymisation-rgpd', 'configuration-institution', 'inviter-membre'] },
     ],
   },
 
@@ -170,7 +184,8 @@ export const ARTICLES: DocArticle[] = [
         '/historique — Mouchard append-only de toutes les modifications avec filtres',
         '/configuration — Paramétrage institution + instances',
       ] },
-      { type: 'tip', text: 'Vous voyez tout ce qu\'un gestionnaire voit — et plus encore (configuration). Vous êtes la « courroie de transmission » entre le politique (élus, président) et l\'administratif (gestionnaires, secrétariat).' },
+      { type: 'tip', text: 'Vous voyez tout ce qu\'un gestionnaire voit — et plus encore (configuration). Vous êtes la « courroie de transmission » entre le politique (élus, président) et l\'administratif (gestionnaires, secrétariat). Aller à [/historique](/historique), [/configuration](/configuration) ou [/membres](/membres).' },
+      { type: 'related', articleIds: ['guide-directeur-cabinet', 'historique', 'configuration-institution', 'envoyer-convocations', 'inviter-membre'] },
     ],
   },
 
@@ -203,7 +218,8 @@ export const ARTICLES: DocArticle[] = [
       ] },
       { type: 'heading', level: 2, text: 'Différence DGS / Directeur de cabinet' },
       { type: 'paragraph', text: 'Vos rôles ont les mêmes fonctionnalités sur l\'application. La différence est institutionnelle : le DGS est le chef de l\'administration (long terme, technique), le Directeur de cabinet est un collaborateur politique du chef de l\'exécutif (stratégique, court terme). En pratique, vous êtes complémentaires.' },
-      { type: 'tip', text: 'Utilisez la page /historique pour suivre qui a modifié quoi et quand — utile pour préparer un brief synthétique au maire/président.' },
+      { type: 'tip', text: 'Utilisez la page [Historique](/historique) pour suivre qui a modifié quoi et quand — utile pour préparer un brief synthétique au maire/président.' },
+      { type: 'related', articleIds: ['guide-dgs', 'historique', 'configuration-institution', 'envoyer-convocations'] },
     ],
   },
 
@@ -245,6 +261,7 @@ export const ARTICLES: DocArticle[] = [
         { title: 'En séance : conducteur', details: 'Ouvrir /seances/[id]/en-cours. Ouvrir les votes, saisir les résultats.' },
         { title: 'Après séance : générer le PV brouillon', details: 'Le secrétaire de séance complète puis transmet au président pour signature.' },
       ] },
+      { type: 'related', articleIds: ['creer-seance', 'envoyer-convocations', 'renvoyer-convocation', 'pv-redaction', 'historique'] },
     ],
   },
 
@@ -282,6 +299,7 @@ export const ARTICLES: DocArticle[] = [
         '/seances/[id]/pv — Lecture et signature des PV',
       ] },
       { type: 'legal', text: 'Le procès-verbal doit porter votre signature et celle du secrétaire de séance pour avoir valeur officielle.', reference: 'CGCT L2121-15' },
+      { type: 'related', articleIds: ['pv-redaction', 'pv-consultation', 'recusation'] },
     ],
   },
 
@@ -318,6 +336,7 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Mise en relecture', details: 'Vous partagez le brouillon avec le président et le bureau. Les commentaires sont consignés.' },
         { title: 'Signature', details: 'Une fois validé, vous signez. Le président signe à son tour. Le PV devient SIGNÉ et immuable.' },
       ] },
+      { type: 'related', articleIds: ['pv-redaction', 'pv-consultation', 'guide-president'] },
     ],
   },
 
@@ -349,7 +368,8 @@ export const ARTICLES: DocArticle[] = [
         '❌ Les procès-verbaux en cours de rédaction (brouillons réservés au bureau)',
         '❌ L\'historique des modifications (audit log)',
       ] },
-      { type: 'tip', text: 'Si vous avez une question urgente sur un point ODJ, contactez votre secrétariat. Vous pouvez aussi donner procuration à un autre élu si vous ne pouvez pas être présent — voir l\'article « Procurations » dans cette aide.' },
+      { type: 'tip', text: 'Si vous avez une question urgente sur un point ODJ, contactez votre secrétariat. Vous pouvez aussi donner procuration à un autre élu si vous ne pouvez pas être présent — voir [Procurations](article:procurations).' },
+      { type: 'related', articleIds: ['recevoir-convocation', 'consulter-odj', 'vote-main-levee', 'vote-secret', 'procurations', 'pv-consultation'] },
     ],
   },
 
@@ -379,6 +399,7 @@ export const ARTICLES: DocArticle[] = [
         '❌ Accéder à la configuration ou aux membres en édition',
       ] },
       { type: 'tip', text: 'Si vous avez besoin de droits supplémentaires pour préparer un dossier, demandez à votre gestionnaire de vous transmettre temporairement le rôle « Secrétaire de séance » sur la séance concernée.' },
+      { type: 'related', articleIds: ['consulter-odj', 'glossaire'] },
     ],
   },
 
@@ -406,6 +427,7 @@ export const ARTICLES: DocArticle[] = [
         'Suivre les délibérations et leur transmission à la préfecture',
       ] },
       { type: 'tip', text: 'Si vous voyez ce guide pour la première fois, prenez 5 minutes pour parcourir les articles « Premiers pas ». Vous y trouverez tout ce dont vous avez besoin pour démarrer.' },
+      { type: 'related', articleIds: ['activer-compte', 'se-connecter', 'securite-compte', 'glossaire'] },
     ],
   },
 
@@ -427,7 +449,8 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Cliquer sur « Activer mon compte »', details: 'Vous arrivez directement sur votre tableau de bord.' },
       ] },
       { type: 'warning', text: 'Le lien expire 24 heures après son envoi. Passé ce délai, contactez votre secrétariat qui pourra vous le renvoyer en un clic.' },
-      { type: 'tip', text: 'Notez votre adresse email — c\'est elle qui servira d\'identifiant pour toutes vos connexions futures.' },
+      { type: 'tip', text: 'Notez votre adresse email — c\'est elle qui servira d\'identifiant pour toutes vos connexions futures. Voir aussi [Sécuriser mon compte](article:securite-compte) pour les bonnes pratiques.' },
+      { type: 'related', articleIds: ['se-connecter', 'securite-compte'] },
     ],
   },
 
@@ -505,8 +528,9 @@ export const ARTICLES: DocArticle[] = [
       { type: 'paragraph', text: 'Cliquez sur le bouton bleu « ✓ Je serai présent(e) ». Vous arrivez sur une page de confirmation. Le secrétariat est immédiatement informé.' },
       { type: 'heading', level: 2, text: 'Signaler votre absence' },
       { type: 'paragraph', text: 'Cliquez sur le bouton « ✗ Je serai absent(e) ». Une page vous demande un motif optionnel (empêchement professionnel, raison personnelle, etc.).' },
-      { type: 'legal', text: 'Pour donner procuration à un autre élu, contactez votre secrétariat. Les procurations nécessitent votre signature et l\'accord du mandataire.', reference: 'CGCT L2121-20' },
+      { type: 'legal', text: 'Pour donner procuration à un autre élu, contactez votre secrétariat. Les procurations nécessitent votre signature et l\'accord du mandataire. Voir l\'article [Procurations](article:procurations) pour le détail.', reference: 'CGCT L2121-20' },
       { type: 'tip', text: 'Si vous perdez votre email, demandez à votre secrétariat de vous le renvoyer — il peut le faire en un clic depuis l\'application.' },
+      { type: 'related', articleIds: ['consulter-odj', 'procurations', 'vote-main-levee', 'vote-secret'] },
     ],
   },
 
@@ -560,7 +584,8 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Cliquer sur « Envoyer maintenant »', details: 'Les emails partent en parallèle. Le statut de la séance passe à CONVOQUÉE.' },
       ] },
       { type: 'legal', text: 'Le délai légal de convocation est généralement de 3 jours francs avant la séance pour les communes (5 jours pour les communes ≥ 3 500 hab.). Pour les autres collectivités, vérifiez votre règlement intérieur.', reference: 'CGCT L2121-12' },
-      { type: 'tip', text: 'Vous pouvez suivre le statut de chaque convocation dans le tableau : Envoyée → Lue → Confirmée présent / Absente. Les erreurs d\'envoi (boîte pleine, adresse erronée) sont signalées en rouge.' },
+      { type: 'tip', text: 'Vous pouvez suivre le statut de chaque convocation dans le tableau : Envoyée → Lue → Confirmée présent / Absente. Les erreurs d\'envoi (boîte pleine, adresse erronée) sont signalées en rouge. Pour relancer un membre, voir [Renvoyer une convocation](article:renvoyer-convocation).' },
+      { type: 'related', articleIds: ['renvoyer-convocation', 'creer-seance', 'configuration-quorum'] },
     ],
   },
 
@@ -580,8 +605,9 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Choisir un motif de renvoi', details: 'Email perdu, Spam, Adresse erronée, ou Autre. Vous pouvez ajouter une précision libre.' },
         { title: 'Confirmer le renvoi' },
       ] },
-      { type: 'success', text: 'Le motif et la date du renvoi sont consignés dans l\'historique des envois (visible dans le rapport de contrôle préfectoral). En cas de recours pour défaut de convocation, vous avez la preuve de tous les envois successifs.' },
+      { type: 'success', text: 'Le motif et la date du renvoi sont consignés dans l\'historique des envois, consultable dans la page [Historique](/historique). Visible aussi dans le rapport de contrôle préfectoral.' },
       { type: 'tip', text: 'Si l\'élu avait déjà confirmé sa présence, le renvoi conserve cette confirmation — elle n\'est pas effacée.' },
+      { type: 'related', articleIds: ['envoyer-convocations', 'historique'] },
     ],
   },
 
@@ -786,7 +812,9 @@ export const ARTICLES: DocArticle[] = [
         { title: 'Cocher « Envoyer l\'invitation par email maintenant »', details: 'Coché par défaut. Le membre recevra un email d\'activation valide 24 heures.' },
         { title: 'Valider', details: 'Le membre apparaît dans la liste avec le badge « En attente d\'activation ».' },
       ] },
-      { type: 'tip', text: 'Si vous voulez juste créer la fiche pour l\'instant sans inviter (par exemple pour préparer un mandat futur), décochez l\'option d\'invitation. Vous pourrez l\'envoyer plus tard depuis le menu actions du membre.' },
+      { type: 'tip', text: 'Si vous voulez juste créer la fiche pour l\'instant sans inviter (par exemple pour préparer un mandat futur), décochez l\'option d\'invitation. Vous pourrez l\'envoyer plus tard depuis le menu actions du membre. Voir [Comprendre l\'état du compte](article:etat-compte-membre).' },
+      { type: 'tip', text: 'Aller directement à la page [Membres](/membres).' },
+      { type: 'related', articleIds: ['etat-compte-membre', 'archiver-membre'] },
     ],
   },
 
@@ -902,6 +930,8 @@ export const ARTICLES: DocArticle[] = [
       { type: 'success', text: 'L\'historique est strictement immuable : aucune entrée ne peut être modifiée ou supprimée — pas même par un super-administrateur via l\'interface normale. Les insertions ne se font que via les triggers SQL automatiques.' },
       { type: 'heading', level: 2, text: 'Export pour la préfecture' },
       { type: 'paragraph', text: 'Le bouton « Exporter CSV » génère un fichier conforme pour le contrôle de légalité.' },
+      { type: 'tip', text: 'Pour accéder directement à la page : [Ouvrir l\'historique](/historique).' },
+      { type: 'related', articleIds: ['anonymisation-rgpd'] },
     ],
   },
 
