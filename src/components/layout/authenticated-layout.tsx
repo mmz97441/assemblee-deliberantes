@@ -4,6 +4,7 @@ import { ROUTES } from '@/lib/constants'
 import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { getUserRole } from '@/lib/auth/get-user-role'
 import { AppLayout } from './app-layout'
+import { SessionTimeoutWarning } from '@/components/session/session-timeout-warning'
 import type { UserRole } from '@/lib/supabase/types'
 
 interface AuthenticatedLayoutProps {
@@ -42,6 +43,8 @@ export async function AuthenticatedLayout({ children }: AuthenticatedLayoutProps
       userEmail={email}
     >
       {children}
+      {/* Surveillance d'inactivité — déconnexion auto après 1h sans activité */}
+      <SessionTimeoutWarning />
     </AppLayout>
   )
 }

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Building2, Lock, Mail, CheckCircle2 } from 'lucide-react'
+import { Building2, Lock, Mail, CheckCircle2, AlertCircle } from 'lucide-react'
 import { PasswordInput } from '@/components/ui/password-input'
 
 function SubmitButton() {
@@ -39,6 +39,12 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const justRegistered = searchParams.get('registered') === 'true'
   const passwordReset = searchParams.get('password_reset') === 'true'
+  const errorParam = searchParams.get('error')
+  const sessionExpiredMessage = errorParam === 'session_inactivity'
+    ? 'Vous avez été déconnecté(e) après 1 heure d\'inactivité. Reconnectez-vous pour reprendre.'
+    : errorParam === 'auth_link_invalid_or_expired'
+    ? 'Le lien d\'authentification est invalide ou a expiré. Demandez un nouveau lien.'
+    : null
 
   async function handleSubmit(formData: FormData) {
     setError(null)
@@ -134,6 +140,13 @@ function LoginForm() {
               <AlertDescription>
                 Mot de passe modifié avec succès. Connectez-vous avec votre nouveau mot de passe.
               </AlertDescription>
+            </Alert>
+          )}
+
+          {sessionExpiredMessage && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription>{sessionExpiredMessage}</AlertDescription>
             </Alert>
           )}
 

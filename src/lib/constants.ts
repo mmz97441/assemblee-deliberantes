@@ -33,6 +33,26 @@ export const PUBLIC_ROUTES = [
   '/auth/confirm',
 ] as const
 
+// ─── Sessions & inactivité ────────────────────────────────────────────────
+//
+// Politique : pas de timeout absolu (un utilisateur actif reste connecté
+// aussi longtemps qu'il travaille), mais déconnexion automatique après
+// 1 heure d'inactivité. Et reauth forcé après changement critique
+// (email, mot de passe, rôle).
+//
+// L'utilisateur est averti à -2 min via un popup (WARNING_BEFORE_TIMEOUT_MS)
+// pour qu'il puisse sauvegarder son travail s'il était en train de relire
+// un PV par exemple.
+
+/** Délai d'inactivité avant déconnexion automatique (1 heure) */
+export const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000
+
+/** Délai avant la déconnexion où on affiche le popup d'avertissement (2 min) */
+export const WARNING_BEFORE_TIMEOUT_MS = 2 * 60 * 1000
+
+/** Nom du cookie HttpOnly contenant le timestamp de la dernière activité */
+export const LAST_ACTIVITY_COOKIE = 'last_activity_at'
+
 // --- Statuts de séance ---
 export const SEANCE_STATUT_CONFIG: Record<string, { label: string; color: string; description: string }> = {
   BROUILLON: { label: 'Brouillon', color: 'bg-slate-100 text-slate-700', description: 'En cours de préparation' },

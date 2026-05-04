@@ -56,6 +56,54 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith(path)
     ) || /^\/seances\/[^/]+\/public$/.test(pathname)
 
+    // ─── Inactivité 1h : déconnexion auto ─────────────────────────────────
+    //
+    // Politique : pas de timeout absolu, mais déconnexion après 1h
+    // d'inactivité (= aucune requête HTTP). Le cookie last_activity_at
+    // est mis à jour à chaque requête authentifiée.
+    //
+    // Constantes dupliquées ici car middleware Edge Runtime ne peut pas
+    // importer depuis lib/constants. Garder en sync :
+    //   INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000 (1h)
+    //   LAST_ACTIVITY_COOKIE = 'last_activity_at'
+    const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000
+    const LAST_ACTIVITY_COOKIE = 'last_activity_at'
+    // Routes "ping" qui ne doivent PAS être considérées comme une activité
+    // (sinon le ping silencieux du composant client réinitialiserait le timer
+    // alors que l'utilisateur n'a rien fait). Voir /api/session/ping.
+    const isPingRoute = pathname === '/api/session/ping'
+
+    if (user && !isPublicPath) {
+      const lastActivityCookie = request.cookies.get(LAST_ACTIVITY_COOKIE)
+      const lastActivityAt = lastActivityCookie ? parseInt(lastActivityCookie.value, 10) : null
+      const now = Date.now()
+
+      if (lastActivityAt && now - lastActivityAt > INACTIVITY_TIMEOUT_MS) {
+        // Session expirée pour inactivité → signOut + redirect /login
+        await supabase.auth.signOut()
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        url.searchParams.set('error', 'session_inactivity')
+        const response = NextResponse.redirect(url)
+        response.cookies.delete(LAST_ACTIVITY_COOKIE)
+        return response
+      }
+
+      // Mise à jour du timestamp d'activité (sauf ping silencieux qui
+      // ne doit pas étendre la session)
+      if (!isPingRoute) {
+        supabaseResponse.cookies.set(LAST_ACTIVITY_COOKIE, String(now), {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          // Pas de maxAge — on veut que le cookie disparaisse à la fermeture
+          // du navigateur (session cookie). La date stockée à l'intérieur
+          // sert de référence absolue.
+        })
+      }
+    }
+
     // Si pas connecte et route protegee -> login
     if (!user && !isPublicPath) {
       const url = request.nextUrl.clone()

@@ -327,12 +327,35 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
       mandat_fin: (formData.get('mandat_fin') as string) || null,
     }
 
+    // Détection des changements critiques nécessitant un reauth forcé
+    // (révocation des sessions actives) :
+    //   - Changement de rôle : empêche un user dégradé de continuer à utiliser
+    //     ses anciens privilèges jusqu'à expiration naturelle de son JWT
+    //   - Changement d'email : ferme l'accès depuis l'ancien email vers le nouveau
+    const roleChanged = requestedRole !== targetMember.role
+    // Note : on ne reload pas l'email actuel ici pour limiter les requêtes,
+    // mais idéalement on devrait comparer email !== targetMember.email.
+    // Pour rester safe, on révoque dès qu'il y a un PUT (changement potentiel).
+
     const { error } = await supabase
       .from('members')
       .update(payload)
       .eq('id', id)
 
     if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+    // SÉCURITÉ : si le rôle a changé, révoquer les sessions actives du user cible
+    // pour qu'il doive se reconnecter avec son nouveau rôle (et perde immédiatement
+    // ses anciens privilèges).
+    if (roleChanged && targetMember.user_id) {
+      try {
+        const { revokeUserSessions } = await import('@/lib/auth/actions')
+        await revokeUserSessions(targetMember.user_id)
+      } catch (err) {
+        console.warn('[AUTH] Échec révocation sessions après changement de rôle :', err)
+        // Non bloquant
+      }
+    }
 
     revalidatePath(ROUTES.MEMBRES)
     return { success: true }

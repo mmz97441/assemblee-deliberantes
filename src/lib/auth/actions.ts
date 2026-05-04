@@ -351,13 +351,62 @@ export async function updatePassword(newPassword: string) {
     return { error: passwordError }
   }
 
+  // Récupérer l'user AVANT updateUser pour pouvoir révoquer ses autres sessions ensuite
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+
   const { error } = await supabase.auth.updateUser({ password: newPassword })
 
   if (error) {
     return { error: 'Erreur lors de la modification du mot de passe. Le lien a peut-être expiré.' }
   }
 
+  // SÉCURITÉ : invalider TOUTES les autres sessions actives de cet utilisateur
+  // (sur les autres navigateurs/appareils). La session courante reste active
+  // car son JWT vient d'être renouvelé par updateUser.
+  // Cas typique : un compte a été compromis, l'utilisateur change son mot
+  // de passe — l'attaquant doit être éjecté immédiatement.
+  if (currentUser?.id) {
+    try {
+      const sb = await createServiceRoleClient()
+      // 'others' invalide tous les refresh tokens SAUF celui de la session courante
+      // (Supabase Auth admin API). Si la version installée ne supporte pas le scope,
+      // on tombe en fallback sur signOut global.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (sb.auth.admin as any).signOut(currentUser.id, 'others').catch(async () => {
+        await sb.auth.admin.signOut(currentUser.id)
+      })
+    } catch (err) {
+      console.warn('[AUTH] Échec révocation autres sessions après changement mdp :', err)
+      // Non bloquant : le password a déjà été mis à jour
+    }
+  }
+
   return { success: true }
+}
+
+// ============================================
+// REVOKE USER SESSIONS (helper sécurité)
+// ============================================
+//
+// Invalide TOUTES les sessions d'un utilisateur (sur tous ses appareils).
+// L'utilisateur sera redirigé vers /login à sa prochaine requête.
+//
+// Utilisé après un changement critique :
+//   - Modification du rôle (par un admin)
+//   - Modification de l'email
+//   - Suspension / archivage d'un compte
+//   - Suspicion de compromission
+export async function revokeUserSessions(targetUserId: string): Promise<{ success: true } | { error: string }> {
+  if (!targetUserId) return { error: 'ID utilisateur manquant' }
+  try {
+    const sb = await createServiceRoleClient()
+    const { error } = await sb.auth.admin.signOut(targetUserId)
+    if (error) return { error: `Échec de la révocation : ${error.message}` }
+    return { success: true }
+  } catch (err) {
+    console.error('revokeUserSessions error:', err)
+    return { error: 'Erreur inattendue lors de la révocation' }
+  }
 }
 
 // ============================================

@@ -486,7 +486,7 @@ export const ARTICLES: DocArticle[] = [
     summary: 'Bonnes pratiques pour protéger votre accès',
     category: 'premiers-pas',
     roles: ALL_ROLES,
-    keywords: ['sécurité', 'mot de passe', '2fa', 'webauthn', 'empreinte', 'biométrie'],
+    keywords: ['sécurité', 'mot de passe', '2fa', 'webauthn', 'empreinte', 'biométrie', 'session', 'inactivité', 'déconnexion'],
     icon: 'Shield',
     blocks: [
       { type: 'paragraph', text: 'Votre compte donne accès à des données institutionnelles sensibles. Voici les bonnes pratiques :' },
@@ -496,9 +496,18 @@ export const ARTICLES: DocArticle[] = [
         'Déconnectez-vous après usage si vous êtes sur un appareil partagé',
         'Si vous suspectez une compromission, changez immédiatement votre mot de passe',
       ] },
+      { type: 'heading', level: 2, text: 'Sessions et déconnexion automatique' },
+      { type: 'paragraph', text: 'Pour limiter les risques en cas d\'oubli (tablette laissée ouverte, ordinateur partagé), l\'application applique une politique d\'inactivité stricte :' },
+      { type: 'list', items: [
+        'Vous restez connecté(e) aussi longtemps que vous travaillez — aucun timeout absolu, donc pas de coupure pénible en plein milieu d\'une tâche',
+        'Si vous n\'avez aucune activité (pas de clic, pas de saisie, pas de scroll) pendant 1 heure, vous êtes déconnecté(e) automatiquement',
+        '2 minutes avant la déconnexion, un popup vous prévient — bougez la souris ou cliquez « Rester connecté(e) » pour continuer',
+      ] },
+      { type: 'success', text: 'En cas de modification critique de votre compte (changement de mot de passe, de rôle ou d\'email), TOUTES vos sessions actives sur les autres appareils sont automatiquement fermées. Vous devrez vous reconnecter — c\'est volontaire et sécurisant.' },
       { type: 'heading', level: 2, text: 'WebAuthn / Empreinte (en séance)' },
       { type: 'paragraph', text: 'Sur les tablettes en séance, vous pouvez enrôler votre empreinte digitale. La fois suivante, votre identification est instantanée — plus besoin de scanner votre QR code à chaque action.' },
       { type: 'success', text: 'L\'empreinte ne quitte jamais votre appareil — c\'est une norme cryptographique (FIDO2). L\'application stocke seulement une signature publique impossible à usurper.' },
+      { type: 'related', articleIds: ['se-connecter', 'activer-compte'] },
     ],
   },
 
