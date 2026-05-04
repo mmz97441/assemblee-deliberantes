@@ -22,6 +22,7 @@ export {
   type MajoriteRequise,
   type LateArrivalMode,
   type QuorumType,
+  type CiviliteType,
   type MemberRow,
   type SeanceRow,
   type VoteRow,

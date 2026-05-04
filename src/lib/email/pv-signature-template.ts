@@ -1,9 +1,10 @@
 /**
- * Template HTML pour les notifications de signature de PV.
- *
- * Utilisé pour notifier le président et le secrétaire que le PV est prêt
- * à être signé, et pour les notifications après signature.
+ * Template HTML pour les notifications de signature de PV — formulation
+ * protocolaire (« Monsieur le Maire », « Madame la Présidente », etc.)
+ * conforme aux usages des institutions publiques françaises.
  */
+
+import { formatProtocolaire, salutationFinale } from '@/lib/protocole/appellation'
 
 function escapeHtml(str: string): string {
   return str
@@ -16,7 +17,13 @@ function escapeHtml(str: string): string {
 // ─── Notification : PV prêt pour signature ──────────────────────────────────
 
 interface PVSignatureNotificationData {
-  memberName: string
+  /** Civilité du destinataire pour appellation protocolaire */
+  civiliteMembre: 'MADAME' | 'MONSIEUR' | 'AUTRE'
+  /** Qualité officielle du destinataire (« Maire », « Adjoint au maire »…) */
+  qualiteMembre: string | null
+  prenomMembre: string
+  nomMembre: string
+  /** Rôle dans la séance (président / secrétaire) — pour le contexte du courrier */
   role: 'président' | 'secrétaire'
   seanceTitre: string
   seanceDate: string
@@ -30,6 +37,12 @@ export function generatePVSignatureSubject(seanceDate: string): string {
 }
 
 export function generatePVSignatureHTML(data: PVSignatureNotificationData): string {
+  const proto = formatProtocolaire(
+    data.civiliteMembre,
+    data.qualiteMembre,
+    data.prenomMembre,
+    data.nomMembre,
+  )
   return `
 <!DOCTYPE html>
 <html lang="fr">
@@ -55,7 +68,7 @@ export function generatePVSignatureHTML(data: PVSignatureNotificationData): stri
     <tr>
       <td style="padding: 32px;">
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b;">
-          Madame, Monsieur <strong>${escapeHtml(data.memberName)}</strong>,
+          ${escapeHtml(proto.appellation)},
         </p>
 
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b; line-height: 1.6;">
@@ -64,7 +77,8 @@ export function generatePVSignatureHTML(data: PVSignatureNotificationData): stri
         </p>
 
         <p style="margin: 0 0 24px; font-size: 15px; color: #1e293b; line-height: 1.6;">
-          En tant que <strong>${escapeHtml(data.role)}</strong>, vous êtes invité(e) à le relire et le signer.
+          En votre qualité de <strong>${escapeHtml(data.role)} de séance</strong>,
+          vous êtes invité${data.civiliteMembre === 'MADAME' ? 'e' : ''} à le relire et à le signer (CGCT L2121-15).
         </p>
 
         <!-- CTA -->
@@ -81,10 +95,14 @@ export function generatePVSignatureHTML(data: PVSignatureNotificationData): stri
 
         ${data.secretaireName ? `
         <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.5;">
-          Ce PV a été rédigé par ${escapeHtml(data.secretaireName)}.
-          Si vous avez des remarques, contactez-le/la avant de signer.
+          Ce procès-verbal a été rédigé par ${escapeHtml(data.secretaireName)}.
+          Pour toute remarque préalable à la signature, le secrétariat reste à votre disposition.
         </p>
         ` : ''}
+
+        <p style="margin: 24px 0 0; font-size: 13px; color: #475569; line-height: 1.6;">
+          ${escapeHtml(salutationFinale(proto.appellation))}
+        </p>
       </td>
     </tr>
 
@@ -108,8 +126,13 @@ export function generatePVSignatureHTML(data: PVSignatureNotificationData): stri
 // ─── Notification : le président a signé (→ secrétaire) ─────────────────────
 
 interface PVSignedByNotificationData {
-  recipientName: string
+  /** Civilité du destinataire pour appellation protocolaire */
+  civiliteRecipient: 'MADAME' | 'MONSIEUR' | 'AUTRE'
+  qualiteRecipient: string | null
+  prenomRecipient: string
+  nomRecipient: string
   signerRole: 'président' | 'secrétaire'
+  /** Nom complet du signataire (déjà formaté avec civilité — utilisé tel quel) */
   signerName: string
   seanceTitre: string
   seanceDate: string
@@ -126,15 +149,23 @@ export function generatePVSignedBySubject(data: PVSignedByNotificationData): str
 }
 
 export function generatePVSignedByHTML(data: PVSignedByNotificationData): string {
+  const proto = formatProtocolaire(
+    data.civiliteRecipient,
+    data.qualiteRecipient,
+    data.prenomRecipient,
+    data.nomRecipient,
+  )
+  const articleSigner = data.signerRole === 'président' ? 'Le' : 'La'
   const bodyText = data.allSigned
     ? `Le procès-verbal de la séance du <strong>${escapeHtml(data.seanceDate)}</strong>
        (<em>${escapeHtml(data.seanceTitre)}</em>) est désormais signé par les deux parties.
-       Il est verrouillé et ne peut plus être modifié.`
-    : `Le/La <strong>${escapeHtml(data.signerRole)}</strong> (${escapeHtml(data.signerName)}) a signé
-       le procès-verbal de la séance du <strong>${escapeHtml(data.seanceDate)}</strong>
+       Il est verrouillé et ne peut plus être modifié (CGCT L2121-15).`
+    : `${articleSigner} <strong>${escapeHtml(data.signerRole)} de séance</strong>
+       (${escapeHtml(data.signerName)}) a apposé sa signature sur le procès-verbal de la séance
+       du <strong>${escapeHtml(data.seanceDate)}</strong>
        (<em>${escapeHtml(data.seanceTitre)}</em>).
        <br/><br/>
-       <strong>À votre tour de le relire et de le signer.</strong>`
+       Il vous appartient désormais d&rsquo;en prendre connaissance et de le contresigner.`
 
   const ctaLabel = data.allSigned
     ? 'Voir le procès-verbal'
@@ -165,7 +196,7 @@ export function generatePVSignedByHTML(data: PVSignedByNotificationData): string
     <tr>
       <td style="padding: 32px;">
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b;">
-          Madame, Monsieur <strong>${escapeHtml(data.recipientName)}</strong>,
+          ${escapeHtml(proto.appellation)},
         </p>
 
         <p style="margin: 0 0 24px; font-size: 15px; color: #1e293b; line-height: 1.6;">
@@ -183,6 +214,10 @@ export function generatePVSignedByHTML(data: PVSignedByNotificationData): string
             </td>
           </tr>
         </table>
+
+        <p style="margin: 24px 0 0; font-size: 13px; color: #475569; line-height: 1.6;">
+          ${escapeHtml(salutationFinale(proto.appellation))}
+        </p>
       </td>
     </tr>
 

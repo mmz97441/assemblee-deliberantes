@@ -168,10 +168,15 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'])
     if (roleError) return { error: roleError }
 
+    const civiliteRaw = (formData.get('civilite') as string)?.trim()
     const prenom = (formData.get('prenom') as string)?.trim()
     const nom = (formData.get('nom') as string)?.trim()
     const emailRaw = (formData.get('email') as string)?.trim()
 
+    if (!civiliteRaw || !['MADAME', 'MONSIEUR', 'AUTRE'].includes(civiliteRaw)) {
+      return { error: 'La civilité est requise (Madame / Monsieur / Autre)' }
+    }
+    const civilite = civiliteRaw as 'MADAME' | 'MONSIEUR' | 'AUTRE'
     if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
     if (!emailRaw) return { error: "L'email est requis" }
@@ -186,6 +191,7 @@ export async function createMember(formData: FormData): Promise<ActionResult> {
     if (!roleCheck.ok) return { error: roleCheck.error }
 
     const payload = {
+      civilite,
       prenom,
       nom,
       email,
@@ -273,10 +279,15 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
     const id = formData.get('id') as string
     if (!id) return { error: 'ID du membre manquant' }
 
+    const civiliteRaw = (formData.get('civilite') as string)?.trim()
     const prenom = (formData.get('prenom') as string)?.trim()
     const nom = (formData.get('nom') as string)?.trim()
     const emailRaw = (formData.get('email') as string)?.trim()
 
+    if (!civiliteRaw || !['MADAME', 'MONSIEUR', 'AUTRE'].includes(civiliteRaw)) {
+      return { error: 'La civilité est requise (Madame / Monsieur / Autre)' }
+    }
+    const civilite = civiliteRaw as 'MADAME' | 'MONSIEUR' | 'AUTRE'
     if (!prenom) return { error: 'Le prénom est requis' }
     if (!nom) return { error: 'Le nom est requis' }
     if (!emailRaw) return { error: "L'email est requis" }
@@ -316,6 +327,7 @@ export async function updateMember(formData: FormData): Promise<ActionResult> {
     }
 
     const payload = {
+      civilite,
       prenom,
       nom,
       email,
@@ -563,6 +575,7 @@ export async function unarchiveMember(memberId: string): Promise<ActionResult> {
 // ─── Bulk Import ─────────────────────────────────────────────────────────────
 
 export interface ImportRow {
+  civilite?: string
   prenom: string
   nom: string
   email: string
@@ -608,6 +621,7 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
 
     const result: ImportResult = { total: rows.length, created: 0, skipped: 0, errors: [] }
     const toInsert: Array<{
+      civilite: 'MADAME' | 'MONSIEUR' | 'AUTRE'
       prenom: string
       nom: string
       email: string
@@ -628,6 +642,18 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
       const prenom = row.prenom?.trim()
       const nom = row.nom?.trim()
       const emailRaw = row.email?.trim()
+      const civiliteNorm = (row.civilite || '').trim().toUpperCase()
+      // Tolérance des libellés français usuels (« Madame » → MADAME)
+      const civiliteMap: Record<string, 'MADAME' | 'MONSIEUR' | 'AUTRE'> = {
+        MADAME: 'MADAME', MME: 'MADAME', 'MME.': 'MADAME',
+        MONSIEUR: 'MONSIEUR', M: 'MONSIEUR', 'M.': 'MONSIEUR', MR: 'MONSIEUR',
+        AUTRE: 'AUTRE', '': 'AUTRE',
+      }
+      const civilite = civiliteMap[civiliteNorm]
+      if (!civilite) {
+        result.errors.push({ row: rowNum, message: `Civilité invalide : « ${row.civilite} » (Madame / Monsieur / Autre attendu)` })
+        continue
+      }
 
       if (!prenom || !nom) {
         result.errors.push({ row: rowNum, message: 'Prénom et nom requis' })
@@ -660,6 +686,7 @@ export async function importMembers(rows: ImportRow[]): Promise<ImportResult | {
       existingEmails.add(email) // Prevent duplicate within same import
 
       toInsert.push({
+        civilite,
         prenom,
         nom,
         email,

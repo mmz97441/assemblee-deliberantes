@@ -32,6 +32,7 @@ import {
 import { createMember, updateMember, assignMemberToInstances, uploadMemberPhoto, removeMemberPhoto } from '@/lib/actions/members'
 import type { MemberWithInstances } from '@/lib/actions/members'
 import type { InstanceConfigRow, UserRole } from '@/lib/supabase/types'
+import { CIVILITE_LABELS, type Civilite } from '@/lib/protocole/appellation'
 import { User, Briefcase, CalendarDays, Building2, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -73,6 +74,10 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   const isEditing = !!member
 
   // Form state
+  const [civilite, setCivilite] = useState<Civilite | ''>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((member as any)?.civilite as Civilite | null) || ''
+  )
   const [prenom, setPrenom] = useState(member?.prenom || '')
   const [nom, setNom] = useState(member?.nom || '')
   const [email, setEmail] = useState(member?.email || '')
@@ -108,6 +113,8 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   const [lastResetKey, setLastResetKey] = useState(resetKey)
   if (resetKey !== lastResetKey) {
     setLastResetKey(resetKey)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setCivilite(((member as any)?.civilite as Civilite | null) || '')
     setPrenom(member?.prenom || '')
     setNom(member?.nom || '')
     setEmail(member?.email || '')
@@ -148,6 +155,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 
   function validateField(field: string, value: string): string {
+    if (field === 'civilite' && !value) return 'La civilité est requise'
     if (field === 'prenom' && !value.trim()) return 'Le prénom est requis'
     if (field === 'nom' && !value.trim()) return 'Le nom est requis'
     if (field === 'email' && !value.trim()) return 'L\'adresse email est requise'
@@ -164,12 +172,13 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
   function handleSubmit() {
     // Validate all required fields
     const newErrors: Record<string, string> = {
+      civilite: validateField('civilite', civilite),
       prenom: validateField('prenom', prenom),
       nom: validateField('nom', nom),
       email: validateField('email', email),
     }
     setErrors(newErrors)
-    setTouched({ prenom: true, nom: true, email: true })
+    setTouched({ civilite: true, prenom: true, nom: true, email: true })
 
     const hasErrors = Object.values(newErrors).some(e => e !== '')
     if (hasErrors) return
@@ -177,6 +186,7 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
     startTransition(async () => {
       const formData = new FormData()
       if (member?.id) formData.set('id', member.id)
+      formData.set('civilite', civilite)
       formData.set('prenom', prenom.trim())
       formData.set('nom', nom.trim())
       formData.set('email', email.trim())
@@ -268,6 +278,34 @@ export function MemberFormDialog({ open, onClose, member, instances }: MemberFor
               memberInitials={`${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase() || '?'}
               onChange={setPhotoUrl}
             />
+            <div className="space-y-2">
+              <Label htmlFor="civilite">Civilité *</Label>
+              <Select
+                value={civilite}
+                onValueChange={(v) => {
+                  const next = v as Civilite
+                  setCivilite(next)
+                  if (touched.civilite) setErrors(prev => ({ ...prev, civilite: validateField('civilite', next) }))
+                }}
+              >
+                <SelectTrigger
+                  id="civilite"
+                  className={touched.civilite && errors.civilite ? 'border-red-500' : ''}
+                  onBlur={() => handleBlur('civilite', civilite)}
+                >
+                  <SelectValue placeholder="Sélectionner…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.entries(CIVILITE_LABELS) as [Civilite, string][]).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {touched.civilite && errors.civilite && <p className="text-xs text-red-500">{errors.civilite}</p>}
+              <p className="text-xs text-muted-foreground">
+                Utilisée pour les appellations protocolaires (« Madame la Maire », « Monsieur le Conseiller »…).
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="prenom">Prénom *</Label>

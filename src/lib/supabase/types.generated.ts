@@ -629,6 +629,8 @@ export type Database = {
       members: {
         Row: {
           adresse_postale: string | null
+          archived_at: string | null
+          civilite: Database["public"]["Enums"]["civilite_type"]
           created_at: string | null
           device_id: string | null
           email: string
@@ -637,6 +639,7 @@ export type Database = {
           mandat_debut: string | null
           mandat_fin: string | null
           nom: string
+          photo_url: string | null
           preferences_notification: Json | null
           prenom: string
           qualite_officielle: string | null
@@ -649,6 +652,8 @@ export type Database = {
         }
         Insert: {
           adresse_postale?: string | null
+          archived_at?: string | null
+          civilite: Database["public"]["Enums"]["civilite_type"]
           created_at?: string | null
           device_id?: string | null
           email: string
@@ -657,6 +662,7 @@ export type Database = {
           mandat_debut?: string | null
           mandat_fin?: string | null
           nom: string
+          photo_url?: string | null
           preferences_notification?: Json | null
           prenom: string
           qualite_officielle?: string | null
@@ -669,6 +675,8 @@ export type Database = {
         }
         Update: {
           adresse_postale?: string | null
+          archived_at?: string | null
+          civilite?: Database["public"]["Enums"]["civilite_type"]
           created_at?: string | null
           device_id?: string | null
           email?: string
@@ -677,6 +685,7 @@ export type Database = {
           mandat_debut?: string | null
           mandat_fin?: string | null
           nom?: string
+          photo_url?: string | null
           preferences_notification?: Json | null
           prenom?: string
           qualite_officielle?: string | null
@@ -1580,6 +1589,7 @@ export type Database = {
       is_super_admin: { Args: never; Returns: boolean }
     }
     Enums: {
+      civilite_type: "MADAME" | "MONSIEUR" | "AUTRE"
       convocation_statut:
         | "NON_ENVOYE"
         | "ENVOYE"
@@ -1850,6 +1860,7 @@ export type ODJPointType = Database['public']['Enums']['odj_point_type']
 export type MajoriteRequise = Database['public']['Enums']['majorite_requise']
 export type LateArrivalMode = Database['public']['Enums']['late_arrival_mode']
 export type QuorumType = Database['public']['Enums']['quorum_type']
+export type CiviliteType = Database['public']['Enums']['civilite_type']
 
 // Raccourcis pour les Row types des tables principales
 export type MemberRow = Database['public']['Tables']['members']['Row']

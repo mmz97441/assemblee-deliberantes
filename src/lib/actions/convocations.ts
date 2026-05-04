@@ -79,7 +79,7 @@ export async function sendConvocations(
           statut_convocation,
           token_confirmation,
           token_emargement,
-          member:members (id, prenom, nom, email)
+          member:members (id, civilite, prenom, nom, email, qualite_officielle)
         )
       `)
       .eq('id', seanceId)
@@ -103,16 +103,12 @@ export async function sendConvocations(
       return { error: 'Le président de séance doit être désigné avant l\'envoi des convocations (CGCT L2121-10). Modifiez la séance pour désigner un président.' }
     }
 
-    // Load president name for convocation email
+    // Load president for convocation email (incluant civilité protocolaire)
     const { data: president } = await supabase
       .from('members')
-      .select('prenom, nom, qualite_officielle')
+      .select('civilite, prenom, nom, qualite_officielle')
       .eq('id', seance.president_effectif_seance_id)
       .single()
-
-    const presidentName = president
-      ? `${president.qualite_officielle ? president.qualite_officielle + ' ' : ''}${president.prenom} ${president.nom}`
-      : 'le Président'
 
     // Get institution name
     const { data: institution } = await supabase
@@ -231,6 +227,8 @@ export async function sendConvocations(
       const qrCodeUrl = `${appUrl}/api/qr?data=${encodeURIComponent(tokenEmargement)}`
 
       const emailData = {
+        civiliteMembre: (member.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+        qualiteMembre: member.qualite_officielle || null,
         prenomMembre: member.prenom,
         nomMembre: member.nom,
         titreSeance: seance.titre,
@@ -245,7 +243,10 @@ export async function sendConvocations(
         seanceUrl,
         institutionNom: institutionNom,
         qrCodeUrl,
-        presidentName,
+        civilitePresident: (president?.civilite || null) as 'MADAME' | 'MONSIEUR' | 'AUTRE' | null,
+        qualitePresident: president?.qualite_officielle || null,
+        prenomPresident: president?.prenom || null,
+        nomPresident: president?.nom || null,
       }
 
       try {
@@ -641,7 +642,7 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
     // Get convocataires who haven't confirmed
     const { data: convocataires } = await supabase
       .from('convocataires')
-      .select('member_id, statut_convocation, member:members(prenom, nom, email)')
+      .select('member_id, statut_convocation, member:members(civilite, prenom, nom, email, qualite_officielle)')
       .eq('seance_id', seanceId)
       .in('statut_convocation', ['ENVOYE', 'LU'])
 
@@ -672,7 +673,10 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
       if (!member?.email) continue
 
       const emailData = {
-        memberName: `${member.prenom} ${member.nom}`,
+        civiliteMembre: (member.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+        qualiteMembre: member.qualite_officielle || null,
+        prenomMembre: member.prenom,
+        nomMembre: member.nom,
         seanceTitre: seance.titre,
         seanceDate: dateFormatted,
         seanceHeure: heureFormatted,

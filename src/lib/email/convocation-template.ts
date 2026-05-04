@@ -1,9 +1,17 @@
 /**
- * Template HTML pour les convocations par email.
+ * Template HTML pour les convocations par email — formulation protocolaire
+ * conforme aux usages des institutions publiques françaises.
+ *
+ * Adresse l'élu par son appellation officielle (« Monsieur le Maire »,
+ * « Madame la Conseillère Municipale »…) plutôt que par un simple
+ * « Madame, Monsieur ». La signature mentionne la fonction du président
+ * (ex : « Le Maire » / « La Présidente »).
  *
  * On utilise du HTML inline (pas React Email) pour garder la simplicite
  * et eviter une dependance supplementaire en Phase 1.
  */
+
+import { formatProtocolaire, salutationFinale } from '@/lib/protocole/appellation'
 
 interface OdjDocument {
   name: string
@@ -21,6 +29,10 @@ interface ConvocationOdjPoint {
 }
 
 interface ConvocationEmailData {
+  /** Civilité du destinataire — pour appellation protocolaire */
+  civiliteMembre: 'MADAME' | 'MONSIEUR' | 'AUTRE'
+  /** Qualité officielle du destinataire (« Maire », « Adjoint au maire »…) */
+  qualiteMembre: string | null
   prenomMembre: string
   nomMembre: string
   titreSeance: string
@@ -38,7 +50,12 @@ interface ConvocationEmailData {
   seanceUrl?: string
   institutionNom: string
   qrCodeUrl?: string
-  presidentName?: string
+  /** Civilité du président de séance */
+  civilitePresident?: 'MADAME' | 'MONSIEUR' | 'AUTRE' | null
+  /** Qualité officielle du président (« Maire », « Président », « Présidente »…) */
+  qualitePresident?: string | null
+  prenomPresident?: string | null
+  nomPresident?: string | null
 }
 
 function formatFileSize(bytes: number | null): string {
@@ -73,7 +90,26 @@ export function generateConvocationSubject(data: ConvocationEmailData): string {
 }
 
 export function generateConvocationHTML(data: ConvocationEmailData): string {
-  // ODJ détaillé : description sous chaque titre + liste des PJ par point
+  // ─── Appellations protocolaires ───────────────────────────────────────────
+  // Destinataire : « Monsieur le Maire », « Madame la Conseillère Municipale »…
+  const protoMembre = formatProtocolaire(
+    data.civiliteMembre,
+    data.qualiteMembre,
+    data.prenomMembre,
+    data.nomMembre,
+  )
+  // Signataire (président) : « Le Maire » / « La Présidente » + nom complet
+  const protoPresident = formatProtocolaire(
+    data.civilitePresident || null,
+    data.qualitePresident || 'Président',
+    data.prenomPresident || '',
+    data.nomPresident || '',
+  )
+  // « Sur convocation de Monsieur le Maire » (= appellation, pas signature)
+  const convoquantTexte = (data.prenomPresident || data.nomPresident)
+    ? protoPresident.appellation
+    : 'Monsieur le Président / Madame la Présidente'
+
   // (CTA « Consulter en ligne » vers la page séance pour télécharger les PJ
   // — pas de signed URLs dans l'email pour des raisons de sécurité).
   const odjHTML = data.odjPoints.length > 0
@@ -176,12 +212,12 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
     <tr>
       <td style="padding: 32px;">
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b;">
-          Madame, Monsieur <strong>${escapeHtml(data.prenomMembre)} ${escapeHtml(data.nomMembre)}</strong>,
+          ${escapeHtml(protoMembre.appellation)},
         </p>
 
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b; line-height: 1.6;">
-          Sur convocation de <strong>${escapeHtml(data.presidentName || 'le Président')}</strong>,
-          vous êtes convoqué(e) à la séance suivante :
+          Sur convocation de <strong>${escapeHtml(convoquantTexte)}</strong>,
+          j&rsquo;ai l&rsquo;honneur de vous convoquer à la séance ci-dessous :
         </p>
 
         <!-- Session info card -->
@@ -271,6 +307,21 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
           Pour donner procuration à un autre élu, contactez le secrétariat
           de votre institution (CGCT L2121-20).
         </p>
+
+        <!-- Salutation protocolaire + signature -->
+        <p style="margin: 32px 0 8px; font-size: 14px; color: #1e293b; line-height: 1.6;">
+          ${escapeHtml(salutationFinale(protoMembre.appellation))}
+        </p>
+        <div style="margin: 24px 0 0; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: right;">
+          <p style="margin: 0; font-size: 14px; color: #1e293b; font-style: italic;">
+            ${escapeHtml(protoPresident.signature || 'Le Président de séance')}
+          </p>
+          ${(data.prenomPresident || data.nomPresident) ? `
+            <p style="margin: 2px 0 0; font-size: 14px; color: #1e293b; font-weight: 600;">
+              ${escapeHtml(`${data.prenomPresident || ''} ${(data.nomPresident || '').toUpperCase()}`.trim())}
+            </p>
+          ` : ''}
+        </div>
       </td>
     </tr>
 
@@ -302,7 +353,10 @@ export function escapeHtml(str: string): string {
 // ─── Reminder email template ────────────────────────────────────────────────
 
 interface ReminderEmailData {
-  memberName: string
+  civiliteMembre: 'MADAME' | 'MONSIEUR' | 'AUTRE'
+  qualiteMembre: string | null
+  prenomMembre: string
+  nomMembre: string
   seanceTitre: string
   seanceDate: string
   seanceHeure: string
@@ -315,7 +369,13 @@ export function generateReminderSubject(data: ReminderEmailData): string {
 }
 
 export function generateReminderHTML(data: ReminderEmailData): string {
-  const { memberName, seanceTitre, seanceDate, seanceHeure, instanceNom, institutionNom } = data
+  const { seanceTitre, seanceDate, seanceHeure, instanceNom, institutionNom } = data
+  const proto = formatProtocolaire(
+    data.civiliteMembre,
+    data.qualiteMembre,
+    data.prenomMembre,
+    data.nomMembre,
+  )
 
   return `
 <!DOCTYPE html>
@@ -342,11 +402,12 @@ export function generateReminderHTML(data: ReminderEmailData): string {
     <tr>
       <td style="padding: 32px;">
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b;">
-          Madame, Monsieur <strong>${escapeHtml(memberName)}</strong>,
+          ${escapeHtml(proto.appellation)},
         </p>
 
         <p style="margin: 0 0 16px; font-size: 15px; color: #1e293b; line-height: 1.6;">
-          Nous vous rappelons que vous êtes convoqué(e) à la séance suivante :
+          Nous nous permettons de vous rappeler la séance à laquelle vous
+          avez été régulièrement convoqué${proto.hasCivilite && data.civiliteMembre === 'MADAME' ? 'e' : '(e)'} :
         </p>
 
         <!-- Session info card -->
@@ -377,8 +438,12 @@ export function generateReminderHTML(data: ReminderEmailData): string {
         </table>
 
         <p style="margin: 16px 0 0; font-size: 14px; color: #64748b; line-height: 1.6;">
-          Si vous ne pouvez pas assister à cette séance, veuillez en informer le secrétariat
-          et, le cas échéant, établir une procuration.
+          Si vous ne pouvez pas assister à cette séance, veuillez en informer
+          le secrétariat et, le cas échéant, établir une procuration (CGCT L2121-20).
+        </p>
+
+        <p style="margin: 24px 0 0; font-size: 13px; color: #475569; line-height: 1.6;">
+          ${escapeHtml(salutationFinale(proto.appellation))}
         </p>
       </td>
     </tr>

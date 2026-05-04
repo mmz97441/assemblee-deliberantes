@@ -546,7 +546,7 @@ export async function signPV(
     // Find the member record for the current user
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select('id, prenom, nom, user_id')
+      .select('id, civilite, qualite_officielle, prenom, nom, user_id')
       .eq('user_id', user.id)
       .maybeSingle()
 
@@ -654,7 +654,18 @@ export async function signPV(
     }
 
     // Send email notifications (non-blocking)
-    const signerName = `${member.prenom} ${member.nom}`
+    // signerName : appellation protocolaire complète (« Monsieur le Maire Jean DUPONT »)
+    // pour respecter les usages français dans les courriers institutionnels.
+    const { formatProtocolaire } = await import('@/lib/protocole/appellation')
+    const signerProto = formatProtocolaire(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (member as any).civilite || null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (member as any).qualite_officielle || null,
+      member.prenom,
+      member.nom,
+    )
+    const signerName = signerProto.full
     sendSignatureEventEmail(seanceId, sigRole, signerName, bothSigned).catch(() => {
       // Silently ignore — email failures should not block the signature
     })
@@ -811,26 +822,35 @@ export async function sendPVSignatureNotifications(
 
     if (seanceError || !seance) return { error: 'Séance introuvable' }
 
+    type SignerMember = {
+      id: string
+      civilite: 'MADAME' | 'MONSIEUR' | 'AUTRE'
+      qualite_officielle: string | null
+      prenom: string
+      nom: string
+      email: string
+    }
+
     // Load president member
-    let presidentMember: { id: string; prenom: string; nom: string; email: string } | null = null
+    let presidentMember: SignerMember | null = null
     if (seance.president_effectif_seance_id) {
       const { data } = await supabase
         .from('members')
-        .select('id, prenom, nom, email')
+        .select('id, civilite, qualite_officielle, prenom, nom, email')
         .eq('id', seance.president_effectif_seance_id)
         .single()
-      presidentMember = data
+      presidentMember = data as SignerMember | null
     }
 
     // Load secretary member
-    let secretaireMember: { id: string; prenom: string; nom: string; email: string } | null = null
+    let secretaireMember: SignerMember | null = null
     if (seance.secretaire_seance_id) {
       const { data } = await supabase
         .from('members')
-        .select('id, prenom, nom, email')
+        .select('id, civilite, qualite_officielle, prenom, nom, email')
         .eq('id', seance.secretaire_seance_id)
         .single()
-      secretaireMember = data
+      secretaireMember = data as SignerMember | null
     }
 
     // Get institution name
@@ -863,7 +883,10 @@ export async function sendPVSignatureNotifications(
           to: [presidentMember.email],
           subject: generatePVSignatureSubject(seanceDate),
           html: generatePVSignatureHTML({
-            memberName: `${presidentMember.prenom} ${presidentMember.nom}`,
+            civiliteMembre: presidentMember.civilite,
+            qualiteMembre: presidentMember.qualite_officielle,
+            prenomMembre: presidentMember.prenom,
+            nomMembre: presidentMember.nom,
             role: 'président',
             seanceTitre: seance.titre,
             seanceDate,
@@ -895,7 +918,10 @@ export async function sendPVSignatureNotifications(
             to: [secretaireMember.email],
             subject: generatePVSignatureSubject(seanceDate),
             html: generatePVSignatureHTML({
-              memberName: `${secretaireMember.prenom} ${secretaireMember.nom}`,
+              civiliteMembre: secretaireMember.civilite,
+              qualiteMembre: secretaireMember.qualite_officielle,
+              prenomMembre: secretaireMember.prenom,
+              nomMembre: secretaireMember.nom,
               role: 'secrétaire',
               seanceTitre: seance.titre,
               seanceDate,
@@ -972,7 +998,7 @@ export async function resendPVSignatureNotification(
 
     const { data: targetMember } = await supabase
       .from('members')
-      .select('id, prenom, nom, email')
+      .select('id, civilite, qualite_officielle, prenom, nom, email')
       .eq('id', targetMemberId)
       .single()
     if (!targetMember?.email) {
@@ -998,7 +1024,10 @@ export async function resendPVSignatureNotification(
         to: [targetMember.email],
         subject: `Rappel — ${generatePVSignatureSubject(seanceDate)}`,
         html: generatePVSignatureHTML({
-          memberName: `${targetMember.prenom} ${targetMember.nom}`,
+          civiliteMembre: (targetMember.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+          qualiteMembre: targetMember.qualite_officielle || null,
+          prenomMembre: targetMember.prenom,
+          nomMembre: targetMember.nom,
           role: targetRole === 'president' ? 'président' : 'secrétaire',
           seanceTitre: seance.titre,
           seanceDate,
@@ -1064,16 +1093,17 @@ async function sendSignatureEventEmail(
 
     const { data: recipientMember } = await supabase
       .from('members')
-      .select('id, prenom, nom, email')
+      .select('id, civilite, qualite_officielle, prenom, nom, email')
       .eq('id', recipientMemberId)
       .single()
 
     if (!recipientMember?.email) return
 
-    const recipientName = `${recipientMember.prenom} ${recipientMember.nom}`
-
     const emailData = {
-      recipientName,
+      civiliteRecipient: (recipientMember.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+      qualiteRecipient: recipientMember.qualite_officielle || null,
+      prenomRecipient: recipientMember.prenom,
+      nomRecipient: recipientMember.nom,
       signerRole: signerRoleLabel as 'président' | 'secrétaire',
       signerName,
       seanceTitre: seance.titre,
@@ -1099,13 +1129,16 @@ async function sendSignatureEventEmail(
       if (signerMemberId) {
         const { data: signerMemberData } = await supabase
           .from('members')
-          .select('id, prenom, nom, email')
+          .select('id, civilite, qualite_officielle, prenom, nom, email')
           .eq('id', signerMemberId)
           .single()
 
         if (signerMemberData?.email) {
           const signerEmailData = {
-            recipientName: `${signerMemberData.prenom} ${signerMemberData.nom}`,
+            civiliteRecipient: (signerMemberData.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+            qualiteRecipient: signerMemberData.qualite_officielle || null,
+            prenomRecipient: signerMemberData.prenom,
+            nomRecipient: signerMemberData.nom,
             signerRole: signerRoleLabel as 'président' | 'secrétaire',
             signerName,
             seanceTitre: seance.titre,

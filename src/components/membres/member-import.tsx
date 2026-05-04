@@ -37,6 +37,12 @@ import {
 
 // Known column aliases (French + English)
 const COLUMN_MAP: Record<string, keyof ImportRow> = {
+  // civilite
+  'civilite': 'civilite',
+  'civilité': 'civilite',
+  'titre civilité': 'civilite',
+  'genre': 'civilite',
+  'gender': 'civilite',
   // prenom
   'prenom': 'prenom',
   'prénom': 'prenom',
@@ -335,6 +341,7 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
+                  { name: 'Civilité (Madame / Monsieur / Autre)', required: true },
                   { name: 'Prénom', required: true },
                   { name: 'Nom', required: true },
                   { name: 'Email', required: true },
@@ -358,7 +365,7 @@ export function MemberImportDialog({ open, onClose }: MemberImportDialogProps) {
                 size="sm"
                 className="gap-2 mt-2"
                 onClick={() => {
-                  const csv = 'Prénom;Nom;Email;Téléphone;Qualité;Groupe politique\nJean;Dupont;jean.dupont@mairie.fr;06 12 34 56 78;Adjoint au maire;Majorité\nMarie;Martin;marie.martin@mairie.fr;06 98 76 54 32;Conseillère;Opposition\n'
+                  const csv = 'Civilité;Prénom;Nom;Email;Téléphone;Qualité;Groupe politique\nMonsieur;Jean;Dupont;jean.dupont@mairie.fr;06 12 34 56 78;Adjoint au maire;Majorité\nMadame;Marie;Martin;marie.martin@mairie.fr;06 98 76 54 32;Conseillère;Opposition\n'
                   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' })
                   const url = URL.createObjectURL(blob)
                   const a = document.createElement('a')
