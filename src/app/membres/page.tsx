@@ -72,6 +72,52 @@ export default async function MembresPage() {
           mAny.lieu_naissance = null
         }
       }
+
+      // Calcul de l'account_state pour chaque membre (compte connexion).
+      // Ce calcul nécessite service_role car auth.users n'est pas accessible
+      // côté authenticated. On le fait UNIQUEMENT pour les privilégiés
+      // (les non-privilégiés ne voient pas l'AccountStateBadge de toute façon).
+      if (canManage && members.length > 0) {
+        const memberUserIds = members
+          .map(m => (m as { user_id?: string | null }).user_id)
+          .filter((id): id is string => !!id)
+
+        const confirmedMap = new Map<string, string | null>()
+        if (memberUserIds.length > 0) {
+          try {
+            const { createServiceRoleClient } = await import('@/lib/supabase/server')
+            const serviceClient = await createServiceRoleClient()
+            const { data: usersResp } = await serviceClient.auth.admin.listUsers({
+              page: 1, perPage: 1000,
+            })
+            for (const u of usersResp?.users || []) {
+              if (memberUserIds.includes(u.id)) {
+                confirmedMap.set(u.id, u.email_confirmed_at || null)
+              }
+            }
+          } catch (err) {
+            console.warn('membres/page: impossible de charger les états auth :', err)
+          }
+        }
+
+        for (const m of members) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const mAny = m as any
+          if (!mAny.user_id) {
+            mAny.account_state = 'NO_ACCOUNT'
+            mAny.activated_at = null
+          } else {
+            const confirmedAt = confirmedMap.get(mAny.user_id)
+            if (confirmedAt) {
+              mAny.account_state = 'ACTIVE'
+              mAny.activated_at = confirmedAt
+            } else {
+              mAny.account_state = 'PENDING_INVITE'
+              mAny.activated_at = null
+            }
+          }
+        }
+      }
     }
 
     const { data: instancesData, error: instancesError } = await supabase

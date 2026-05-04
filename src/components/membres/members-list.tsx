@@ -275,7 +275,12 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
   // ─── Helper rendering : badge état du compte connexion ─────────────
   function AccountStateBadge({ state }: { state: AccountState | undefined }) {
-    if (!state || state === 'NO_ACCOUNT') {
+    // Si state est undefined, on n'affiche RIEN — c'est un cas d'erreur
+    // (page qui n'a pas calculé account_state). Mieux vaut ne rien montrer
+    // que d'afficher un faux « Pas de compte » qui contredit les autres
+    // boutons d'action.
+    if (!state) return null
+    if (state === 'NO_ACCOUNT') {
       return (
         <Badge variant="outline" className="text-[10px] gap-1 border-slate-300 text-slate-600">
           <AlertCircle className="h-3 w-3" /> Pas de compte
