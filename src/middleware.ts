@@ -133,7 +133,12 @@ export async function middleware(request: NextRequest) {
         .select('role')
         .eq('user_id', user.id)
         .maybeSingle()
-      if (!member || member.role !== 'super_admin') {
+      // Configuration accessible aux 3 rôles « direction » : super_admin
+      // + DGS + Directeur de cabinet. Cohérent avec la page /configuration
+      // (page.tsx) et le lien dans la sidebar (app-sidebar.tsx).
+      // Le toggle « QR strict » reste verrouillé au super_admin via
+      // disabled={!isSuperAdmin} dans institution-wizard.tsx.
+      if (!member || !['super_admin', 'dgs', 'directeur_cabinet'].includes(member.role || '')) {
         const url = request.nextUrl.clone()
         url.pathname = '/dashboard'
         return NextResponse.redirect(url)

@@ -39,8 +39,14 @@ import { PhoneInput } from '@/components/ui/phone-input'
 import { QUALITES_OFFICIELLES, FONCTIONS_INSTANCE } from '@/lib/constants/membre-roles'
 import { isValidEmail } from '@/lib/validators/email'
 
+// Liste complète des rôles assignables. Le filtrage selon ce que le caller
+// peut réellement attribuer est fait côté serveur dans `assertAllowedRoleAssignment`
+// (cf. src/lib/actions/members.ts) basé sur INVITABLE_ROLES de helpers.ts.
+// Si vous voulez aussi filtrer côté UI, prenez la liste d'INVITABLE_ROLES[callerRole].
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'super_admin', label: 'Super-administrateur' },
+  { value: 'dgs', label: 'DGS (Directeur Général des Services)' },
+  { value: 'directeur_cabinet', label: 'Directeur de cabinet' },
   { value: 'president', label: 'Président(e)' },
   { value: 'gestionnaire', label: 'Gestionnaire' },
   { value: 'secretaire_seance', label: 'Secrétaire de séance' },

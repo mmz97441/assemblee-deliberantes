@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { ROUTES } from '@/lib/constants'
 import { requireVerifiedRole } from '@/lib/auth/require-role'
+import { getUserRole } from '@/lib/auth/get-user-role'
 
 type ActionResult = { success: true } | { success: true; id: string } | { error: string }
 
@@ -19,8 +20,10 @@ async function getAuthenticatedUser() {
 export async function saveInstitutionConfig(formData: FormData): Promise<ActionResult> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
-    // SÉCURITÉ : vérification du rôle via la table members (action critique)
-    const roleError = await requireVerifiedRole(supabase, user, ['super_admin'])
+    // Action ouverte aux 3 rôles « direction » (super_admin + dgs + directeur_cabinet).
+    // Cohérent avec la matrice de permissions (la page /configuration et le
+    // middleware acceptent ces 3 rôles).
+    const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet'])
     if (roleError) return { error: roleError }
 
     const nom_officiel = formData.get('nom_officiel') as string
@@ -31,6 +34,30 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
     }
     if (!type_institution) {
       return { error: 'Le type d\'institution est requis' }
+    }
+
+    // SÉCURITÉ : le toggle « QR strict » impacte directement la validité
+    // juridique des séances (preuve de présence physique). Il est réservé
+    // au super_admin. Si un DGS / Dir cab tente de le modifier (en
+    // contournant le disabled UI via DevTools par exemple), on refuse
+    // côté serveur et on garde la valeur actuelle.
+    const callerRole = user ? await getUserRole(supabase, user.id) : null
+    const requestedQrStrict = formData.get('emargement_qr_strict') === 'true'
+    let qrStrictToSave = requestedQrStrict
+    if (callerRole !== 'super_admin') {
+      // Lire la valeur actuelle pour ne pas l'écraser
+      const existingId = formData.get('id') as string
+      if (existingId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: current } = await supabase
+          .from('institution_config')
+          .select('emargement_qr_strict')
+          .eq('id', existingId)
+          .maybeSingle() as { data: { emargement_qr_strict?: boolean } | null }
+        qrStrictToSave = current?.emargement_qr_strict ?? false
+      } else {
+        qrStrictToSave = false // valeur par défaut sur création
+      }
     }
 
     const payload = {
@@ -55,7 +82,7 @@ export async function saveInstitutionConfig(formData: FormData): Promise<ActionR
       note_synthese_obligatoire: formData.get('note_synthese_obligatoire') === 'true',
       note_synthese_seuil_population:
         parseInt(formData.get('note_synthese_seuil_population') as string) || 3500,
-      emargement_qr_strict: formData.get('emargement_qr_strict') === 'true',
+      emargement_qr_strict: qrStrictToSave,
 
     }
 
