@@ -44,25 +44,27 @@ export default async function DeliberationsPage() {
     delibQuery = delibQuery.not('publie_at', 'is', null)
   }
 
-  const { data: deliberationsData, error: deliberationsError } = await delibQuery
+  // Délibérations + instances : indépendants → en parallèle
+  const [
+    { data: deliberationsData, error: deliberationsError },
+    { data: instancesData, error: instancesError },
+  ] = await Promise.all([
+    delibQuery,
+    supabase
+      .from('instance_config')
+      .select('*')
+      .eq('actif', true)
+      .order('nom', { ascending: true }),
+  ])
 
   if (deliberationsError) {
     console.error('Erreur chargement deliberations:', deliberationsError)
   }
-
-  const deliberations = deliberationsData || []
-
-  // Fetch active instances for the filter
-  const { data: instancesData, error: instancesError } = await supabase
-    .from('instance_config')
-    .select('*')
-    .eq('actif', true)
-    .order('nom', { ascending: true })
-
   if (instancesError) {
     console.error('Erreur chargement instances:', instancesError)
   }
 
+  const deliberations = deliberationsData || []
   const instances: InstanceConfigRow[] = instancesData || []
 
   return (

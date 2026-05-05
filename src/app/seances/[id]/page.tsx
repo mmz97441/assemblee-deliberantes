@@ -46,42 +46,82 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  // Load president + secretaire separately (2 FK to same table = PostgREST ambiguity)
-  let presidentEffectif = null
-  let secretaireSeance = null
-
-  if (seance.president_effectif_seance_id) {
-    const { data } = await supabase
+  // ─── Chargement parallèle des données dépendant de la séance ─────────────
+  // Toutes ces requêtes sont indépendantes les unes des autres : on les
+  // lance en parallèle pour diviser le TTFB de cette page (auparavant ~6
+  // allers-retours en série vers Postgres).
+  const [
+    presidentEffectifResult,
+    secretaireSeanceResult,
+    procurationsResult,
+    allMembersResult,
+    allInstancesResult,
+    instanceMembersResult,
+    institutionConfigResult,
+    currentUserMemberResult,
+  ] = await Promise.all([
+    seance.president_effectif_seance_id
+      ? supabase
+          .from('members')
+          .select('id, prenom, nom')
+          .eq('id', seance.president_effectif_seance_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    seance.secretaire_seance_id
+      ? supabase
+          .from('members')
+          .select('id, prenom, nom')
+          .eq('id', seance.secretaire_seance_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from('procurations')
+      .select(`
+        id,
+        mandant_id,
+        mandataire_id,
+        valide,
+        canal_communication,
+        created_at,
+        mandant:members!procurations_mandant_id_fkey (id, prenom, nom, email),
+        mandataire:members!procurations_mandataire_id_fkey (id, prenom, nom, email)
+      `)
+      .eq('seance_id', id),
+    supabase
       .from('members')
-      .select('id, prenom, nom')
-      .eq('id', seance.president_effectif_seance_id)
-      .maybeSingle()
-    presidentEffectif = data
-  }
-
-  if (seance.secretaire_seance_id) {
-    const { data } = await supabase
+      .select('id, prenom, nom, email, role, qualite_officielle')
+      .eq('statut', 'ACTIF')
+      .order('nom', { ascending: true }),
+    supabase
+      .from('instance_config')
+      .select('*')
+      .eq('actif', true)
+      .order('nom', { ascending: true }),
+    supabase
+      .from('instance_members')
+      .select('member_id')
+      .eq('instance_config_id', seance.instance_id)
+      .eq('actif', true),
+    supabase
+      .from('institution_config')
+      .select('population_habitants, note_synthese_obligatoire, note_synthese_seuil_population, type_institution')
+      .limit(1)
+      .maybeSingle(),
+    supabase
       .from('members')
-      .select('id, prenom, nom')
-      .eq('id', seance.secretaire_seance_id)
-      .maybeSingle()
-    secretaireSeance = data
-  }
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .maybeSingle(),
+  ])
 
-  // Load procurations separately
-  const { data: procurationsData } = await supabase
-    .from('procurations')
-    .select(`
-      id,
-      mandant_id,
-      mandataire_id,
-      valide,
-      canal_communication,
-      created_at,
-      mandant:members!procurations_mandant_id_fkey (id, prenom, nom, email),
-      mandataire:members!procurations_mandataire_id_fkey (id, prenom, nom, email)
-    `)
-    .eq('seance_id', id)
+  const presidentEffectif = presidentEffectifResult.data
+  const secretaireSeance = secretaireSeanceResult.data
+  const procurationsData = procurationsResult.data
+  const allMembers = allMembersResult.data
+  const allInstances = allInstancesResult.data
+  const instanceMembers = instanceMembersResult.data
+  const institutionConfig = institutionConfigResult.data
+  const currentUserMember = currentUserMemberResult.data
 
   // Compose the full seance object
   const seanceWithProcurations = {
@@ -96,46 +136,11 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     seance.odj_points.sort((a: ODJPointRow, b: ODJPointRow) => a.position - b.position)
   }
 
-  // Fetch all active members (for adding convocataires, rapporteur selection)
-  const { data: allMembers } = await supabase
-    .from('members')
-    .select('id, prenom, nom, email, role, qualite_officielle')
-    .eq('statut', 'ACTIF')
-    .order('nom', { ascending: true })
-
-  // Fetch all instances (for edit dialog)
-  const { data: allInstances } = await supabase
-    .from('instance_config')
-    .select('*')
-    .eq('actif', true)
-    .order('nom', { ascending: true })
-
-  // Fetch instance members for this instance
-  const { data: instanceMembers } = await supabase
-    .from('instance_members')
-    .select('member_id')
-    .eq('instance_config_id', seance.instance_id)
-    .eq('actif', true)
-
-  // Fetch institution config (note de synthèse — CGCT L2121-12)
-  const { data: institutionConfig } = await supabase
-    .from('institution_config')
-    .select('population_habitants, note_synthese_obligatoire, note_synthese_seuil_population, type_institution')
-    .limit(1)
-    .maybeSingle()
-
   const userRole = await getEffectiveRole(supabase, userData.user.id)
   const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)
 
   // Vrai si l'utilisateur courant est président effectif OU secrétaire
-  // de cette séance précise. Donne accès aux infos de bureau (présences,
-  // procurations, PV brouillon) sans pour autant donner accès aux stats
-  // de gestion (convocations envoyées/erreurs/quorum chiffré).
-  const { data: currentUserMember } = await supabase
-    .from('members')
-    .select('id')
-    .eq('user_id', userData.user.id)
-    .maybeSingle()
+  // de cette séance précise.
   const isBureauSeance = !!currentUserMember && (
     seance.president_effectif_seance_id === currentUserMember.id ||
     seance.secretaire_seance_id === currentUserMember.id

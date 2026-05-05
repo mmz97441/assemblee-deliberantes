@@ -82,20 +82,22 @@ export default async function SeancesPage() {
   const procurationsBySeance = new Map<string, number>()
   const presencesBySeance = new Map<string, number>()
   if (seanceIds.length > 0) {
-    const { data: procData } = await supabase
-      .from('procurations')
-      .select('seance_id')
-      .in('seance_id', seanceIds)
-      .eq('valide', true)
+    // Procurations + présences sont indépendantes : on les charge en parallèle
+    const [{ data: procData }, { data: presData }] = await Promise.all([
+      supabase
+        .from('procurations')
+        .select('seance_id')
+        .in('seance_id', seanceIds)
+        .eq('valide', true),
+      supabase
+        .from('presences')
+        .select('seance_id, statut')
+        .in('seance_id', seanceIds),
+    ])
     for (const p of procData || []) {
       const id = (p as { seance_id: string }).seance_id
       procurationsBySeance.set(id, (procurationsBySeance.get(id) || 0) + 1)
     }
-
-    const { data: presData } = await supabase
-      .from('presences')
-      .select('seance_id, statut')
-      .in('seance_id', seanceIds)
     for (const p of presData || []) {
       const row = p as { seance_id: string; statut: string }
       if (row.statut === 'PRESENT' || row.statut === 'PROCURATION') {
@@ -158,30 +160,31 @@ export default async function SeancesPage() {
   const seances = allSeances.filter((s: { statut: string }) => s.statut !== 'ARCHIVEE')
   const archivedSeances = allSeances.filter((s: { statut: string }) => s.statut === 'ARCHIVEE')
 
-  // Fetch active instances for the filter and create form
-  const { data: instancesData, error: instancesError } = await supabase
-    .from('instance_config')
-    .select('*')
-    .eq('actif', true)
-    .order('nom', { ascending: true })
+  // Instances + membres pour les selects du formulaire — indépendants : parallèle
+  const [
+    { data: instancesData, error: instancesError },
+    { data: membersData, error: membersError },
+  ] = await Promise.all([
+    supabase
+      .from('instance_config')
+      .select('*')
+      .eq('actif', true)
+      .order('nom', { ascending: true }),
+    supabase
+      .from('members')
+      .select('id, prenom, nom, role, qualite_officielle')
+      .eq('statut', 'ACTIF')
+      .order('nom', { ascending: true }),
+  ])
 
   if (instancesError) {
     console.error('Erreur chargement instances:', instancesError)
   }
-
-  const instances: InstanceConfigRow[] = instancesData || []
-
-  // Fetch members for president/secretaire selection
-  const { data: membersData, error: membersError } = await supabase
-    .from('members')
-    .select('id, prenom, nom, role, qualite_officielle')
-    .eq('statut', 'ACTIF')
-    .order('nom', { ascending: true })
-
   if (membersError) {
     console.error('Erreur chargement membres:', membersError)
   }
 
+  const instances: InstanceConfigRow[] = instancesData || []
   const members = membersData || []
 
   const canManage = ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire'].includes(userRole)

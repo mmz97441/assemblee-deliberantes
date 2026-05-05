@@ -37,19 +37,29 @@ export default async function PVPage({ params }: Props) {
     notFound()
   }
 
-  // Load existing PV if any
-  const { data: pv } = await supabase
-    .from('pv')
-    .select('id, contenu_json, statut, version, signe_par, pdf_url')
-    .eq('seance_id', id)
-    .maybeSingle()
-
-  // Find the current user's member record
-  const { data: currentMember } = await supabase
-    .from('members')
-    .select('id')
-    .eq('user_id', userData.user.id)
-    .maybeSingle()
+  // PV existant + membre courant + convocataires : indépendants → en parallèle.
+  // (les convocataires sont aussi indépendants, on les charge dès maintenant
+  // pour éviter un round-trip supplémentaire plus bas.)
+  const [
+    { data: pv },
+    { data: currentMember },
+    { data: convocataires },
+  ] = await Promise.all([
+    supabase
+      .from('pv')
+      .select('id, contenu_json, statut, version, signe_par, pdf_url')
+      .eq('seance_id', id)
+      .maybeSingle(),
+    supabase
+      .from('members')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .maybeSingle(),
+    supabase
+      .from('convocataires')
+      .select('member_id, member:members (id, prenom, nom)')
+      .eq('seance_id', id),
+  ])
 
   const userRole = await getEffectiveRole(supabase, userData.user.id)
   // Édition du PV : 4 privilégiés + secrétaire (qui rédige).
@@ -80,12 +90,6 @@ export default async function PVPage({ params }: Props) {
       redirect(`/seances/${id}`)
     }
   }
-
-  // Load convocataires for inline designation in signature step
-  const { data: convocataires } = await supabase
-    .from('convocataires')
-    .select('member_id, member:members (id, prenom, nom)')
-    .eq('seance_id', id)
 
   const instanceNom = (seance.instance_config as { nom: string } | null)?.nom || ''
 

@@ -97,23 +97,23 @@ export default async function DashboardPage() {
       )
 
       if (seanceIds.length > 0) {
-        // ── Next seance (upcoming, most imminent first) ──
-        const { data: upcomingSeances } = await supabase
-          .from('seances')
-          .select('id, titre, date_seance, statut, lieu, mode, instance_config (nom)')
-          .in('id', seanceIds)
-          .or(`statut.eq.CONVOQUEE,statut.eq.EN_COURS`)
-          .gte('date_seance', now.toISOString().slice(0, 10))
-          .order('date_seance', { ascending: true })
-          .limit(1)
-
-        // Also check for EN_COURS regardless of date
-        const { data: enCoursSeances } = await supabase
-          .from('seances')
-          .select('id, titre, date_seance, statut, lieu, mode, instance_config (nom)')
-          .in('id', seanceIds)
-          .eq('statut', 'EN_COURS')
-          .limit(1)
+        // upcomingSeances + enCoursSeances : indépendantes → en parallèle
+        const [{ data: upcomingSeances }, { data: enCoursSeances }] = await Promise.all([
+          supabase
+            .from('seances')
+            .select('id, titre, date_seance, statut, lieu, mode, instance_config (nom)')
+            .in('id', seanceIds)
+            .or(`statut.eq.CONVOQUEE,statut.eq.EN_COURS`)
+            .gte('date_seance', now.toISOString().slice(0, 10))
+            .order('date_seance', { ascending: true })
+            .limit(1),
+          supabase
+            .from('seances')
+            .select('id, titre, date_seance, statut, lieu, mode, instance_config (nom)')
+            .in('id', seanceIds)
+            .eq('statut', 'EN_COURS')
+            .limit(1),
+        ])
 
         const nextRaw = enCoursSeances?.[0] || upcomingSeances?.[0]
 
@@ -142,44 +142,44 @@ export default async function DashboardPage() {
         }
       }
 
-      // ── Stats: presences this year ──
-      const { data: presences } = await supabase
-        .from('presences')
-        .select('id, statut')
-        .eq('member_id', memberId)
-        .gte('created_at', yearStart)
+      // Stats élu : 5 requêtes indépendantes → en parallèle
+      const [
+        { data: presences },
+        { count: votesCount },
+        { count: secretVotesCount },
+        { count: procGiven },
+        { count: procReceived },
+      ] = await Promise.all([
+        supabase
+          .from('presences')
+          .select('id, statut')
+          .eq('member_id', memberId)
+          .gte('created_at', yearStart),
+        supabase
+          .from('bulletins_vote')
+          .select('id', { count: 'exact', head: true })
+          .eq('member_id', memberId),
+        supabase
+          .from('votes_participation')
+          .select('id', { count: 'exact', head: true })
+          .eq('member_id', memberId),
+        supabase
+          .from('procurations')
+          .select('id', { count: 'exact', head: true })
+          .eq('mandant_id', memberId)
+          .eq('valide', true),
+        supabase
+          .from('procurations')
+          .select('id', { count: 'exact', head: true })
+          .eq('mandataire_id', memberId)
+          .eq('valide', true),
+      ])
 
       props.stats.seancesConvoquees = seanceIds.length
       props.stats.seancesParticipees = (presences || []).filter(
         (p) => p.statut === 'PRESENT'
       ).length
-
-      // ── Stats: votes ──
-      const { count: votesCount } = await supabase
-        .from('bulletins_vote')
-        .select('id', { count: 'exact', head: true })
-        .eq('member_id', memberId)
-
-      const { count: secretVotesCount } = await supabase
-        .from('votes_participation')
-        .select('id', { count: 'exact', head: true })
-        .eq('member_id', memberId)
-
       props.stats.votesEffectues = (votesCount || 0) + (secretVotesCount || 0)
-
-      // ── Stats: procurations ──
-      const { count: procGiven } = await supabase
-        .from('procurations')
-        .select('id', { count: 'exact', head: true })
-        .eq('mandant_id', memberId)
-        .eq('valide', true)
-
-      const { count: procReceived } = await supabase
-        .from('procurations')
-        .select('id', { count: 'exact', head: true })
-        .eq('mandataire_id', memberId)
-        .eq('valide', true)
-
       props.stats.procurationsGiven = procGiven || 0
       props.stats.procurationsReceived = procReceived || 0
 
@@ -911,26 +911,30 @@ export default async function DashboardPage() {
     // Continue with defaults
   }
 
-  // ── Stats (real data) ──
-  const { count: seancesThisMonth } = await supabase
-    .from('seances')
-    .select('id', { count: 'exact', head: true })
-    .gte('date_seance', monthStart)
-
-  const { count: delibsThisMonth } = await supabase
-    .from('deliberations')
-    .select('id', { count: 'exact', head: true })
-    .gte('created_at', monthStart)
-
-  const { count: membresActifs } = await supabase
-    .from('members')
-    .select('id', { count: 'exact', head: true })
-    .eq('statut', 'ACTIF')
-
-  const { count: pvBrouillonCount } = await supabase
-    .from('pv')
-    .select('id', { count: 'exact', head: true })
-    .in('statut', ['BROUILLON', 'EN_RELECTURE'])
+  // 4 compteurs indépendants → en parallèle
+  const [
+    { count: seancesThisMonth },
+    { count: delibsThisMonth },
+    { count: membresActifs },
+    { count: pvBrouillonCount },
+  ] = await Promise.all([
+    supabase
+      .from('seances')
+      .select('id', { count: 'exact', head: true })
+      .gte('date_seance', monthStart),
+    supabase
+      .from('deliberations')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', monthStart),
+    supabase
+      .from('members')
+      .select('id', { count: 'exact', head: true })
+      .eq('statut', 'ACTIF'),
+    supabase
+      .from('pv')
+      .select('id', { count: 'exact', head: true })
+      .in('statut', ['BROUILLON', 'EN_RELECTURE']),
+  ])
 
   const gestionnaireStats: GestionnaireDashboardProps['stats'] = {
     seancesCeMois: seancesThisMonth || 0,

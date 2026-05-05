@@ -36,23 +36,40 @@ export default async function MembresPage() {
       : `id, prenom, nom, role, qualite_officielle, groupe_politique,
          photo_url, statut, archived_at, mandat_debut, mandat_fin, created_at`
 
-    const { data: membersData, error: membersError } = await supabase
-      .from('members')
-      .select(`
-        ${selectFields},
-        instance_members (
-          id,
-          instance_config_id,
-          fonction_dans_instance,
-          actif,
-          instance_config (
+    // Membres + instances : indépendants → en parallèle
+    const [
+      { data: membersData, error: membersError },
+      { data: instancesData, error: instancesError },
+    ] = await Promise.all([
+      supabase
+        .from('members')
+        .select(`
+          ${selectFields},
+          instance_members (
             id,
-            nom
+            instance_config_id,
+            fonction_dans_instance,
+            actif,
+            instance_config (
+              id,
+              nom
+            )
           )
-        )
-      `)
-      .order('nom', { ascending: true })
-      .order('prenom', { ascending: true })
+        `)
+        .order('nom', { ascending: true })
+        .order('prenom', { ascending: true }),
+      supabase
+        .from('instance_config')
+        .select('*')
+        .eq('actif', true)
+        .order('nom', { ascending: true }),
+    ])
+
+    if (instancesError) {
+      console.error('Erreur chargement instances:', instancesError)
+    } else {
+      instances = instancesData || []
+    }
 
     if (membersError) {
       console.error('Erreur chargement membres:', membersError)
@@ -118,18 +135,6 @@ export default async function MembresPage() {
           }
         }
       }
-    }
-
-    const { data: instancesData, error: instancesError } = await supabase
-      .from('instance_config')
-      .select('*')
-      .eq('actif', true)
-      .order('nom', { ascending: true })
-
-    if (instancesError) {
-      console.error('Erreur chargement instances:', instancesError)
-    } else {
-      instances = instancesData || []
     }
   } catch (err) {
     console.error('Erreur chargement membres:', err)
