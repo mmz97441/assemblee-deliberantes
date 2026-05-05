@@ -72,7 +72,12 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table'
-import { SeanceFormDialog } from './seance-form'
+import dynamic from 'next/dynamic'
+// Dialog lourd (formulaire 3 onglets + comboboxes membres) chargé à la demande.
+const SeanceFormDialog = dynamic(
+  () => import('./seance-form').then(m => ({ default: m.SeanceFormDialog })),
+  { ssr: false },
+)
 import { deleteSeance, duplicateSeance, archiveSeance, unarchiveSeance } from '@/lib/actions/seances'
 import type { InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
 import { formatDate, formatTime } from '@/lib/utils/format-date'

@@ -38,8 +38,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { MemberFormDialog } from './member-form'
-import { MemberImportDialog } from './member-import'
+import dynamic from 'next/dynamic'
+// Dialogs lourds chargés à la demande (lazy) — ils sont fermés par défaut
+// donc inutile de les mettre dans le bundle initial. Le dialog s'ouvre
+// après un clic utilisateur, donc le ~150ms de chargement est imperceptible.
+const MemberFormDialog = dynamic(
+  () => import('./member-form').then(m => ({ default: m.MemberFormDialog })),
+  { ssr: false },
+)
+const MemberImportDialog = dynamic(
+  () => import('./member-import').then(m => ({ default: m.MemberImportDialog })),
+  { ssr: false },
+)
 import { HelpTip } from '@/components/ui/help-tip'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
 import { toggleMemberStatus, archiveMember, unarchiveMember } from '@/lib/actions/members'

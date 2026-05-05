@@ -142,7 +142,12 @@ import { sendConvocations, resendConvocation, sendReminders } from '@/lib/action
 import { createProcuration, revokeProcuration } from '@/lib/actions/procurations'
 import { uploadODJDocument, removeODJDocument, getDocumentUrl, type DocumentInfo } from '@/lib/actions/documents'
 import type { ODJPointRow, InstanceConfigRow, SeanceRow } from '@/lib/supabase/types'
-import { SeanceFormDialog } from '@/components/seance/seance-form'
+import dynamic from 'next/dynamic'
+// Dialog lourd, chargé à la demande quand l'utilisateur clique sur « Modifier ».
+const SeanceFormDialog = dynamic(
+  () => import('@/components/seance/seance-form').then(m => ({ default: m.SeanceFormDialog })),
+  { ssr: false },
+)
 import { PublicVisibilityToggle } from '@/components/seance/public-visibility-toggle'
 import { HelpTip } from '@/components/ui/help-tip'
 import { SEANCE_STATUT_CONFIG } from '@/lib/constants'

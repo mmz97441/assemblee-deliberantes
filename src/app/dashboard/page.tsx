@@ -7,13 +7,28 @@ import { ROLE_LABELS } from '@/lib/auth/helpers'
 import { getEffectiveRole } from '@/lib/auth/get-effective-role'
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout'
 import { PageHeader } from '@/components/layout/page-header'
-import { EluDashboard } from '@/components/dashboard/elu-dashboard'
+// Renommé `dynamicImport` pour éviter le conflit avec `export const dynamic`
+// (= directive Next.js de page) déclaré en haut du fichier.
+import dynamicImport from 'next/dynamic'
+// Chaque dashboard client est volumineux (~900 lignes chacun = ~30-50kB
+// de JS minifié). On en charge un seul à la fois selon le rôle de
+// l'utilisateur. Économise ~150kB sur le bundle initial de /dashboard.
+// Les types sont importés statiquement (purement type-level, pas de coût bundle).
+const EluDashboard = dynamicImport(
+  () => import('@/components/dashboard/elu-dashboard').then(m => ({ default: m.EluDashboard })),
+)
+const PresidentDashboard = dynamicImport(
+  () => import('@/components/dashboard/president-dashboard').then(m => ({ default: m.PresidentDashboard })),
+)
+const SecretaireDashboard = dynamicImport(
+  () => import('@/components/dashboard/secretaire-dashboard').then(m => ({ default: m.SecretaireDashboard })),
+)
+const GestionnaireDashboard = dynamicImport(
+  () => import('@/components/dashboard/gestionnaire-dashboard').then(m => ({ default: m.GestionnaireDashboard })),
+)
 import type { EluDashboardProps } from '@/components/dashboard/elu-dashboard'
-import { PresidentDashboard } from '@/components/dashboard/president-dashboard'
 import type { PresidentDashboardProps } from '@/components/dashboard/president-dashboard'
-import { SecretaireDashboard } from '@/components/dashboard/secretaire-dashboard'
 import type { SecretaireDashboardProps } from '@/components/dashboard/secretaire-dashboard'
-import { GestionnaireDashboard } from '@/components/dashboard/gestionnaire-dashboard'
 import type { GestionnaireDashboardProps } from '@/components/dashboard/gestionnaire-dashboard'
 import {
   Mail,
