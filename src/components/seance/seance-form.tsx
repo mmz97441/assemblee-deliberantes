@@ -67,6 +67,16 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const isEditing = !!seance
+  // Statut courant — pour calculer ce qui est verrouillé légalement.
+  // CGCT : après envoi des convocations, date + instance sont gelées (un
+  // changement imposerait une nouvelle convocation aux élus).
+  const seanceStatut = seance?.statut || 'BROUILLON'
+  const isConvoquee = seanceStatut === 'CONVOQUEE'
+  const isEnCoursOrAfter = ['EN_COURS', 'SUSPENDUE', 'CLOTUREE', 'ARCHIVEE'].includes(seanceStatut)
+  const dateInstanceLocked = isEditing && (isConvoquee || isEnCoursOrAfter)
+  // En séance, on durcit : seuls notes / lieu / secrétaire sont éditables.
+  const titleLocked = isEditing && isEnCoursOrAfter
+  const generalFieldsLocked = isEditing && isEnCoursOrAfter
 
   // Smart defaults for new séance
   const defaultDate = new Date().toISOString().split('T')[0]
@@ -91,6 +101,11 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
   const [urgence, setUrgence] = useState(
     seance?.notes?.includes('Séance convoquée en urgence') ?? false
   )
+  // Récurrence (création uniquement) : génère N séances liées par un
+  // recurrence_group_id côté serveur. NONE = séance ponctuelle.
+  type RecurrencePattern = 'NONE' | 'HEBDOMADAIRE' | 'BIHEBDOMADAIRE' | 'MENSUELLE_DATE'
+  const [recurrencePattern, setRecurrencePattern] = useState<RecurrencePattern>('NONE')
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(4)
 
   // Inline validation errors (shown on blur)
   const [errors, setErrors] = useState<Record<string, string | null>>({})
@@ -134,6 +149,8 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
     setSecretaireId(seance?.secretaire_seance_id || '')
     setAutoConvoque(true)
     setUrgence(seance?.notes?.includes('Séance convoquée en urgence') ?? false)
+    setRecurrencePattern('NONE')
+    setRecurrenceCount(4)
     setErrors({})
   }
 
@@ -206,6 +223,11 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
       if (presidentId && presidentId !== '_none') formData.set('president_effectif_seance_id', presidentId)
       if (secretaireId && secretaireId !== '_none') formData.set('secretaire_seance_id', secretaireId)
       formData.set('auto_convoque', autoConvoque ? 'true' : 'false')
+      // Récurrence (création uniquement)
+      if (!isEditing && recurrencePattern !== 'NONE' && recurrenceCount > 1) {
+        formData.set('recurrence_pattern', recurrencePattern)
+        formData.set('recurrence_count', String(recurrenceCount))
+      }
 
       const result = isEditing
         ? await updateSeance(formData)
@@ -216,7 +238,17 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
         return
       }
 
-      toast.success(isEditing ? 'Séance mise à jour' : 'Séance créée avec succès')
+      const createdCount: number | undefined =
+        !isEditing && 'createdCount' in result && typeof result.createdCount === 'number'
+          ? result.createdCount
+          : undefined
+      toast.success(
+        isEditing
+          ? 'Séance mise à jour'
+          : createdCount && createdCount > 1
+            ? `${createdCount} séances créées dans la série`
+            : 'Séance créée avec succès',
+      )
 
       // If created, redirect to detail
       if (!isEditing && 'id' in result) {
@@ -266,6 +298,16 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
 
           {/* Tab: General */}
           <TabsContent value="general" className="space-y-4 mt-4">
+            {dateInstanceLocked && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                <p className="font-medium">Convocations envoyées</p>
+                <p className="mt-1">
+                  La date et l&apos;instance sont verrouillées (CGCT — un changement
+                  imposerait une nouvelle convocation). Le titre, le lieu, les notes
+                  et la désignation président/secrétaire restent modifiables.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="instance_id">Instance délibérante *</Label>
               <Select
@@ -274,8 +316,13 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   handleInstanceChange(v)
                   setFieldError('instanceId', v ? null : "L'instance délibérante est requise")
                 }}
+                disabled={dateInstanceLocked}
               >
-                <SelectTrigger id="instance_id" className={errors.instanceId ? 'border-red-500' : ''}>
+                <SelectTrigger
+                  id="instance_id"
+                  className={errors.instanceId ? 'border-red-500' : ''}
+                  title={dateInstanceLocked ? 'Verrouillé : convocations envoyées' : undefined}
+                >
                   <SelectValue placeholder="Choisir une instance..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -304,6 +351,8 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   onChange={e => handleDateChange(e.target.value)}
                   onBlur={() => validateField('dateSeance', dateSeance)}
                   className={errors.dateSeance ? 'border-red-500' : ''}
+                  disabled={dateInstanceLocked}
+                  title={dateInstanceLocked ? 'Verrouillé : convocations envoyées' : undefined}
                 />
                 <FieldError message={errors.dateSeance ?? null} />
               </div>
@@ -314,6 +363,8 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   type="time"
                   value={heureSeance}
                   onChange={e => setHeureSeance(e.target.value)}
+                  disabled={dateInstanceLocked}
+                  title={dateInstanceLocked ? 'Verrouillé : convocations envoyées' : undefined}
                 />
               </div>
             </div>
@@ -328,12 +379,15 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   if (errors.titre && e.target.value.trim()) setFieldError('titre', null)
                 }}
                 onBlur={() => validateField('titre', titre)}
-                placeholder="Conseil municipal du 15 avril 2026"
+                placeholder="Conseil municipal du 15 avril 2026 — Budget primitif"
                 className={errors.titre ? 'border-red-500' : ''}
+                disabled={titleLocked}
+                title={titleLocked ? 'Verrouillé : la séance est en cours ou clôturée' : undefined}
               />
               <FieldError message={errors.titre ?? null} />
               <p className="text-xs text-muted-foreground">
-                Le titre est généré automatiquement à partir de l&apos;instance et de la date.
+                Pré-rempli depuis l&apos;instance + la date. Personnalisez-le librement
+                (ex : « CM du 15 avril — Budget primitif »).
               </p>
             </div>
           </TabsContent>
@@ -342,8 +396,11 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
           <TabsContent value="lieu" className="space-y-4 mt-4">
             <div className="space-y-2">
               <Label htmlFor="mode">Mode de la séance</Label>
-              <Select value={mode} onValueChange={setMode}>
-                <SelectTrigger id="mode">
+              <Select value={mode} onValueChange={setMode} disabled={generalFieldsLocked}>
+                <SelectTrigger
+                  id="mode"
+                  title={generalFieldsLocked ? 'Verrouillé : la séance est ouverte ou close' : undefined}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -439,6 +496,84 @@ export function SeanceFormDialog({ open, onClose, seance, instances, members }: 
                   </p>
                 </div>
                 <Switch checked={autoConvoque} onCheckedChange={setAutoConvoque} />
+              </div>
+            )}
+
+            {!isEditing && (
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="font-medium">Séance récurrente</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Génère plusieurs séances liées en une seule fois (ex : Conseil
+                      municipal mensuel pour l&apos;année).
+                    </p>
+                  </div>
+                  <Switch
+                    checked={recurrencePattern !== 'NONE'}
+                    onCheckedChange={(checked) =>
+                      setRecurrencePattern(checked ? 'HEBDOMADAIRE' : 'NONE')
+                    }
+                  />
+                </div>
+
+                {recurrencePattern !== 'NONE' && (
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrence_pattern" className="text-xs">Fréquence</Label>
+                      <Select
+                        value={recurrencePattern}
+                        onValueChange={(v) => setRecurrencePattern(v as RecurrencePattern)}
+                      >
+                        <SelectTrigger id="recurrence_pattern" className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="HEBDOMADAIRE">Toutes les semaines</SelectItem>
+                          <SelectItem value="BIHEBDOMADAIRE">Toutes les 2 semaines</SelectItem>
+                          <SelectItem value="MENSUELLE_DATE">Tous les mois (même date)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recurrence_count" className="text-xs">
+                        Nombre d&apos;occurrences
+                      </Label>
+                      <Input
+                        id="recurrence_count"
+                        type="number"
+                        min={2}
+                        max={52}
+                        value={recurrenceCount}
+                        onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 2)}
+                        className="h-9"
+                      />
+                    </div>
+                    {(() => {
+                      // Aperçu : afficher la date de la dernière occurrence
+                      // pour éviter les surprises (« j'ai créé 52 séances ?! »)
+                      if (!dateSeance || recurrenceCount < 2) return null
+                      const start = new Date(dateSeance)
+                      const last = new Date(start)
+                      const stepDays =
+                        recurrencePattern === 'HEBDOMADAIRE' ? 7 :
+                        recurrencePattern === 'BIHEBDOMADAIRE' ? 14 : 0
+                      if (stepDays > 0) {
+                        last.setDate(last.getDate() + stepDays * (recurrenceCount - 1))
+                      } else {
+                        last.setMonth(last.getMonth() + (recurrenceCount - 1))
+                      }
+                      return (
+                        <p className="col-span-2 text-xs text-muted-foreground">
+                          {recurrenceCount} séances seront créées, du{' '}
+                          <strong>{start.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                          {' '}au{' '}
+                          <strong>{last.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.
+                        </p>
+                      )
+                    })()}
+                  </div>
+                )}
               </div>
             )}
           </TabsContent>

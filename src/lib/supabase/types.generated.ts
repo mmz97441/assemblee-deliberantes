@@ -1293,6 +1293,8 @@ export type Database = {
           publique: boolean | null
           quorum_atteint: number | null
           quorum_requis: number | null
+          recurrence_group_id: string | null
+          recurrence_pattern: string | null
           reconvocation: boolean | null
           secretaire_designation_mode: string | null
           secretaire_seance_id: string | null
@@ -1319,6 +1321,8 @@ export type Database = {
           publique?: boolean | null
           quorum_atteint?: number | null
           quorum_requis?: number | null
+          recurrence_group_id?: string | null
+          recurrence_pattern?: string | null
           reconvocation?: boolean | null
           secretaire_designation_mode?: string | null
           secretaire_seance_id?: string | null
@@ -1345,6 +1349,8 @@ export type Database = {
           publique?: boolean | null
           quorum_atteint?: number | null
           quorum_requis?: number | null
+          recurrence_group_id?: string | null
+          recurrence_pattern?: string | null
           reconvocation?: boolean | null
           secretaire_designation_mode?: string | null
           secretaire_seance_id?: string | null

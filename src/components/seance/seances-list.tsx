@@ -916,8 +916,22 @@ function SeancesTable({
                 {/* Titre + meta */}
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="font-medium text-foreground group-hover:text-institutional-blue transition-colors truncate">
+                    <span className="font-medium text-foreground group-hover:text-institutional-blue transition-colors truncate flex items-center gap-2">
                       {seance.titre}
+                      {seance.recurrence_group_id && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] font-normal border-blue-200 text-blue-700 bg-blue-50/50"
+                          title={
+                            seance.recurrence_pattern === 'HEBDOMADAIRE' ? 'Série hebdomadaire' :
+                            seance.recurrence_pattern === 'BIHEBDOMADAIRE' ? 'Série toutes les 2 semaines' :
+                            seance.recurrence_pattern === 'MENSUELLE_DATE' ? 'Série mensuelle' :
+                            'Séance récurrente'
+                          }
+                        >
+                          ↻ Série
+                        </Badge>
+                      )}
                     </span>
                     <span className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                       <ModeIcon className="h-3 w-3" />
@@ -1079,8 +1093,13 @@ function ArchivedSeancesTable({
               >
                 <TableCell>
                   <div className="flex flex-col">
-                    <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate">
+                    <span className="font-medium text-muted-foreground group-hover:text-foreground transition-colors truncate flex items-center gap-2">
                       {seance.titre}
+                      {seance.recurrence_group_id && (
+                        <Badge variant="outline" className="text-[10px] font-normal border-blue-200 text-blue-700 bg-blue-50/50">
+                          ↻ Série
+                        </Badge>
+                      )}
                     </span>
                     <span className="text-xs text-muted-foreground/70 flex items-center gap-2 mt-0.5">
                       <ModeIcon className="h-3 w-3" />

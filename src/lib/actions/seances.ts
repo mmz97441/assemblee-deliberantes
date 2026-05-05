@@ -125,7 +125,61 @@ export async function getSeance(id: string): Promise<{ data: SeanceWithDetails }
 
 // ─── Création de séance ──────────────────────────────────────────────────────
 
-export async function createSeance(formData: FormData): Promise<{ success: true; id: string } | { error: string }> {
+/**
+ * Motifs de récurrence supportés. Stockés en clair dans la colonne
+ * recurrence_pattern pour faciliter l'affichage et le débogage.
+ */
+type RecurrencePattern =
+  | 'HEBDOMADAIRE'
+  | 'BIHEBDOMADAIRE'
+  | 'MENSUELLE_DATE'
+
+/**
+ * Calcule les dates des occurrences successives à partir d'une date de
+ * départ et d'un motif de répétition. Retourne `count` dates au total
+ * (la première étant `startDate` elle-même).
+ */
+function generateRecurrenceDates(
+  startDate: Date,
+  pattern: RecurrencePattern,
+  count: number,
+): Date[] {
+  const dates: Date[] = [new Date(startDate)]
+  for (let i = 1; i < count; i++) {
+    const next = new Date(dates[dates.length - 1])
+    switch (pattern) {
+      case 'HEBDOMADAIRE':
+        next.setDate(next.getDate() + 7)
+        break
+      case 'BIHEBDOMADAIRE':
+        next.setDate(next.getDate() + 14)
+        break
+      case 'MENSUELLE_DATE':
+        next.setMonth(next.getMonth() + 1)
+        break
+    }
+    dates.push(next)
+  }
+  return dates
+}
+
+/**
+ * Substitue le segment « du DD mois YYYY » dans un titre par la date d'une
+ * autre occurrence, pour que chaque séance d'une série récurrente ait un
+ * titre cohérent (« Conseil municipal du 15 avril 2026 » → « du 22 avril 2026 »).
+ * Si aucun motif de date n'est trouvé, ajoute simplement la date entre parenthèses.
+ */
+function rewriteTitleForDate(originalTitle: string, newDate: Date): string {
+  const months = 'janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre'
+  const datePattern = new RegExp(`du\\s+\\d{1,2}\\s+(?:${months})\\s+\\d{4}`, 'i')
+  const newDateLong = newDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+  if (datePattern.test(originalTitle)) {
+    return originalTitle.replace(datePattern, `du ${newDateLong}`)
+  }
+  return `${originalTitle} (${newDate.toLocaleDateString('fr-FR')})`
+}
+
+export async function createSeance(formData: FormData): Promise<{ success: true; id: string; createdCount?: number } | { error: string }> {
   try {
     const { user, supabase } = await getAuthenticatedUser()
     const roleError = await requireVerifiedRole(supabase, user, ['super_admin', 'dgs', 'directeur_cabinet', 'gestionnaire', 'president', 'secretaire_seance'])
@@ -138,6 +192,21 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
     if (!titre) return { error: 'Le titre est requis' }
     if (!instanceId) return { error: "L'instance est requise" }
     if (!dateSeance) return { error: 'La date est requise' }
+
+    // ─── Récurrence (optionnelle) ────────────────────────────────────────
+    // Le formulaire envoie recurrence_pattern + recurrence_count quand
+    // l'utilisateur a coché « cette séance se répète ». On valide ici.
+    const recurrencePatternRaw = (formData.get('recurrence_pattern') as string)?.trim() || ''
+    const recurrenceCountRaw = parseInt((formData.get('recurrence_count') as string) || '1', 10)
+    const validPatterns: RecurrencePattern[] = ['HEBDOMADAIRE', 'BIHEBDOMADAIRE', 'MENSUELLE_DATE']
+    const isRecurrent =
+      validPatterns.includes(recurrencePatternRaw as RecurrencePattern) &&
+      Number.isFinite(recurrenceCountRaw) &&
+      recurrenceCountRaw > 1
+    const recurrencePattern = isRecurrent ? (recurrencePatternRaw as RecurrencePattern) : null
+    // Plafond de sécurité : 52 occurrences (= 1 an d'hebdomadaire).
+    // Au-delà, l'utilisateur fait probablement une erreur de saisie.
+    const recurrenceCount = isRecurrent ? Math.min(recurrenceCountRaw, 52) : 1
 
     // Check if instance is active
     const { data: instanceCheck } = await supabase
@@ -198,65 +267,99 @@ export async function createSeance(formData: FormData): Promise<{ success: true;
       }
     }
 
-    const payload = {
-      titre,
-      instance_id: instanceId,
-      date_seance: dateSeance,
-      mode: mode as 'PRESENTIEL' | 'HYBRIDE' | 'VISIO',
-      lieu,
-      publique: instanceConfig?.seances_publiques_defaut ?? publique,
-      voix_preponderante: instanceConfig?.voix_preponderante ?? false,
-      late_arrival_mode: instanceConfig?.mode_arrivee_tardive ?? 'SOUPLE',
-      notes,
-      president_effectif_seance_id: presidentId,
-      secretaire_seance_id: secretaireId,
-      statut: 'BROUILLON' as const,
-      created_by: user?.id ?? null,
-    }
+    // ID de série partagé par toutes les occurrences récurrentes
+    const recurrenceGroupId = recurrencePattern ? crypto.randomUUID() : null
 
-    const { data: newSeance, error } = await supabase
-      .from('seances')
-      .insert(payload)
-      .select('id')
-      .single()
-
-    if (error) return { error: `Erreur de création : ${error.message}` }
-
-    // Auto-add instance members as convocataires
+    // Charger les membres une seule fois (utilisés pour chaque occurrence)
     const autoConvoque = formData.get('auto_convoque') !== 'false'
-    if (autoConvoque && newSeance) {
-      const { data: instanceMembers } = await supabase
-        .from('instance_members')
-        .select('member_id')
-        .eq('instance_config_id', instanceId)
-        .eq('actif', true)
+    const { data: instanceMembersForConv } = autoConvoque
+      ? await supabase
+          .from('instance_members')
+          .select('member_id')
+          .eq('instance_config_id', instanceId)
+          .eq('actif', true)
+      : { data: null }
 
-      if (instanceMembers && instanceMembers.length > 0) {
-        const convocataires = instanceMembers.map(im => ({
+    // Calcul des dates : une seule occurrence si non récurrent, sinon N
+    const dates = recurrencePattern
+      ? generateRecurrenceDates(new Date(dateSeance), recurrencePattern, recurrenceCount)
+      : [new Date(dateSeance)]
+
+    let firstSeanceId: string | null = null
+    let createdCount = 0
+
+    for (let i = 0; i < dates.length; i++) {
+      const occurrenceDate = dates[i]
+      // Conserver l'heure originale (la date JS perd l'heure si on parse une
+      // chaîne « YYYY-MM-DD » sans T) — on reconstruit en fusionnant
+      // YYYY-MM-DD calculé + l'heure originale du formulaire.
+      const datePart = `${occurrenceDate.getFullYear()}-${String(occurrenceDate.getMonth() + 1).padStart(2, '0')}-${String(occurrenceDate.getDate()).padStart(2, '0')}`
+      const timePart = dateSeance.includes('T') ? dateSeance.split('T')[1] : '00:00:00'
+      const occurrenceISO = `${datePart}T${timePart}`
+
+      const occurrenceTitle = i === 0 ? titre : rewriteTitleForDate(titre, occurrenceDate)
+
+      const payload = {
+        titre: occurrenceTitle,
+        instance_id: instanceId,
+        date_seance: occurrenceISO,
+        mode: mode as 'PRESENTIEL' | 'HYBRIDE' | 'VISIO',
+        lieu,
+        publique: instanceConfig?.seances_publiques_defaut ?? publique,
+        voix_preponderante: instanceConfig?.voix_preponderante ?? false,
+        late_arrival_mode: instanceConfig?.mode_arrivee_tardive ?? 'SOUPLE',
+        notes,
+        president_effectif_seance_id: presidentId,
+        secretaire_seance_id: secretaireId,
+        statut: 'BROUILLON' as const,
+        created_by: user?.id ?? null,
+        recurrence_group_id: recurrenceGroupId,
+        recurrence_pattern: recurrencePattern,
+      }
+
+      const { data: newSeance, error } = await supabase
+        .from('seances')
+        .insert(payload)
+        .select('id')
+        .single()
+
+      if (error) {
+        // Si la 1re séance plante : échec total. Si une suivante plante :
+        // on retourne le compteur partiel pour ne pas perdre ce qui a réussi.
+        if (i === 0) return { error: `Erreur de création : ${error.message}` }
+        console.error('Erreur création occurrence', i + 1, ':', error)
+        break
+      }
+
+      if (i === 0) firstSeanceId = newSeance.id
+      createdCount++
+
+      // Convocataires + point ODJ approbation PV pour CHAQUE occurrence
+      if (autoConvoque && instanceMembersForConv && instanceMembersForConv.length > 0) {
+        const convocataires = instanceMembersForConv.map(im => ({
           seance_id: newSeance.id,
           member_id: im.member_id,
           statut_convocation: 'NON_ENVOYE' as const,
         }))
-
         const { error: convError } = await supabase
           .from('convocataires')
           .insert(convocataires)
-
         if (convError) {
           console.error('Error adding convocataires:', convError)
         }
       }
-    }
 
-    // Auto-add PV approval ODJ point if previous séance has a signed PV
-    if (newSeance) {
       await addPVApprovalODJPoint(newSeance.id, instanceId).catch(err => {
         console.error('Error auto-adding PV approval point:', err)
       })
     }
 
+    if (!firstSeanceId) {
+      return { error: 'Aucune séance n\'a pu être créée' }
+    }
+
     revalidatePath(ROUTES.SEANCES)
-    return { success: true, id: newSeance.id }
+    return { success: true, id: firstSeanceId, createdCount }
   } catch (err) {
     console.error('createSeance error:', err)
     return { error: 'Erreur inattendue lors de la création' }
@@ -285,47 +388,62 @@ export async function updateSeance(formData: FormData): Promise<ActionResult> {
       return { error: 'Cette séance est clôturée ou archivée — aucune modification n\'est possible.' }
     }
 
-    // For CONVOQUEE: only allow notes and secretaire updates (ODJ + convocataires are locked after envoi)
-    if (currentSeance && currentSeance.statut === 'CONVOQUEE') {
-      const notes = (formData.get('notes') as string)?.trim() || null
-      const secretaireId = (formData.get('secretaire_seance_id') as string) || null
-      const restrictedPayload: Record<string, unknown> = {}
-      if (notes !== undefined) restrictedPayload.notes = notes
-      if (secretaireId !== undefined) restrictedPayload.secretaire_seance_id = secretaireId
-
-      const { error } = await supabase
-        .from('seances')
-        .update(restrictedPayload)
-        .eq('id', id)
-
-      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
-
-      revalidatePath(ROUTES.SEANCES)
-      revalidatePath(`${ROUTES.SEANCES}/${id}`)
-      return { success: true }
-    }
-
-    // For EN_COURS/SUSPENDUE, only allow notes and secretaire updates
-    if (currentSeance && ['EN_COURS', 'SUSPENDUE'].includes(currentSeance.statut || '')) {
-      const notes = (formData.get('notes') as string)?.trim() || null
-      const secretaireId = (formData.get('secretaire_seance_id') as string) || null
-      const restrictedPayload: Record<string, unknown> = {}
-      if (notes !== undefined) restrictedPayload.notes = notes
-      if (secretaireId !== undefined) restrictedPayload.secretaire_seance_id = secretaireId
-
-      const { error } = await supabase
-        .from('seances')
-        .update(restrictedPayload)
-        .eq('id', id)
-
-      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
-
-      revalidatePath(ROUTES.SEANCES)
-      revalidatePath(`${ROUTES.SEANCES}/${id}`)
-      return { success: true }
-    }
-
+    // CGCT : après envoi des convocations, la DATE et l'INSTANCE sont
+    // verrouillées (un changement imposerait une nouvelle convocation).
+    // En revanche le titre, le lieu, les notes, le mode (présentiel/visio),
+    // le caractère public et la désignation président/secrétaire restent
+    // ajustables — c'est de la « personnalisation » qui n'invalide pas la
+    // convocation déjà envoyée.
+    //
+    // Une fois la séance OUVERTE (EN_COURS / SUSPENDUE), on durcit : seules
+    // les infos opérationnelles utiles en séance (notes, secrétaire,
+    // changement de salle de dernière minute) restent modifiables.
     const titre = (formData.get('titre') as string)?.trim()
+
+    if (currentSeance && ['EN_COURS', 'SUSPENDUE'].includes(currentSeance.statut || '')) {
+      const restrictedPayload: Record<string, unknown> = {
+        notes: (formData.get('notes') as string)?.trim() || null,
+        secretaire_seance_id: (formData.get('secretaire_seance_id') as string) || null,
+        lieu: (formData.get('lieu') as string)?.trim() || null,
+      }
+
+      const { error } = await supabase
+        .from('seances')
+        .update(restrictedPayload)
+        .eq('id', id)
+
+      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.SEANCES)
+      revalidatePath(`${ROUTES.SEANCES}/${id}`)
+      return { success: true }
+    }
+
+    if (currentSeance && currentSeance.statut === 'CONVOQUEE') {
+      if (!titre) return { error: 'Le titre est requis' }
+      const convoqueePayload = {
+        titre,
+        // Date et instance NON modifiables (le bloc plus bas est zappé)
+        mode: ((formData.get('mode') as string) || 'PRESENTIEL') as 'PRESENTIEL' | 'HYBRIDE' | 'VISIO',
+        lieu: (formData.get('lieu') as string)?.trim() || null,
+        publique: formData.get('publique') !== 'false',
+        notes: (formData.get('notes') as string)?.trim() || null,
+        president_effectif_seance_id: (formData.get('president_effectif_seance_id') as string) || null,
+        secretaire_seance_id: (formData.get('secretaire_seance_id') as string) || null,
+      }
+
+      const { error } = await supabase
+        .from('seances')
+        .update(convoqueePayload)
+        .eq('id', id)
+
+      if (error) return { error: `Erreur de mise à jour : ${error.message}` }
+
+      revalidatePath(ROUTES.SEANCES)
+      revalidatePath(`${ROUTES.SEANCES}/${id}`)
+      return { success: true }
+    }
+
     const instanceId = formData.get('instance_id') as string
     const dateSeance = formData.get('date_seance') as string
 
