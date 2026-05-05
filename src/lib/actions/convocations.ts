@@ -11,6 +11,11 @@ import {
   generateReminderHTML,
   generateReminderSubject,
 } from '@/lib/email/convocation-template'
+import { generateConvocationICS } from '@/lib/calendar/ics'
+import {
+  buildGoogleCalendarUrl,
+  buildOutlookUrl,
+} from '@/lib/calendar/links'
 
 type ActionResult = { success: true } | { error: string }
 
@@ -179,6 +184,33 @@ export async function sendConvocations(
       return { error: 'Toutes les convocations ont déjà été envoyées' }
     }
 
+    // ─── Données partagées « ajouter à mon agenda » ───────────────────────
+    // Le titre de l'événement combine instance + titre de séance pour que
+    // ce soit clair dans l'agenda du destinataire (« Conseil municipal —
+    // Réunion d'avril »). On défausse une durée de 2h par défaut, qui
+    // correspond à la moyenne des séances délibérantes ; le destinataire
+    // peut bien sûr l'ajuster dans son agenda après ajout.
+    const seanceStart = new Date(seance.date_seance)
+    const seanceEnd = new Date(seanceStart.getTime() + 2 * 60 * 60 * 1000)
+    const calendarTitle = `${seance.instance_config?.nom || 'Séance'} — ${seance.titre}`
+    const odjSummary = odjPoints.length > 0
+      ? '\n\nOrdre du jour :\n' + odjPoints.map(p => `${p.position}. ${p.titre}`).join('\n')
+      : ''
+    const calendarDescription =
+      `Convocation officielle — ${institutionNom}` +
+      odjSummary +
+      `\n\nDétails et documents : ${appUrl}/seances/${seance.id}`
+
+    const calendarLinkData = {
+      start: seanceStart,
+      end: seanceEnd,
+      title: calendarTitle,
+      description: calendarDescription,
+      location: seance.lieu,
+    }
+    const googleCalendarUrl = buildGoogleCalendarUrl(calendarLinkData)
+    const outlookCalendarUrl = buildOutlookUrl(calendarLinkData)
+
     const result: SendConvocationResult = {
       total: toSend.length,
       sent: 0,
@@ -243,11 +275,28 @@ export async function sendConvocations(
         seanceUrl,
         institutionNom: institutionNom,
         qrCodeUrl,
+        googleCalendarUrl,
+        outlookCalendarUrl,
         civilitePresident: (president?.civilite || null) as 'MADAME' | 'MONSIEUR' | 'AUTRE' | null,
         qualitePresident: president?.qualite_officielle || null,
         prenomPresident: president?.prenom || null,
         nomPresident: president?.nom || null,
       }
+
+      // Pièce jointe .ics : un identifiant stable par convocataire permet
+      // de mettre à jour ou annuler l'événement plus tard sans créer de
+      // doublon dans l'agenda du destinataire.
+      const icsContent = generateConvocationICS({
+        uid: `convocation-${seance.id}-${conv.id}@assemblees-deliberantes`,
+        start: seanceStart,
+        end: seanceEnd,
+        summary: calendarTitle,
+        description: calendarDescription,
+        location: seance.lieu,
+        organizerEmail: FROM_EMAIL,
+        organizerName: institutionNom,
+        url: seanceUrl,
+      })
 
       try {
         const { data: sendData, error: emailError } = await resend.emails.send({
@@ -255,6 +304,13 @@ export async function sendConvocations(
           to: [member.email],
           subject: generateConvocationSubject(emailData),
           html: generateConvocationHTML(emailData),
+          attachments: [
+            {
+              filename: 'invitation.ics',
+              content: icsContent,
+              contentType: 'text/calendar; method=PUBLISH; charset=utf-8',
+            },
+          ],
         })
 
         // SÉCURITÉ / TRACABILITÉ : on consigne CHAQUE envoi (succès ou erreur)
@@ -665,6 +721,21 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const instanceNom = (seance.instance_config as any)?.nom || ''
 
+    // Données « ajouter à mon agenda » partagées (URL identique pour tous)
+    const seanceStart = new Date(seance.date_seance)
+    const seanceEnd = new Date(seanceStart.getTime() + 2 * 60 * 60 * 1000)
+    const calendarTitle = `${instanceNom || 'Séance'} — ${seance.titre}`
+    const calendarDescription = `Rappel — ${institutionNom}`
+    const calendarLinkData = {
+      start: seanceStart,
+      end: seanceEnd,
+      title: calendarTitle,
+      description: calendarDescription,
+      location: null,
+    }
+    const googleCalendarUrl = buildGoogleCalendarUrl(calendarLinkData)
+    const outlookCalendarUrl = buildOutlookUrl(calendarLinkData)
+
     // Send reminder emails
     let sent = 0
     for (const conv of convocataires) {
@@ -682,7 +753,24 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
         seanceHeure: heureFormatted,
         instanceNom,
         institutionNom,
+        googleCalendarUrl,
+        outlookCalendarUrl,
       }
+
+      // Pièce jointe .ics — même UID que la convocation initiale pour
+      // éviter le doublon dans l'agenda du destinataire (= "update" de
+      // l'événement existant côté Apple Calendar / Outlook).
+      const icsContent = generateConvocationICS({
+        uid: `convocation-${seance.id}-${conv.member_id}@assemblees-deliberantes`,
+        start: seanceStart,
+        end: seanceEnd,
+        summary: calendarTitle,
+        description: calendarDescription,
+        location: null,
+        organizerEmail: FROM_EMAIL,
+        organizerName: institutionNom,
+        sequence: 1, // > 0 pour signaler une mise à jour
+      })
 
       try {
         const { error: emailError } = await resend.emails.send({
@@ -690,6 +778,13 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
           to: [member.email],
           subject: generateReminderSubject(emailData),
           html: generateReminderHTML(emailData),
+          attachments: [
+            {
+              filename: 'invitation.ics',
+              content: icsContent,
+              contentType: 'text/calendar; method=PUBLISH; charset=utf-8',
+            },
+          ],
         })
 
         if (!emailError) {

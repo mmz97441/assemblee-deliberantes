@@ -50,6 +50,10 @@ interface ConvocationEmailData {
   seanceUrl?: string
   institutionNom: string
   qrCodeUrl?: string
+  /** Lien d'ajout direct à Google Agenda (1 clic, pas de téléchargement) */
+  googleCalendarUrl?: string
+  /** Lien d'ajout direct à Outlook.com (1 clic) */
+  outlookCalendarUrl?: string
   /** Civilité du président de séance */
   civilitePresident?: 'MADAME' | 'MONSIEUR' | 'AUTRE' | null
   /** Qualité officielle du président (« Maire », « Président », « Présidente »…) */
@@ -257,6 +261,35 @@ export function generateConvocationHTML(data: ConvocationEmailData): string {
           </tr>
         </table>
 
+        <!-- Ajouter à mon agenda : Google + Outlook + .ics attaché -->
+        ${(data.googleCalendarUrl || data.outlookCalendarUrl) ? `
+        <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 16px 0 8px;">
+          <tr>
+            <td style="text-align: center;">
+              <p style="margin: 0 0 10px; font-size: 13px; color: #475569;">
+                📅 <strong>Ajouter à mon agenda</strong>
+              </p>
+              ${data.googleCalendarUrl ? `
+                <a href="${data.googleCalendarUrl}" target="_blank"
+                   style="display: inline-block; padding: 8px 16px; background: #ffffff; color: #1e3a5f; text-decoration: none; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 500; margin: 3px 4px;">
+                  Google Agenda
+                </a>
+              ` : ''}
+              ${data.outlookCalendarUrl ? `
+                <a href="${data.outlookCalendarUrl}" target="_blank"
+                   style="display: inline-block; padding: 8px 16px; background: #ffffff; color: #1e3a5f; text-decoration: none; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 13px; font-weight: 500; margin: 3px 4px;">
+                  Outlook
+                </a>
+              ` : ''}
+              <p style="margin: 8px 0 0; font-size: 11px; color: #94a3b8;">
+                Pour Apple Calendar, Thunderbird ou tout autre agenda :
+                ouvrez la pièce jointe <code style="background: #f1f5f9; padding: 1px 4px; border-radius: 3px;">invitation.ics</code>.
+              </p>
+            </td>
+          </tr>
+        </table>
+        ` : ''}
+
         <!-- ODJ -->
         <h3 style="margin: 24px 0 8px; font-size: 15px; color: #1e293b;">
           Ordre du jour
@@ -362,6 +395,10 @@ interface ReminderEmailData {
   seanceHeure: string
   instanceNom: string
   institutionNom: string
+  /** Lien d'ajout direct à Google Agenda */
+  googleCalendarUrl?: string
+  /** Lien d'ajout direct à Outlook.com */
+  outlookCalendarUrl?: string
 }
 
 export function generateReminderSubject(data: ReminderEmailData): string {
@@ -436,6 +473,30 @@ export function generateReminderHTML(data: ReminderEmailData): string {
             </td>
           </tr>
         </table>
+
+        ${(data.googleCalendarUrl || data.outlookCalendarUrl) ? `
+          <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 12px 0 4px;">
+            <tr>
+              <td style="text-align: center;">
+                <p style="margin: 0 0 8px; font-size: 12px; color: #475569;">
+                  📅 <strong>Ajouter à mon agenda</strong>
+                </p>
+                ${data.googleCalendarUrl ? `
+                  <a href="${data.googleCalendarUrl}" target="_blank"
+                     style="display: inline-block; padding: 7px 14px; background: #ffffff; color: #1e3a5f; text-decoration: none; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; margin: 3px 4px;">
+                    Google Agenda
+                  </a>
+                ` : ''}
+                ${data.outlookCalendarUrl ? `
+                  <a href="${data.outlookCalendarUrl}" target="_blank"
+                     style="display: inline-block; padding: 7px 14px; background: #ffffff; color: #1e3a5f; text-decoration: none; border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 12px; font-weight: 500; margin: 3px 4px;">
+                    Outlook
+                  </a>
+                ` : ''}
+              </td>
+            </tr>
+          </table>
+        ` : ''}
 
         <p style="margin: 16px 0 0; font-size: 14px; color: #64748b; line-height: 1.6;">
           Si vous ne pouvez pas assister à cette séance, veuillez en informer
