@@ -29,6 +29,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.LOGIN,
   ROUTES.REGISTER,
   '/invite',
+  '/invite-seance',
   '/vote',
   '/auth/confirm',
 ] as const

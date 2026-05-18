@@ -626,6 +626,77 @@ export type Database = {
           },
         ]
       }
+      invites: {
+        Row: {
+          civilite: string | null
+          confirme_at: string | null
+          created_at: string | null
+          decline_at: string | null
+          email: string
+          envoye_at: string | null
+          erreur_detail: string | null
+          id: string
+          lu_at: string | null
+          nom: string
+          notes: string | null
+          organisation: string | null
+          prenom: string
+          qualite: string | null
+          seance_id: string
+          statut_invitation: string
+          token_confirmation: string
+          updated_at: string | null
+        }
+        Insert: {
+          civilite?: string | null
+          confirme_at?: string | null
+          created_at?: string | null
+          decline_at?: string | null
+          email: string
+          envoye_at?: string | null
+          erreur_detail?: string | null
+          id?: string
+          lu_at?: string | null
+          nom: string
+          notes?: string | null
+          organisation?: string | null
+          prenom: string
+          qualite?: string | null
+          seance_id: string
+          statut_invitation?: string
+          token_confirmation?: string
+          updated_at?: string | null
+        }
+        Update: {
+          civilite?: string | null
+          confirme_at?: string | null
+          created_at?: string | null
+          decline_at?: string | null
+          email?: string
+          envoye_at?: string | null
+          erreur_detail?: string | null
+          id?: string
+          lu_at?: string | null
+          nom?: string
+          notes?: string | null
+          organisation?: string | null
+          prenom?: string
+          qualite?: string | null
+          seance_id?: string
+          statut_invitation?: string
+          token_confirmation?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_seance_id_fkey"
+            columns: ["seance_id"]
+            isOneToOne: false
+            referencedRelation: "seances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           adresse_postale: string | null

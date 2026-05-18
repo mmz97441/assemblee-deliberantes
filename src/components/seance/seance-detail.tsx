@@ -149,6 +149,7 @@ const SeanceFormDialog = dynamic(
   { ssr: false },
 )
 import { PublicVisibilityToggle } from '@/components/seance/public-visibility-toggle'
+import { InvitesSection } from '@/components/seance/invites-section'
 import { HelpTip } from '@/components/ui/help-tip'
 import { SEANCE_STATUT_CONFIG } from '@/lib/constants'
 import { HELP_TEXTS } from '@/lib/constants/help-texts'
@@ -770,6 +771,13 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                       {(seance.procurations as ProcurationItem[]).filter((p: ProcurationItem) => p.valide).length}
                     </Badge>
                   )}
+                </TabsTrigger>
+              )}
+              {/* Invités externes — visibles aux privilégiés. Personnes
+                  non-membres (DGS, experts, représentants), sans droit de vote. */}
+              {canManage && (
+                <TabsTrigger value="invites" title="Invités externes (sans droit de vote)">
+                  Invités
                 </TabsTrigger>
               )}
             </TabsList>
@@ -2065,6 +2073,19 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                 })()}
               </div>
             </TabsContent>
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* TAB: Invités externes                                          */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {canManage && (
+              <TabsContent value="invites" className="mt-0 tab-content-enter">
+                <InvitesSection
+                  seanceId={seance.id}
+                  seanceStatut={seance.statut ?? 'BROUILLON'}
+                  canEdit={canManage}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         </div>
 
