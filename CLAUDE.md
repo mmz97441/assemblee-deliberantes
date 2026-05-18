@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Système de Gestion des Séances Délibérantes
 ## Instructions pour Claude Code
 
@@ -5,8 +9,30 @@
 
 ## LIRE EN PREMIER
 
-Lis le fichier `CDC_V3.md` dans ce dossier avant de faire quoi que ce soit.
-C'est le cahier des charges complet. Toutes les décisions techniques y sont justifiées.
+- `CDC_V3.md` — cahier des charges complet (toutes les décisions techniques y sont justifiées)
+- `ETAT_PROJET.md` — état réel et à jour de ce qui est livré (source de vérité pour ce qui existe déjà ; le périmètre Phase 1 ci-dessous est historique)
+
+---
+
+## COMMANDES COURANTES
+
+```bash
+npm run dev          # Next.js dev server (http://localhost:3000)
+npm run build        # Build production (Next.js + type-check)
+npm run lint         # ESLint (next/core-web-vitals)
+npm run test         # Vitest une passe
+npm run test:watch   # Vitest en mode watch
+npx vitest run src/lib/validators/__tests__/vote-result.test.ts   # un seul fichier de test
+```
+
+Régénérer les types Supabase après une migration :
+```bash
+supabase gen types typescript --project-id <PROJECT_ID> --schema public > src/lib/supabase/types.generated.ts
+```
+
+- Path alias TypeScript : `@/*` → `./src/*` (utiliser `@/lib/...`, `@/components/...`).
+- Migrations SQL versionnées sous `supabase/migrations/` (24 appliquées au dernier point — voir `ETAT_PROJET.md`). Toute nouvelle migration garde la numérotation séquentielle `000NN_*.sql`.
+- Tests Vitest : `globals: true`, `environment: 'node'`. Pas de tests DOM pour l'instant — uniquement les fonctions pures (`vote-result`, formules PV). Une nouvelle fonction métier pure doit être testée.
 
 ---
 
@@ -103,58 +129,49 @@ Monitoring  : Sentry
 
 ---
 
-## STRUCTURE DE FICHIERS CIBLE
+## STRUCTURE DE FICHIERS RÉELLE
+
+Le code est sous `src/` (pas à la racine). Voir `ETAT_PROJET.md` pour l'inventaire détaillé des écrans et features livrés.
 
 ```
-/app
-  /(auth)/login /register /invite/[token] /2fa /webauthn/register
-  /(app)/dashboard
-  /(app)/seances
-  /(app)/seances/new
-  /(app)/seances/[id]
-  /(app)/seances/[id]/preparation
-  /(app)/seances/[id]/en-cours
-  /(app)/seances/[id]/pv
-  /(app)/seances/[id]/archive
-  /(app)/membres
-  /(app)/deliberations
-  /(app)/configuration
-
-/components
-  /vote        — VoteMainLevee, VoteSecret, VoteNominal, VoteBulletin, VoteResultat
-  /presence    — AppelList, SignaturePad, WebAuthnAuth, EmargementForm
-  /seance      — SeanceHeader, ODJList, QuorumGauge, GrandeScene
-  /tablette    — TabletteElu, TabletteVote, TabletteEmargement
-  /pv          — PVEditor, PVValidation, PVSignature
-  /documents   — PDFViewer, DocumentUpload, PDFGenerator
-
-/lib
-  /supabase    — client.ts, server.ts, types.ts (généré)
-  /pdf         — templates React-PDF par type de document
-  /email       — templates Resend (convocation, rappels, PV...)
-  /sms         — helpers Twilio
-  /ai          — wrapper API Anthropic + anonymisation OBLIGATOIRE
-  /crypto      — hash votes HMAC, AES-256, WebAuthn, RFC 3161
-  /validators  — quorum, procurations, délais légaux, QD, conflits
-  /formules-pv — générateur des 7 formules légales selon résultat vote
-  /offline     — queue locale, sync, conflict resolution
-
-/app/api
-  /votes/[id]/open /close /ballot /nominal
-  /presence/webauthn/[id]
-  /pdf/[type]
-  /ai/[feature]
-  /webhooks/email /twilio /visio
-  /deliberations/[id]/actes-export
-
-/supabase
-  /migrations  — schéma SQL versionné
-  /seed.sql    — données de test
-
-CLAUDE.md      — ce fichier
-CDC_V3.md      — cahier des charges complet
-.env.local     — variables d'environnement (jamais committé)
-.env.example   — template des variables (committé)
+src/
+  app/                          — Pages Next.js (pas de groupes (auth)/(app) ici, routes à plat)
+    api/
+      pdf/<type>/[id]/route.tsx — Génération PDF React-PDF (un fichier par template)
+      qr/route.ts               — Lecture / validation QR
+      webhooks/email/route.ts   — Webhook Resend (signature HMAC svix)
+    seances/[id]/{preparation,en-cours,emargement,tablette,president,grande-scene,public,pv}/...
+    vote/[voteId]/              — Télévote OTP (publique)
+    convocation/confirmer/      — Confirmation présence depuis email (publique)
+    configuration/, membres/, deliberations/, dashboard/, profil/, login/, register/, ...
+  components/
+    vote/, presence/, seance/, tablette/, pv/, membres/, configuration/,
+    deliberations/, dashboard/, aide/, layout/, profil/, dev/,
+    ui/                         — shadcn/ui + composants partagés (help-tip, etc.)
+  lib/
+    actions/                    — Server Actions (votes, seances, pv, membres, convocations,
+                                  procurations, deliberations, configuration, recusations,
+                                  controle-prefecture, phase2-features, ai-pv, dev, ...)
+    auth/                       — getUserRole, getVerifiedRole, getEffectiveRole, requireVerifiedRole
+    supabase/                   — client.ts (browser), server.ts (RSC+actions+service-role), types.generated.ts
+    crypto/vote-encryption.ts   — AES-256-GCM + HMAC pour vote secret
+    security/                   — Rate limiters (DB + en mémoire)
+    validators/vote-result.ts   — determineVoteResult + generateFormulePV (fonctions PURES, testées)
+    ai/                         — Wrappers Claude (PV + note de synthèse) + anonymisation
+    email/                      — Templates Resend
+    sms/                        — Helper Twilio
+    pdf/templates/              — Templates React-PDF (utilisés par /api/pdf/...)
+    hooks/                      — useRealtime, useAutoRefresh, useClientDate
+    constants/, constants.ts    — Routes, libellés statuts, help-texts, templates institution
+    utils/, utils.ts            — Format date, cn (Tailwind merge), divers
+  middleware.ts                 — Auth + routes publiques + garde /configuration
+  instrumentation.ts            — Sentry register
+supabase/
+  migrations/                   — 000NN_*.sql versionnées (24 appliquées)
+sentry.{client,server,edge}.config.ts
+CLAUDE.md, CDC_V3.md, ETAT_PROJET.md, DEMARRAGE.md
+.env.example                    — Template variables (committé)
+.env.local                      — Secrets (jamais committé)
 ```
 
 ---
@@ -196,26 +213,78 @@ SENTRY_DSN=
 
 ---
 
-## PHASE EN COURS : PHASE 1 — MVP CORE
+## ÉTAT D'AVANCEMENT
 
-Voir section 19 du CDC_V3.md pour le plan complet.
+La Phase 1 est livrée depuis longtemps. Le périmètre réel (Phase 2+) couvre déjà : vote secret AES-256-GCM, télévote OTP (Twilio), récusation, huis clos, reconvocation, PV wizard 6 étapes + IA, délibérations numérotées à la publication, contrôle préfecture, 7 templates PDF React-PDF, dashboards par rôle, écran public, tablette président, audit append-only.
 
-**Périmètre Phase 1 :**
+**Avant d'ajouter une feature** : ouvrir `ETAT_PROJET.md` pour confirmer ce qui existe déjà (et donc n'a PAS à être recréé). Les sections « Ce qui reste à faire » + « V2 » y listent le backlog actif.
+
+---
+
+## KEY ARCHITECTURAL PATTERNS — À CONNAÎTRE AVANT DE TOUCHER LE CODE
+
+### Auth & rôles : toujours via la table `members`, jamais via `user_metadata`
+- `user_metadata.role` est modifiable côté client (`supabase.auth.updateUser`) — c'est un vecteur d'élévation de privilèges.
+- Toute server action sensible utilise `requireVerifiedRole(supabase, user, [...])` (`src/lib/auth/require-role.ts`) qui lit `members.role` (protégé par RLS).
+- Les composants serveur qui ont besoin du rôle utilisent `getEffectiveRole` — qui supporte un override par cookie `dev_role_override` UNIQUEMENT si le rôle réel en DB est `super_admin` (simulateur de rôle pour tests).
+- Le middleware (Edge Runtime) refait la vérification rôle pour `/configuration` directement depuis `members` (pas d'import de `lib/auth` possible — restriction Edge).
+
+### Variables d'environnement : doubles noms à supporter
+L'intégration Supabase-Vercel utilise des noms différents de `.env.local`. Toujours lire avec fallback :
+- URL : `NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL`
+- Anon : `NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY || NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY`
+- Service role : `SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SECRET_KEY`
+
+Voir `src/lib/supabase/server.ts` et `src/middleware.ts` pour le pattern canonique.
+
+### Middleware Edge : routes publiques dupliquées
+`src/middleware.ts` ne peut pas importer `lib/constants.ts` (restriction Edge Runtime). La liste `publicPaths` y est **dupliquée volontairement** et doit rester synchronisée avec `PUBLIC_ROUTES` dans `src/lib/constants.ts`. Si tu ajoutes une route publique, modifie les deux endroits.
+
+### Vote secret : 2 tables, jamais jointes
+- `votes_participation` (qui a voté, sans le choix) + `bulletins_secret` (le choix, sans `member_id`).
+- Clé AES-256-GCM **par session de vote** (`vote-encryption.ts`), détruite après dépouillement.
+- Hash HMAC-SHA256 sur chaque bulletin pour l'intégrité.
+- Toutes les tables de votes sont **INSERT-ONLY** par RLS — pas d'UPDATE ni DELETE possible côté client après clôture (vérifier `00019_fix_votes_update_rls.sql` pour la transition OUVERT/CLOS).
+
+### Server Actions vs API routes
+- **Server Actions** (`src/lib/actions/*.ts`) = tout ce qui mute la DB ou consomme une clé secrète (Anthropic, Resend, Twilio). Toujours `'use server'`, toujours `requireVerifiedRole` en premier.
+- **API routes** (`src/app/api/...`) = uniquement pour :
+  - Génération PDF (`/api/pdf/<type>/[id]/route.tsx`, retourne un stream)
+  - Webhooks externes (`/api/webhooks/email` — vérifie signature svix)
+  - Endpoints publics non liés à un formulaire (`/api/qr`)
+- Les routes PDF utilisent `@react-pdf/renderer` côté serveur (Node runtime, pas Edge — Puppeteer interdit).
+
+### Realtime + fallback polling
+`useRealtime` (`src/lib/hooks/`) écoute `postgres_changes` sur les tables clés (convocataires, presences, odj_points, votes, votes_participation, procurations) — ces tables doivent être activées dans Supabase → Database → Replication → `supabase_realtime`. Si la connexion WS échoue, le hook bascule en polling et l'UI affiche un indicateur ambre.
+
+### Migrations SQL
+- Une seule branche linéaire `000NN_*.sql`. **Ne jamais éditer une migration déjà appliquée** — toujours en ajouter une nouvelle pour corriger.
+- Activer RLS sur **toute** table métier dans la même migration que sa création (ou immédiatement après).
+- Le trigger `audit_log` (append-only) doit être attaché à toute nouvelle table métier.
+
+### IA Anthropic : anonymisation obligatoire
+Avant tout appel à l'API Anthropic, anonymiser les noms (`Élu A`, `Élu B`, …). Le wrapper dans `src/lib/ai/` gère ça — ne jamais appeler `@anthropic-ai/sdk` directement depuis le code applicatif.
+
+### Numérotation délibérations
+Le numéro est attribué **à la publication**, pas à la création. Verrou Postgres anti-doublon. Un numéro n'est **jamais réutilisé**, même si la délibération est annulée. Voir `src/lib/actions/deliberations.ts`.
+
+---
+
+## PHASE 1 — HISTORIQUE (livrée)
+
+Périmètre originel (conservé pour mémoire) :
 1. Auth Supabase (email + mot de passe + invitation)
-2. Configuration institution (Bloc 1 et 2 du module config)
+2. Configuration institution
 3. Gestion des membres et des instances
 4. Assignation tablettes (device_id)
 5. Création de séance + ODJ
 6. Convocations email (Resend)
 7. Présences (appel manuel + WebAuthn basique)
-8. Vote à main levée (Gestionnaire saisit Contre + Abstentions)
+8. Vote à main levée
 9. Détection unanimité automatique
 10. Formules PV automatiques (7 cas)
 11. PV simple (brouillon texte)
 12. Déploiement Vercel
-
-**Critère de validation Phase 1 :**
-Une séance complète de bout en bout : convocation envoyée → présences enregistrées → vote main levée → unanimité détectée → formule PV correcte générée.
 
 ---
 
