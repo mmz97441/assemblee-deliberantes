@@ -81,10 +81,12 @@ export async function sendConvocations(
         convocataires (
           id,
           member_id,
+          external_invitee_id,
           statut_convocation,
           token_confirmation,
           token_emargement,
-          member:members (id, civilite, prenom, nom, email, qualite_officielle)
+          member:members (id, civilite, prenom, nom, email, qualite_officielle),
+          external_invitee:external_invitees (id, civilite, prenom, nom, email, qualite_officielle, organisation)
         )
       `)
       .eq('id', seanceId)
@@ -218,11 +220,18 @@ export async function sendConvocations(
     }
 
     for (const conv of toSend) {
+      // Le destinataire est SOIT un membre, SOIT un invité externe (CHECK
+      // constraint sur convocataires). On extrait les infos uniformément.
       const member = conv.member
-      if (!member?.email) {
+      const externalInvitee = conv.external_invitee
+      const recipient = member || externalInvitee
+      const recipientId = conv.member_id || conv.external_invitee_id
+      const recipientName = `${recipient?.prenom || '?'} ${recipient?.nom || '?'}`
+
+      if (!recipient?.email) {
         result.errors.push({
-          memberId: conv.member_id,
-          memberName: `${member?.prenom || '?'} ${member?.nom || '?'}`,
+          memberId: recipientId || conv.id,
+          memberName: recipientName,
           error: 'Email manquant',
         })
         continue
@@ -259,10 +268,10 @@ export async function sendConvocations(
       const qrCodeUrl = `${appUrl}/api/qr?data=${encodeURIComponent(tokenEmargement)}`
 
       const emailData = {
-        civiliteMembre: (member.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
-        qualiteMembre: member.qualite_officielle || null,
-        prenomMembre: member.prenom,
-        nomMembre: member.nom,
+        civiliteMembre: (recipient.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+        qualiteMembre: recipient.qualite_officielle || null,
+        prenomMembre: recipient.prenom,
+        nomMembre: recipient.nom,
         titreSeance: seance.titre,
         instanceNom: seance.instance_config?.nom || 'Instance',
         dateSeance: dateFormatted,
@@ -301,7 +310,7 @@ export async function sendConvocations(
       try {
         const { data: sendData, error: emailError } = await resend.emails.send({
           from: `${FROM_NAME} <${FROM_EMAIL}>`,
-          to: [member.email],
+          to: [recipient.email],
           subject: generateConvocationSubject(emailData),
           html: generateConvocationHTML(emailData),
           attachments: [
@@ -331,7 +340,7 @@ export async function sendConvocations(
           // par resendConvocation (par défaut AUTRE si non spécifié).
           motif: numeroEnvoi === 1 ? 'INITIAL' : (options.resendMotif || 'AUTRE'),
           motif_detail: numeroEnvoi === 1 ? null : (options.resendMotifDetail?.trim().slice(0, 1000) || null),
-          email_destinataire: member.email,
+          email_destinataire: recipient.email,
           statut_resend: emailError ? 'error' : 'sent',
           resend_message_id: sendData?.id || null,
           erreur_detail: emailError?.message || null,
@@ -340,8 +349,8 @@ export async function sendConvocations(
 
         if (emailError) {
           result.errors.push({
-            memberId: conv.member_id,
-            memberName: `${member.prenom} ${member.nom}`,
+            memberId: recipientId || conv.id,
+            memberName: recipientName,
             error: emailError.message,
           })
 
@@ -367,8 +376,8 @@ export async function sendConvocations(
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Erreur inconnue'
         result.errors.push({
-          memberId: conv.member_id,
-          memberName: `${member.prenom} ${member.nom}`,
+          memberId: recipientId || conv.id,
+          memberName: recipientName,
           error: errMsg,
         })
 
@@ -434,6 +443,7 @@ export async function confirmPresence(token: string): Promise<
         member_id,
         statut_convocation,
         member:members (prenom, nom),
+        external_invitee:external_invitees (prenom, nom),
         seance:seances (titre, date_seance, statut)
       `)
       .eq('token_confirmation', token)
@@ -446,7 +456,7 @@ export async function confirmPresence(token: string): Promise<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const seance = conv.seance as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const member = conv.member as any
+    const member = (conv.member || conv.external_invitee) as any
 
     // Check seance isn't already closed
     if (seance?.statut === 'CLOTUREE' || seance?.statut === 'ARCHIVEE') {
@@ -522,6 +532,7 @@ export async function signalAbsence(
         member_id,
         statut_convocation,
         member:members (prenom, nom),
+        external_invitee:external_invitees (prenom, nom),
         seance:seances (titre, statut)
       `)
       .eq('token_confirmation', token)
@@ -534,7 +545,7 @@ export async function signalAbsence(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const seance = conv.seance as any
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const member = conv.member as any
+    const member = (conv.member || conv.external_invitee) as any
 
     if (seance?.statut === 'CLOTUREE' || seance?.statut === 'ARCHIVEE') {
       return { error: 'Cette séance est déjà clôturée' }
@@ -695,10 +706,16 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
       || process.env.NEXT_PUBLIC_INSTITUTION_NAME
       || 'Institution'
 
-    // Get convocataires who haven't confirmed
+    // Get convocataires who haven't confirmed (membres + invités externes)
     const { data: convocataires } = await supabase
       .from('convocataires')
-      .select('member_id, statut_convocation, member:members(civilite, prenom, nom, email, qualite_officielle)')
+      .select(`
+        member_id,
+        external_invitee_id,
+        statut_convocation,
+        member:members(civilite, prenom, nom, email, qualite_officielle),
+        external_invitee:external_invitees(civilite, prenom, nom, email, qualite_officielle)
+      `)
       .eq('seance_id', seanceId)
       .in('statut_convocation', ['ENVOYE', 'LU'])
 
@@ -736,18 +753,18 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
     const googleCalendarUrl = buildGoogleCalendarUrl(calendarLinkData)
     const outlookCalendarUrl = buildOutlookUrl(calendarLinkData)
 
-    // Send reminder emails
+    // Send reminder emails (membres + invités externes)
     let sent = 0
     for (const conv of convocataires) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const member = conv.member as any
-      if (!member?.email) continue
+      const recipient = (conv.member || conv.external_invitee) as any
+      if (!recipient?.email) continue
 
       const emailData = {
-        civiliteMembre: (member.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
-        qualiteMembre: member.qualite_officielle || null,
-        prenomMembre: member.prenom,
-        nomMembre: member.nom,
+        civiliteMembre: (recipient.civilite || 'AUTRE') as 'MADAME' | 'MONSIEUR' | 'AUTRE',
+        qualiteMembre: recipient.qualite_officielle || null,
+        prenomMembre: recipient.prenom,
+        nomMembre: recipient.nom,
         seanceTitre: seance.titre,
         seanceDate: dateFormatted,
         seanceHeure: heureFormatted,
@@ -760,8 +777,9 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
       // Pièce jointe .ics — même UID que la convocation initiale pour
       // éviter le doublon dans l'agenda du destinataire (= "update" de
       // l'événement existant côté Apple Calendar / Outlook).
+      const recipientUidPart = conv.member_id || conv.external_invitee_id
       const icsContent = generateConvocationICS({
-        uid: `convocation-${seance.id}-${conv.member_id}@assemblees-deliberantes`,
+        uid: `convocation-${seance.id}-${recipientUidPart}@assemblees-deliberantes`,
         start: seanceStart,
         end: seanceEnd,
         summary: calendarTitle,
@@ -775,7 +793,7 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
       try {
         const { error: emailError } = await resend.emails.send({
           from: `${FROM_NAME} <${FROM_EMAIL}>`,
-          to: [member.email],
+          to: [recipient.email],
           subject: generateReminderSubject(emailData),
           html: generateReminderHTML(emailData),
           attachments: [
@@ -790,10 +808,10 @@ export async function sendReminders(seanceId: string): Promise<{ sent: number; e
         if (!emailError) {
           sent++
         } else {
-          console.error(`Reminder failed for ${member.email}:`, emailError.message)
+          console.error(`Reminder failed for ${recipient.email}:`, emailError.message)
         }
       } catch (err) {
-        console.error(`Reminder failed for ${member.email}:`, err)
+        console.error(`Reminder failed for ${recipient.email}:`, err)
       }
     }
 

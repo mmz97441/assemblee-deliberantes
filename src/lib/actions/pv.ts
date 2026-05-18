@@ -204,7 +204,13 @@ export async function generatePVBrouillon(seanceId: string): Promise<
       quorum_fraction_numerateur: number | null
       quorum_fraction_denominateur: number | null
     } | null
-    const compositionMax = instanceConfig?.composition_max || convocataires.length
+    // CGCT : le quorum se calcule sur les MEMBRES uniquement, jamais sur
+    // les invités externes. Si composition_max n'est pas configuré, on
+    // tombe en fallback sur le nombre de convocataires *membres* (filtrés
+    // sur member_id non-null).
+    const memberConvocataireCount = (convocataires as Array<{ member_id: string | null }>)
+      .filter((c) => c.member_id !== null).length
+    const compositionMax = instanceConfig?.composition_max || memberConvocataireCount
     const num = instanceConfig?.quorum_fraction_numerateur || 1
     const den = instanceConfig?.quorum_fraction_denominateur || 2
     const quorumRequis = Math.ceil((compositionMax * num) / den)
