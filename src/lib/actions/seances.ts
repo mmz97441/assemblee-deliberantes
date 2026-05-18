@@ -1447,12 +1447,13 @@ export async function reconvoquerSeance(
       })
     }
 
-    // Copy convocataires
-    const memberIds = (source.convocataires || []).map((c: { member_id: string }) => c.member_id)
-    for (const memberId of memberIds) {
+    // Copy convocataires (membres + invités externes le cas échéant)
+    type SourceConv = { member_id: string | null; external_invitee_id?: string | null }
+    for (const c of (source.convocataires || []) as SourceConv[]) {
       await supabase.from('convocataires').insert({
         seance_id: newSeance.id,
-        member_id: memberId,
+        member_id: c.member_id ?? null,
+        external_invitee_id: c.external_invitee_id ?? null,
         statut_convocation: 'NON_ENVOYE' as const,
       })
     }

@@ -66,6 +66,16 @@ export default async function EmargementPage({ params }: Props) {
     notFound()
   }
 
+  // PHASE 1 invités externes : on ne garde que les convocataires « membres »
+  // ici (cf. migration 00036). Les convocataires externes n'apparaissent pas
+  // encore dans l'émargement — leur UI sera ajoutée en phase 3.
+  const seanceForView = {
+    ...seance,
+    convocataires: (seance.convocataires || []).filter(
+      (c): c is typeof c & { member_id: string } => c.member_id !== null,
+    ),
+  }
+
   // Count total instance members for quorum
   const { count: instanceMemberCount } = await supabase
     .from('instance_members')
@@ -84,7 +94,7 @@ export default async function EmargementPage({ params }: Props) {
 
   return (
     <EmargementView
-      seance={seance}
+      seance={seanceForView}
       instanceMemberCount={instanceMemberCount || 0}
       qrStrict={qrStrict}
     />

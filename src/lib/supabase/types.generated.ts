@@ -161,9 +161,10 @@ export type Database = {
           emargement_scanne_at: string | null
           envoye_at: string | null
           erreur_detail: string | null
+          external_invitee_id: string | null
           id: string
           lu_at: string | null
-          member_id: string
+          member_id: string | null
           seance_id: string
           statut_convocation:
             | Database["public"]["Enums"]["convocation_statut"]
@@ -180,9 +181,10 @@ export type Database = {
           emargement_scanne_at?: string | null
           envoye_at?: string | null
           erreur_detail?: string | null
+          external_invitee_id?: string | null
           id?: string
           lu_at?: string | null
-          member_id: string
+          member_id?: string | null
           seance_id: string
           statut_convocation?:
             | Database["public"]["Enums"]["convocation_statut"]
@@ -199,9 +201,10 @@ export type Database = {
           emargement_scanne_at?: string | null
           envoye_at?: string | null
           erreur_detail?: string | null
+          external_invitee_id?: string | null
           id?: string
           lu_at?: string | null
-          member_id?: string
+          member_id?: string | null
           seance_id?: string
           statut_convocation?:
             | Database["public"]["Enums"]["convocation_statut"]
@@ -219,6 +222,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "convocataires_external_invitee_id_fkey"
+            columns: ["external_invitee_id"]
+            isOneToOne: false
+            referencedRelation: "external_invitees"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "convocataires_seance_id_fkey"
             columns: ["seance_id"]
             isOneToOne: false
@@ -226,6 +236,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      external_invitees: {
+        Row: {
+          archived_at: string | null
+          civilite: Database["public"]["Enums"]["civilite_type"]
+          created_at: string | null
+          created_by: string | null
+          email: string
+          id: string
+          nom: string
+          notes: string | null
+          organisation: string | null
+          prenom: string
+          qualite_officielle: string | null
+          telephone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          civilite: Database["public"]["Enums"]["civilite_type"]
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          id?: string
+          nom: string
+          notes?: string | null
+          organisation?: string | null
+          prenom: string
+          qualite_officielle?: string | null
+          telephone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          civilite?: Database["public"]["Enums"]["civilite_type"]
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          id?: string
+          nom?: string
+          notes?: string | null
+          organisation?: string | null
+          prenom?: string
+          qualite_officielle?: string | null
+          telephone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       deliberations: {
         Row: {
@@ -1875,6 +1933,7 @@ export type VoteRow = Database['public']['Tables']['votes']['Row']
 export type ODJPointRow = Database['public']['Tables']['odj_points']['Row']
 export type PresenceRow = Database['public']['Tables']['presences']['Row']
 export type ConvocataireRow = Database['public']['Tables']['convocataires']['Row']
+export type ExternalInviteeRow = Database['public']['Tables']['external_invitees']['Row']
 export type PVRow = Database['public']['Tables']['pv']['Row']
 export type DeliberationRow = Database['public']['Tables']['deliberations']['Row']
 export type InstitutionConfigRow = Database['public']['Tables']['institution_config']['Row']

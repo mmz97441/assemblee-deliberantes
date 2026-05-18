@@ -125,10 +125,13 @@ export default async function PVPage({ params }: Props) {
           currentUserMemberId={currentMember?.id || null}
           presidentMemberId={seance.president_effectif_seance_id || null}
           secretaireMemberId={seance.secretaire_seance_id || null}
-          convocataires={(convocataires || []).map(c => ({
-            member_id: c.member_id,
-            member: c.member as { id: string; prenom: string; nom: string } | null,
-          }))}
+          convocataires={(convocataires || [])
+            // PHASE 1 invités externes : pas dans la signature du PV
+            .filter((c): c is typeof c & { member_id: string } => c.member_id !== null)
+            .map(c => ({
+              member_id: c.member_id,
+              member: c.member as { id: string; prenom: string; nom: string } | null,
+            }))}
         />
       </main>
     </AuthenticatedLayout>

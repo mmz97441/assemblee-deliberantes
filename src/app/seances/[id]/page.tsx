@@ -124,11 +124,17 @@ export default async function SeanceDetailPage({ params }: PageProps) {
   const currentUserMember = currentUserMemberResult.data
 
   // Compose the full seance object
+  // PHASE 1 invités externes : on filtre les convocataires « membres » pour
+  // que SeanceDetail garde son type actuel (`member_id: string`). Les
+  // convocataires externes seront affichés dans une section dédiée en phase 3.
   const seanceWithProcurations = {
     ...seance,
     president_effectif: presidentEffectif,
     secretaire_seance: secretaireSeance,
     procurations: procurationsData || [],
+    convocataires: (seance.convocataires || []).filter(
+      (c): c is typeof c & { member_id: string } => c.member_id !== null,
+    ),
   }
 
   // Sort ODJ by position

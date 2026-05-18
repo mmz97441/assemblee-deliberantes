@@ -103,6 +103,15 @@ export default async function SeanceEnCoursPage({ params }: Props) {
     notFound()
   }
 
+  // PHASE 1 invités externes : on filtre les convocataires « membres » pour
+  // le conducteur de séance. Les externes seront affichés en phase 3.
+  const seanceForConductor = {
+    ...seance,
+    convocataires: (seance.convocataires || []).filter(
+      (c): c is typeof c & { member_id: string } => c.member_id !== null,
+    ),
+  }
+
   // Count total instance members for quorum
   const { count: instanceMemberCount } = await supabase
     .from('instance_members')
@@ -142,7 +151,7 @@ export default async function SeanceEnCoursPage({ params }: Props) {
 
   return (
     <SessionConductor
-      seance={seance}
+      seance={seanceForConductor}
       instanceMemberCount={instanceMemberCount || 0}
       recusations={(recusations || []) as unknown as { id: string; seance_id: string; odj_point_id: string; member_id: string; motif: string | null; declare_par: string; horodatage: string; member: { id: string; prenom: string; nom: string } | null }[]}
       pvApprovalInfo={pvApprovalInfo}

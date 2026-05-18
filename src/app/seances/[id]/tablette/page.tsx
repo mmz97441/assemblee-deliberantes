@@ -144,9 +144,18 @@ export default async function TablettePage({ params }: Props) {
     hasDeviceSession = !!deviceSession
   }
 
+  // PHASE 1 invités externes : la tablette ne gère que les vrais membres
+  // (un externe n'a pas de tablette, il vient assister).
+  const seanceForTablet = {
+    ...seance,
+    convocataires: (seance.convocataires || []).filter(
+      (c): c is typeof c & { member_id: string } => c.member_id !== null,
+    ),
+  }
+
   return (
     <TabletWrapper
-      seance={seance}
+      seance={seanceForTablet}
       currentMember={currentMember}
       isConvoque={isConvoque}
       presenceData={presenceData}

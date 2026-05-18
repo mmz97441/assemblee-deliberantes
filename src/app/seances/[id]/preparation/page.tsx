@@ -57,9 +57,9 @@ export default async function PreparationPage({ params }: PageProps) {
     notFound()
   }
 
-  // Verify the user is a convocataire
+  // Verify the user is a convocataire (member_id non-null = vrai membre, pas un externe)
   const isConvocataire = seance.convocataires?.some(
-    (c: { member_id: string }) => c.member_id === memberRecord.id
+    (c: { member_id: string | null }) => c.member_id === memberRecord.id
   )
 
   if (!isConvocataire) {

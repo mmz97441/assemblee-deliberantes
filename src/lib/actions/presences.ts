@@ -448,6 +448,7 @@ export async function scanQREmargement(
       .select(`
         id,
         member_id,
+        external_invitee_id,
         seance_id,
         token_emargement,
         emargement_scanne_at,
@@ -459,6 +460,31 @@ export async function scanQREmargement(
 
     if (findError || !convocataire) {
       return { error: 'QR code invalide ou non reconnu pour cette séance' }
+    }
+
+    // Un invité externe peut avoir un QR émargement mais ne crée pas de
+    // « présence » au sens membre (il n'entre pas dans le quorum, ne vote pas).
+    // Sa présence est tracée par convocataires.emargement_scanne_at uniquement.
+    if (!convocataire.member_id) {
+      // Charger le nom de l'invité externe pour le retour
+      const { data: ext } = await supabase
+        .from('external_invitees')
+        .select('prenom, nom')
+        .eq('id', convocataire.external_invitee_id!)
+        .maybeSingle()
+
+      // Marquer le scan d'émargement (suffit pour la trace légale de présence
+      // physique). Pas d'INSERT dans presences (qui exige member_id).
+      const { error: updateError } = await supabase
+        .from('convocataires')
+        .update({
+          emargement_scanne_at: new Date().toISOString(),
+          statut_convocation: 'CONFIRME_PRESENT' as const,
+          confirme_at: new Date().toISOString(),
+        })
+        .eq('id', convocataire.id)
+      if (updateError) return { error: `Erreur mise à jour : ${updateError.message}` }
+      return { success: true, memberName: `${ext?.prenom || ''} ${ext?.nom || ''}`.trim() || 'Invité externe' }
     }
 
     // Check if already scanned (usage unique)

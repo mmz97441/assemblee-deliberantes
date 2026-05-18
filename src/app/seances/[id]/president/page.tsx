@@ -134,9 +134,18 @@ export default async function PresidentPage({ params }: Props) {
     .limit(1)
     .maybeSingle()
 
+  // PHASE 1 invités externes : filtrer les convocataires « membres »
+  // (les externes n'apparaissent pas dans la tablette président pour l'instant).
+  const seanceForTablet = {
+    ...seance,
+    convocataires: (seance.convocataires || []).filter(
+      (c): c is typeof c & { member_id: string } => c.member_id !== null,
+    ),
+  }
+
   return (
     <PresidentTablet
-      seance={seance}
+      seance={seanceForTablet}
       instanceMemberCount={instanceMemberCount || 0}
       institutionName={institution?.nom_officiel || process.env.NEXT_PUBLIC_INSTITUTION_NAME || 'Institution'}
     />

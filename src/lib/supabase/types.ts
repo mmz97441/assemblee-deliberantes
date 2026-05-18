@@ -29,6 +29,7 @@ export {
   type ODJPointRow,
   type PresenceRow,
   type ConvocataireRow,
+  type ExternalInviteeRow,
   type PVRow,
   type DeliberationRow,
   type InstitutionConfigRow,
