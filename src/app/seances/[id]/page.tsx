@@ -32,6 +32,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
       convocataires (
         id,
         member_id,
+        external_invitee_id,
         statut_convocation,
         envoye_at,
         confirme_at,
@@ -59,6 +60,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
     instanceMembersResult,
     institutionConfigResult,
     currentUserMemberResult,
+    externalInviteesResult,
   ] = await Promise.all([
     seance.president_effectif_seance_id
       ? supabase
@@ -112,6 +114,12 @@ export default async function SeanceDetailPage({ params }: PageProps) {
       .select('id')
       .eq('user_id', userData.user.id)
       .maybeSingle(),
+    // Invités externes actifs — pour le bouton « Inviter un externe » dans la séance
+    supabase
+      .from('external_invitees')
+      .select('id, prenom, nom, email, organisation, qualite_officielle')
+      .is('archived_at', null)
+      .order('nom', { ascending: true }),
   ])
 
   const presidentEffectif = presidentEffectifResult.data
@@ -122,6 +130,7 @@ export default async function SeanceDetailPage({ params }: PageProps) {
   const instanceMembers = instanceMembersResult.data
   const institutionConfig = institutionConfigResult.data
   const currentUserMember = currentUserMemberResult.data
+  const externalInvitees = externalInviteesResult.data
 
   // Compose the full seance object
   // PHASE 1 invités externes : on filtre les convocataires « membres » pour
@@ -177,6 +186,12 @@ export default async function SeanceDetailPage({ params }: PageProps) {
         <SeanceDetail
           seance={seanceWithProcurations}
           allMembers={allMembers || []}
+          externalInvitees={externalInvitees || []}
+          externalInviteesAlreadyConvoques={
+            (seance.convocataires || [])
+              .map(c => c.external_invitee_id)
+              .filter((id): id is string => !!id)
+          }
           allInstances={allInstances || []}
           instanceMemberIds={(instanceMembers || []).map(im => im.member_id)}
           canManage={canManage}

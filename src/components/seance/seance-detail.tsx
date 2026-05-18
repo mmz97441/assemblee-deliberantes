@@ -226,9 +226,24 @@ interface InstitutionConfigForWarning {
   type_institution: string | null
 }
 
+interface ExternalInviteeOption {
+  id: string
+  prenom: string
+  nom: string
+  email: string
+  organisation: string | null
+  qualite_officielle: string | null
+}
+
 interface SeanceDetailProps {
   seance: SeanceData
   allMembers: MemberOption[]
+  /** Invités externes actifs (préfet, journaliste, partenaires…) — propose
+      au gestionnaire de les ajouter comme convocataires d'une séance en brouillon. */
+  externalInvitees?: ExternalInviteeOption[]
+  /** IDs des invités externes déjà convoqués à cette séance, pour les filtrer
+      du combobox d'ajout. */
+  externalInviteesAlreadyConvoques?: string[]
   allInstances: InstanceConfigRow[]
   instanceMemberIds: string[]
   /** Vrai pour les 4 rôles privilégiés (super_admin, gestionnaire, dgs, directeur_cabinet).
@@ -261,7 +276,7 @@ const CONVOCATION_LABELS: Record<string, { label: string; color: string; tooltip
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberIds, canManage, isBureauSeance = false, institutionConfig }: SeanceDetailProps) {
+export function SeanceDetail({ seance, allMembers, externalInvitees = [], externalInviteesAlreadyConvoques = [], allInstances, instanceMemberIds, canManage, isBureauSeance = false, institutionConfig }: SeanceDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const statutConfig = SEANCE_STATUT_CONFIG[seance.statut || 'BROUILLON']
@@ -282,6 +297,7 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
 
   // Convocataire state
   const [addConvocataireOpen, setAddConvocataireOpen] = useState(false)
+  const [addExternalOpen, setAddExternalOpen] = useState(false)
   // Standard points confirmation
   const [standardPointsDialog, setStandardPointsDialog] = useState(false)
   // Procuration
@@ -1711,10 +1727,21 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
                     )}
                   </div>
                   {canManage && isBrouillon && (
-                    <Button size="sm" variant="outline" onClick={() => setAddConvocataireOpen(true)}>
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Ajouter
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setAddConvocataireOpen(true)}>
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Ajouter
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAddExternalOpen(true)}
+                        title="Inviter une personne extérieure à la collectivité (préfet, journaliste, partenaire…)"
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Inviter un externe
+                      </Button>
+                    </div>
                   )}
                 </div>
 
@@ -2948,6 +2975,15 @@ export function SeanceDetail({ seance, allMembers, allInstances, instanceMemberI
         instanceMemberIds={instanceMemberIds}
       />
 
+      {/* Add external invitee dialog (préfet, journaliste, partenaire…) */}
+      <AddExternalConvocataireDialog
+        open={addExternalOpen}
+        onClose={() => setAddExternalOpen(false)}
+        seanceId={seance.id}
+        externalInvitees={externalInvitees}
+        existingIds={externalInviteesAlreadyConvoques}
+      />
+
       {/* Add procuration dialog */}
       <AddProcurationDialog
         open={procurationDialogOpen}
@@ -3681,6 +3717,132 @@ function AddConvocataireDialog({
             ) : (
               <><UserPlus className="h-4 w-4 mr-2" /> Ajouter {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}</>
             )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Add External Invitee Convocataire Dialog ───────────────────────────────
+// Volontairement plus léger que AddConvocataireDialog : un externe est ajouté
+// un à un (cas d'usage : « inviter le préfet à cette séance »). Pour de la
+// gestion en masse, passer par /membres/externes.
+
+function AddExternalConvocataireDialog({
+  open,
+  onClose,
+  seanceId,
+  externalInvitees,
+  existingIds,
+}: {
+  open: boolean
+  onClose: () => void
+  seanceId: string
+  externalInvitees: ExternalInviteeOption[]
+  existingIds: string[]
+}) {
+  const router = useRouter()
+  const [search, setSearch] = useState('')
+  const [isPending, startTransition] = useTransition()
+
+  const existingSet = useMemo(() => new Set(existingIds), [existingIds])
+  const available = useMemo(
+    () => externalInvitees.filter(i => !existingSet.has(i.id)),
+    [externalInvitees, existingSet],
+  )
+  const filtered = useMemo(() => {
+    if (!search.trim()) return available
+    const q = search.toLowerCase()
+    return available.filter(i =>
+      i.nom.toLowerCase().includes(q) ||
+      i.prenom.toLowerCase().includes(q) ||
+      (i.organisation?.toLowerCase() || '').includes(q) ||
+      (i.qualite_officielle?.toLowerCase() || '').includes(q),
+    )
+  }, [available, search])
+
+  async function handleAdd(externalId: string) {
+    startTransition(async () => {
+      const { addExternalConvocataire } = await import('@/lib/actions/external-invitees')
+      const result = await addExternalConvocataire(seanceId, externalId)
+      if ('error' in result) {
+        toast.error(result.error)
+      } else {
+        toast.success('Invité ajouté')
+        router.refresh()
+        setSearch('')
+        onClose()
+      }
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) { setSearch(''); onClose() } }}>
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Inviter une personne externe</DialogTitle>
+          <DialogDescription>
+            Préfet, trésorier-payeur, journaliste, partenaire associatif…
+            La personne reçoit une convocation officielle mais ne compte pas dans
+            le quorum et ne vote pas.
+          </DialogDescription>
+        </DialogHeader>
+
+        {externalInvitees.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-3">
+              Aucun invité externe enregistré.
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <a href="/membres/externes">Créer un invité externe</a>
+            </Button>
+          </div>
+        ) : available.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Tous les invités externes sont déjà convoqués à cette séance.
+          </p>
+        ) : (
+          <>
+            <Input
+              placeholder="Rechercher (nom, organisation…)"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="mt-1"
+            />
+            <div className="max-h-[300px] overflow-y-auto space-y-1">
+              {filtered.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Aucun résultat</p>
+              ) : (
+                filtered.map(inv => (
+                  <button
+                    key={inv.id}
+                    type="button"
+                    onClick={() => handleAdd(inv.id)}
+                    disabled={isPending}
+                    className="w-full flex items-start gap-3 rounded-lg border p-2.5 hover:bg-muted/50 text-left disabled:opacity-50 transition-colors"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-bold shrink-0">
+                      {inv.prenom?.[0]}{inv.nom?.[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {inv.prenom} {inv.nom}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {[inv.qualite_officielle, inv.organisation].filter(Boolean).join(' — ') || inv.email}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Fermer
           </Button>
         </DialogFooter>
       </DialogContent>

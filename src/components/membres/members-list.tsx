@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -66,6 +67,7 @@ import {
   UserCheck,
   Users,
   FileSpreadsheet,
+  UserCog,
   LayoutGrid,
   List,
   Archive,
@@ -368,6 +370,12 @@ export function MembersList({ members, instances, canManage }: MembersListProps)
 
         {canManage && (
           <div className="ml-auto flex items-center gap-2">
+            <Button asChild variant="outline" className="gap-2">
+              <Link href="/membres/externes" title="Préfet, trésorier-payeur, journaliste, partenaires associatifs…">
+                <UserCog className="h-4 w-4" />
+                Invités externes
+              </Link>
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
               <FileSpreadsheet className="h-4 w-4" />
               Importer CSV
